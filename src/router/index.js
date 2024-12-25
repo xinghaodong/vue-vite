@@ -56,7 +56,6 @@ function transformRoute(route, parentPath = '') {
     };
 
     if (route.component) {
-        console.log('componentPath', route.component);
         const componentPath = `/src/pages/${route.component}.vue`; // 动态导入组件路径
         if (components[componentPath]) {
             transformed.component = components[componentPath];

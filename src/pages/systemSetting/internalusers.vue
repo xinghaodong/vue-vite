@@ -28,15 +28,15 @@
                 <template #default="scope">
                     <!-- <div class="demo-image__preview"> -->
                     <el-image
-                        style="width: 45px; height: 45px"
-                        :src="`${proxy.$api.img_url}${scope.row.avatar_url}`"
+                        style="width: 30px; height: 30px"
+                        :src="`${proxy.$api.img_url}${scope.row.avatar.filePath}`"
                         :zoom-rate="1.2"
                         :max-scale="7"
                         :min-scale="0.2"
                         :initial-index="0"
                         :z-index="999"
                         fit="cover"
-                        :preview-src-list="[`${proxy.$api.img_url}${scope.row.avatar_url}`]"
+                        :preview-src-list="[`${proxy.$api.img_url}${scope.row.avatar.filePath}`]"
                     />
                     <!-- </div> -->
                     <!-- <img :src="`${proxy.$api.img_url}${scope.row.avatar_url}`" alt="" style="width: 50px; height: 50px" /> -->
@@ -45,11 +45,11 @@
             <el-table-column prop="created_at" label="创建时间" width="180"> </el-table-column>
             <el-table-column prop="updated_at" label="更新时间" width="180"> </el-table-column>
             <!-- 操作 -->
-            <el-table-column label="操作" width="180" fixed="right">
+            <el-table-column label="操作" width="130" fixed="right">
                 <template #default="scope">
                     <el-button link type="primary" @click="handleEdit(scope.row)">编辑</el-button>
                     <el-button link type="primary" @click="handleDelete(scope.row)">删除</el-button>
-                    <el-button link type="primary" @click="handleRelieve(scope.row)" v-text="scope.row.is_active == 0 ? '解除' : '禁用'"></el-button>
+                    <!-- <el-button link type="primary" @click="handleRelieve(scope.row)" v-text="scope.row.is_active == 0 ? '解除' : '禁用'"></el-button> -->
                 </template>
             </el-table-column>
         </el-table>
@@ -83,10 +83,10 @@
                         :show-file-list="false"
                         :on-success="handleAvatarSuccess"
                         :before-upload="beforeAvatarUpload"
-                        :headers="headers"
-                        :data="{ id: ruleForm.id }"
+                        name="avatar"
+                        :data="{ userId: ruleForm.id || '' }"
                     >
-                        <img v-if="ruleForm.avatar_url" :src="proxy.$api.img_url + ruleForm.avatar_url" class="avatar" />
+                        <img v-if="ruleForm.avatar.filePath" :src="proxy.$api.img_url + ruleForm.avatar.filePath" class="avatar" />
                         <el-icon v-else class="avatar-uploader-icon"><Plus /></el-icon>
                     </el-upload>
                 </el-form-item>
@@ -118,6 +118,7 @@ const formTemplate = {
     email: '',
     role: '',
     is_active: '',
+    avatar: { filePath: '' },
 };
 let ruleForm = reactive({ ...formTemplate });
 // 重置ruleForm数据函数
@@ -174,9 +175,9 @@ onMounted(() => {
 onBeforeUnmount(() => {
     // proxy.$websocket.close();
 });
-const handleAvatarSuccess = (response, uploadFile) => {
-    ruleForm.user_pic = URL.createObjectURL(uploadFile.raw);
-    ruleForm.avatar_url = response.data.avatarPath;
+const handleAvatarSuccess = (res, uploadFile) => {
+    const { fileName, filePath, fileSize, id } = res.data;
+    ruleForm.avatar = { fileName, filePath, fileSize, id };
 };
 
 const beforeAvatarUpload = rawFile => {
@@ -197,6 +198,7 @@ const getInternalUsers = async () => {
     };
     const res = await proxy.$api.find(obj);
     tableData.value = res.data.data;
+    total.value = res.data.total;
 };
 const onSubmit = formEl => {
     formEl.validate(async valid => {
@@ -211,7 +213,6 @@ const onSubmit = formEl => {
                 }
                 return;
             }
-            console.log(ruleForm, '555');
             const data = await proxy.$api.add(ruleForm);
             if (data.code == 200) {
                 dialogVisible.value = false;
@@ -227,15 +228,12 @@ const onSubmit = formEl => {
 const handleEdit = row => {
     dialogVisible.value = true;
     Object.assign(ruleForm, row);
-    console.log(ruleForm.avatar_url, 'ruleForm');
 };
 // 删除
 const handleDelete = row => {
     proxy.$messageBox
-        .confirm('确定要删除吗?', 'Warning', {
-            confirmButtonText: '确定',
-            cancelButtonText: '取消',
-            type: 'warning',
+        .confirm('确定要删除吗?', '提示', {
+            type: '提示',
         })
         .then(async () => {
             const data = await proxy.$api.delete({ id: row.id });
@@ -256,9 +254,7 @@ const handleRelieve = row => {
     };
     proxy
         .$confirm('此操作将该用户, 是否继续?', '提示', {
-            confirmButtonText: '确定',
-            cancelButtonText: '取消',
-            type: 'warning',
+            type: '提示',
         })
         .then(async () => {
             const data = await proxy.$api.post('/api/internalusers/ban', fromData);

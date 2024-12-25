@@ -10,7 +10,7 @@
                 <div class="top">
                     <div class="flex flex-row">
                         <!-- 点击 折叠   -->
-                        <el-icon style="display: block; line-height: 50px; font-size: 24px; cursor: pointer" @click="foldEvent"><Fold /></el-icon>
+                        <el-icon style="display: block; font-size: 24px; cursor: pointer" @click="foldEvent"><Fold /></el-icon>
 
                         <!-- <el-breadcrumb :separator-icon="ArrowRight" style="line-height: 46px; padding-left: 20px">
                             <template v-for="(item, index) in breadList">
@@ -168,7 +168,6 @@ const removeTab = pane => {
     proxy.$router.push(editableTabsValue.value);
 };
 const handleClick = (pane, ev) => {
-    console.log(userInfo.value, '5555');
     // 路由跳转
     proxy.$router.push(pane.paneName);
 };
