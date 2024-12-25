@@ -219,9 +219,7 @@ const treeData = ref(null);
 const handleClose = done => {
     done();
 };
-const handleUnitChange = val => {
-    console.log(val);
-};
+const handleUnitChange = val => {};
 // 重置表单
 const resetForm = () => {
     if (ruleFormRef.value) ruleFormRef.value.resetFields();
@@ -251,7 +249,6 @@ const onSubmit = formEl => {
             if (form.parentId == 0) {
                 form.parentId = '';
             }
-            console.log(form, '555');
             // return;
             const data = await proxy.$api.addmenu(form);
             if (data.code == 200) {
@@ -267,7 +264,7 @@ const handleDelete = async row => {
     // 弹框提示 校验
     proxy.$messageBox
         .confirm('确定要删除吗?', '提示', {
-            type: 'warning',
+            type: '提示',
         })
         .then(async () => {
             const data = await proxy.$api.deletemenu({ id: row });
@@ -286,7 +283,6 @@ const handleEdit = async row => {
     if (!data.data.parentId) {
         form.parentId = 0;
     }
-    console.log(data.data);
 };
 
 // 获取菜单

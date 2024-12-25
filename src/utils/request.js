@@ -6,7 +6,7 @@ const { VITE_PROXY_DOMAIN_REAL, VITE_STATIC_URL, VITE_PROXY_DOMAIN } = import.me
 const baseUrl = VITE_PROXY_DOMAIN;
 const img_url = VITE_STATIC_URL;
 axios.defaults.baseURL = baseUrl;
-console.log('当前环境：', VITE_PROXY_DOMAIN_REAL, '当前图片资源：', VITE_STATIC_URL);
+console.log('当前环境：', VITE_PROXY_DOMAIN_REAL, '当前附件资源：', VITE_STATIC_URL);
 // axios.defaults.headers['Content-Type'] = 'application/json';
 /**
  * 控制当前是否处于刷新状态的标志变量。
@@ -188,6 +188,33 @@ export default {
     // 禁用
     ban(params) {
         return oPost(baseUrl + '/internalusers/ban', params);
+    },
+
+    // 获取角色列表
+    getRolsList(params) {
+        return oGet(baseUrl + '/role/findAll', params);
+    },
+    // 添加角色
+    addRoles(params) {
+        return oPost(baseUrl + '/role/create', params);
+    },
+    // 删除角色
+    deleteRoles(params) {
+        return oPost(baseUrl + '/role/remove', params);
+    },
+    // 修改角色
+    updateRoles(params) {
+        return oPost(baseUrl + '/role/update', params);
+    },
+    // 角色详情
+    detailRoles(params) {
+        return oGet(baseUrl + '/role/detail', params);
+    },
+    assignMenusToRole(params) {
+        return oGet(baseUrl + '/role/assignMenusToRole', params);
+    },
+    getRoleMenus(params) {
+        return oPost(baseUrl + '/role/getRoleMenus', params);
     },
 };
 
