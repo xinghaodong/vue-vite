@@ -13,7 +13,7 @@ const app = createApp(App);
 app.config.globalProperties.$api = axios;
 app.config.globalProperties.$icon = ElementPlusIconsVue;
 // size: 'small',
-app.use(pinia).use(router).use(ElementPlus, { locale: zhCn, zIndex: 3000 });
+app.use(router).use(pinia).use(ElementPlus, { locale: zhCn, zIndex: 3000 });
 for (const [key, component] of Object.entries(ElementPlusIconsVue)) {
     app.component(key, component);
 }

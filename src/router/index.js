@@ -37,6 +37,12 @@ const router = createRouter({
             ],
         },
         {
+            name: '404',
+            path: '/404',
+            component: () => import('@/pages/404.vue'),
+        },
+        {
+            name: 'login',
             path: '/login',
             component: () => import('@/pages/login.vue'),
         },
@@ -61,10 +67,10 @@ function transformRoute(route, parentPath = '') {
             transformed.component = components[componentPath];
         } else {
             console.error(`组件不存在: ${componentPath}`);
+            // router.addRoute({ path: '/:catchAll(.*)', redirect: '/404' });
             return null; // 跳过无效路由
         }
     }
-
     return transformed;
 }
 
@@ -73,14 +79,18 @@ const setupDynamicRoutes = async () => {
     try {
         const res = await api.menus();
         const backendRoutes = res.data;
-        // const useMenuStores = useMenuStore();
-        // useMenuStores.changeRemoveAll();
-
+        const useMenuStores = useMenuStore();
+        useMenuStores.getAllMenu(backendRoutes);
         // 转换路由
         const transformedRoutes = backendRoutes.map(route => transformRoute(route)).filter(Boolean); // 过滤掉无效路由
         // 添加动态路由到 `/home`
         transformedRoutes.forEach(route => {
             router.addRoute('home', route);
+        });
+        // 添加一个catch-all路由，确保无效路由会重定向到 404
+        router.addRoute({
+            path: '/:catchAll(.*)', // 使用 catchAll 匹配所有路径
+            redirect: '/404', // 重定向到 404 页面
         });
         return res;
     } catch (error) {
@@ -93,18 +103,20 @@ let dynamicRoutesLoaded = false; // 防止重复加载动态路由
 router.beforeEach(async (to, from, next) => {
     NProgress.start(); // 开启进度条
     const useMenuStores = useMenuStore();
-    if (to.path === '/login') {
+    const funcAll = () => {
         localStorage.clear(); // 清除所有 localStorage 数据
-
         useMenuStores.changeRemoveAll();
+    };
+    if (to.path === '/login') {
+        // localStorage.clear(); // 清除所有 localStorage 数据
+        // useMenuStores.changeRemoveAll();
+        funcAll();
         next(); // 登录页直接放行
         return;
     }
     // 如果没有 refToken 则跳转回登录页
     if (!localStorage.getItem('refreshToken')) {
-        console.log('没有refToken');
-        localStorage.clear(); // 清除所有 localStorage 数据
-        useMenuStores.changeRemoveAll();
+        funcAll();
         return next('/login');
     }
 
@@ -115,8 +127,7 @@ router.beforeEach(async (to, from, next) => {
             next({ ...to, replace: true }); // 重新导航到当前路径，确保新添加的路由生效
             return;
         } catch (err) {
-            localStorage.clear(); // 清除所有 localStorage 数据
-            useMenuStores.changeRemoveAll();
+            funcAll();
             next('/login'); // 跳转到登录页
         }
     } else {

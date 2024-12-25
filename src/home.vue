@@ -61,7 +61,7 @@ const router = useRouter();
 const { proxy } = getCurrentInstance();
 const menuInfoStore = menuStore();
 const userStore = useUserInfoStore();
-const { activeTabArray, editableTabsValue } = storeToRefs(menuInfoStore); // 响应式
+const { activeTabArray, editableTabsValue, allArray } = storeToRefs(menuInfoStore); // 响应式
 const { userInfo } = storeToRefs(userStore);
 const userData = ref(null);
 const breadList = ref([]);
@@ -235,8 +235,10 @@ onMounted(async () => {
     document.addEventListener('click', handleClickOutside);
     getMatched();
     try {
-        const res = await proxy.$api.menus();
-        userData.value = res.data;
+        userData.value = allArray.value;
+        return;
+        // const res = await proxy.$api.menus();
+        // userData.value = res.data;
         getscoket();
     } catch (error) {
         console.error('失败信息:', error);

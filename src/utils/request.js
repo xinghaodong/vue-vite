@@ -210,11 +210,13 @@ export default {
     detailRoles(params) {
         return oGet(baseUrl + '/role/detail', params);
     },
+
+    // 给角色分配菜单
     assignMenusToRole(params) {
-        return oGet(baseUrl + '/role/assignMenusToRole', params);
+        return oPost(baseUrl + '/role/assignMenusToRole', params);
     },
     getRoleMenus(params) {
-        return oPost(baseUrl + '/role/getRoleMenus', params);
+        return oGet(baseUrl + '/role/getRoleMenus', params);
     },
 };
 
