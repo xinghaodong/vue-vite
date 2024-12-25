@@ -10,9 +10,15 @@ const menuStore = defineStore('menu', {
             },
         ],
         editableTabsValue: '/index',
+        allArray: [],
     }),
     // 修改
     actions: {
+        // 获取所有菜单
+        getAllMenu(val) {
+            this.allArray = val;
+            return val;
+        },
         /**
          * 添加一个新的菜单项到活跃菜单数组中。
          * 如果新菜单项的URL已经存在于活跃菜单数组中，则不执行任何操作。

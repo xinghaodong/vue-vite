@@ -73,7 +73,8 @@ const setupDynamicRoutes = async () => {
     try {
         const res = await api.menus();
         const backendRoutes = res.data;
-        // const useMenuStores = useMenuStore();
+        const useMenuStores = useMenuStore();
+        useMenuStores.getAllMenu(backendRoutes);
         // useMenuStores.changeRemoveAll();
 
         // 转换路由

@@ -7,13 +7,13 @@
                 <!-- <el-button style="width: 100px" plain type="primary" @click="getOrganPostCustMsg">角色人员全览</el-button> -->
             </div>
             <el-table :data="tableData" style="width: 100%; margin-bottom: 20px" border>
-                <el-table-column label="角色名称" prop="name" width="150"></el-table-column>
+                <el-table-column label="角色名称" prop="name"></el-table-column>
                 <el-table-column label="角色是否有效" prop="states">
-                    <!-- <template v-slot="scope">
-                        <span class="iconS">
-                            <i style="font-size: 17px; line-height: 32px" :class="scope.row.states == 1 ? 'el-icon-check' : 'el-icon-close'"></i>
-                        </span>
-                    </template> -->
+                    <template v-slot="scope">
+                        <el-icon class="iconS">
+                            <component :class="scope.row.states == 1 ? 'el-icon-check' : 'el-icon-close'" :is="scope.row.states == 1 ? 'Check' : 'Close'"></component>
+                        </el-icon>
+                    </template>
                 </el-table-column>
                 <el-table-column label="操作" fixed="right" width="180">
                     <template v-slot="scope">
@@ -56,14 +56,37 @@
                     <el-button type="primary" @click="submitForm">保存</el-button>
                 </template>
             </el-dialog>
-            <!-- Remove "分配员工" dialog -->
-            <!-- Remove "角色人员全览" dialog -->
+            <el-dialog title="分配资源" width="700px" v-model="dialogVisibleResource">
+                <el-form v-if="dialogVisibleResource" :model="ruleData" label-width="100px" class="demo-ruleForm">
+                    <el-form-item label="资源权限">
+                        <el-checkbox v-model="ruleData.menucheckstrictly" :true-value="1" :false-label="0">父子联动</el-checkbox>
+                    </el-form-item>
+                </el-form>
+                <el-tree
+                    style="height: 400px; overflow: auto"
+                    ref="tree"
+                    :data="resourceList"
+                    show-checkbox
+                    node-key="id"
+                    :props="{
+                        children: 'children',
+                        label: 'name',
+                    }"
+                    :check-strictly="!ruleData.menucheckstrictly"
+                >
+                </el-tree>
+
+                <template #footer>
+                    <el-button @click="dialogVisibleResource = false">取消</el-button>
+                    <el-button type="primary" @click="submitResource">保存</el-button>
+                </template>
+            </el-dialog>
         </div>
     </div>
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, getCurrentInstance } from 'vue';
+import { ref, reactive, onMounted, getCurrentInstance, nextTick } from 'vue';
 const { proxy } = getCurrentInstance();
 
 const title = ref('');
@@ -72,12 +95,13 @@ const formTemplate = { name: '', states: 1 };
 let ruleForm = reactive({ ...formTemplate });
 const tableData = ref([]);
 const loading = ref(false);
-const currentPage = ref(1);
-const pageSize = ref(10);
-const total = ref(0);
+const dialogVisibleResource = ref(false);
+const resourceList = ref([]);
+const ruleData = reactive({ menucheckstrictly: 0 });
 const rules = {
     name: [{ required: true, message: '请输入角色名称', trigger: 'blur' }],
 };
+const tree = ref(null); // 用 ref 定义树组件的引用
 const add = () => {
     title.value = '新增角色';
     dialogVisible.value = true;
@@ -86,6 +110,30 @@ const add = () => {
 
 const handleClose = () => {
     dialogVisible.value = false;
+};
+
+const selectResource = async id => {
+    ruleForm.id = id;
+    const res = await proxy.$api.getRoleMenus({ id });
+    dialogVisibleResource.value = true;
+    nextTick(() => {
+        tree.value.setCheckedKeys(res.data);
+    });
+};
+const submitResource = () => {
+    let treeArray = tree.value.getCheckedKeys();
+    let treeArray1 = tree.value.getHalfCheckedKeys();
+    if (!treeArray.length) {
+        treeArray = [];
+    } else {
+        treeArray = treeArray.concat(treeArray1);
+    }
+    console.log(ruleForm, treeArray, '333');
+
+    proxy.$api.assignMenusToRole({ id: ruleForm.id, menuIds: treeArray || [] }).then(res => {
+        proxy.$message.success(res.message);
+        dialogVisibleResource.value = false;
+    });
 };
 
 const submitForm = () => {
@@ -126,6 +174,9 @@ const getTableData = async () => {
 
 onMounted(() => {
     getTableData();
+    proxy.$api.menus().then(res => {
+        resourceList.value = res.data;
+    });
 });
 </script>
 
@@ -134,16 +185,13 @@ onMounted(() => {
     cursor: pointer;
 }
 .iconS {
-    .el-icon-check {
-        color: #00ff00;
-        font-weight: 800;
-        font-size: 20px;
-    }
+    font-size: 22px;
+}
+.el-icon-check {
+    color: #00ff00;
+}
 
-    .el-icon-close {
-        color: #ff0000;
-        font-weight: 800;
-        font-size: 20px;
-    }
+.el-icon-close {
+    color: #ff0000;
 }
 </style>
