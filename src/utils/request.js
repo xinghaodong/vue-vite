@@ -185,6 +185,10 @@ export default {
     delete(params) {
         return oPost(baseUrl + '/internalusers/delete', params);
     },
+    // 用户详情
+    internalusersDetail(params) {
+        return oGet(baseUrl + '/internalusers/detail', params);
+    },
     // 禁用
     ban(params) {
         return oPost(baseUrl + '/internalusers/ban', params);
@@ -217,6 +221,15 @@ export default {
     },
     getRoleMenus(params) {
         return oGet(baseUrl + '/role/getRoleMenus', params);
+    },
+
+    // 组织列表
+    getOrganizationList(params) {
+        return oGet(baseUrl + '/orgManagement', params);
+    },
+    // 添加组织
+    addOrganization(params) {
+        return oPost(baseUrl + '/orgManagement/add', params);
     },
 };
 
