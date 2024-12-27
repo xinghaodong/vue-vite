@@ -12,8 +12,8 @@
             >
         </div>
         <el-table :data="tableData" border style="width: 100%">
-            <el-table-column prop="name" label="账号" width="180"> </el-table-column>
-            <el-table-column prop="username" label="姓名" width="180"> </el-table-column>
+            <el-table-column prop="username" label="账号" width="180"> </el-table-column>
+            <el-table-column prop="name" label="姓名" width="180"> </el-table-column>
             <el-table-column prop="email" label="邮箱" width="180"> </el-table-column>
             <el-table-column prop="role" label="权限"> </el-table-column>
             <el-table-column prop="is_active" label="状态">
@@ -66,11 +66,11 @@
         ></el-pagination>
         <el-dialog :title="ruleForm.id ? '编辑' : '新增'" v-model="dialogVisible" width="50%">
             <el-form ref="ruleFormRef" :rules="rules" :model="ruleForm" label-width="100px">
-                <el-form-item label="账号" prop="name">
-                    <el-input v-model="ruleForm.name"></el-input>
-                </el-form-item>
-                <el-form-item label="姓名" prop="username">
+                <el-form-item label="账号" prop="username">
                     <el-input v-model="ruleForm.username"></el-input>
+                </el-form-item>
+                <el-form-item label="姓名" prop="name">
+                    <el-input v-model="ruleForm.name"></el-input>
                 </el-form-item>
                 <el-form-item label="邮箱" prop="email">
                     <el-input v-model="ruleForm.email"></el-input>
@@ -86,9 +86,15 @@
                         name="avatar"
                         :data="{ userId: ruleForm.id || '' }"
                     >
-                        <img v-if="ruleForm.avatar.filePath" :src="proxy.$api.img_url + ruleForm.avatar.filePath" class="avatar" />
+                        <img v-if="ruleForm.avatar?.filePath" :src="proxy.$api.img_url + ruleForm.avatar?.filePath" class="avatar" />
                         <el-icon v-else class="avatar-uploader-icon"><Plus /></el-icon>
                     </el-upload>
+                </el-form-item>
+                <!-- 所属角色 -->
+                <el-form-item label="所属角色" prop="roleIds">
+                    <el-select v-model="ruleForm.roleIds" multiple placeholder="请选择角色">
+                        <el-option v-for="item in roleList" :key="item.id" :label="item.name" :value="item.id"></el-option>
+                    </el-select>
                 </el-form-item>
             </el-form>
             <template #footer>
@@ -111,6 +117,7 @@ const headers = { Authorization: localStorage.getItem('token') };
 const currentPage = ref(1);
 const pageSize = ref(10);
 const total = ref(0);
+const roleList = ref([]);
 // 初始模板对象
 const formTemplate = {
     username: '',
@@ -123,8 +130,8 @@ const formTemplate = {
 let ruleForm = reactive({ ...formTemplate });
 // 重置ruleForm数据函数
 const rules = {
-    name: [{ required: true, message: '请输入账号', trigger: 'blur' }],
-    username: [
+    username: [{ required: true, message: '请输入账号', trigger: 'blur' }],
+    name: [
         {
             required: true,
             message: '请输入姓名',
@@ -142,6 +149,7 @@ const rules = {
             trigger: ['blur', 'change'],
         },
     ],
+    roleIds: [{ required: true, message: '请选择角色', trigger: 'change' }],
 };
 // 重置表单sF
 const resetForm = () => {
@@ -171,6 +179,9 @@ const handleCurrentChange = val => {
 };
 onMounted(() => {
     getInternalUsers();
+    proxy.$api.getRolsList().then(res => {
+        roleList.value = res.data;
+    });
 });
 onBeforeUnmount(() => {
     // proxy.$websocket.close();
@@ -227,7 +238,10 @@ const onSubmit = formEl => {
 // 修改
 const handleEdit = row => {
     dialogVisible.value = true;
-    Object.assign(ruleForm, row);
+    proxy.$api.internalusersDetail({ id: row.id }).then(res => {
+        Object.assign(ruleForm, res.data);
+        // ruleForm.roleIds = res.data.data.map(item => item.id);
+    });
 };
 // 删除
 const handleDelete = row => {

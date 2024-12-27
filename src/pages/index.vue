@@ -60,7 +60,7 @@
                     </el-col> -->
                     <el-col :xs="12" :sm="12" :md="12" :lg="12" :xl="12">
                         <el-form-item label="资源序号" prop="sorts">
-                            <el-input v-model="form.sorts" placeholder="请输入"></el-input>
+                            <el-input-number v-model="form.sorts" placeholder="请输入"></el-input-number>
                         </el-form-item>
                     </el-col>
                     <el-col :xs="24" :sm="24" :md="24" :lg="24" :xl="24">
