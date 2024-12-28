@@ -17,8 +17,8 @@
             <el-table-column prop="organid" label="organid" />
             <el-table-column label="操作" width="140" align="left">
                 <template #default="scope">
-                    <el-button v-if="scope.row.organid" type="primary" link @click="handleEdit(scope.row)">编辑</el-button>
-                    <el-button v-if="scope.row.organid" type="primary" link @click="handleDelete(scope.row.id)">删除</el-button>
+                    <el-button v-if="scope.row.organid" type="primary" link @click="handleEdit(scope.row.organid)">编辑</el-button>
+                    <el-button v-if="scope.row.organid" type="primary" link @click="handleDelete(scope.row.organid)">删除</el-button>
                 </template>
             </el-table-column>
         </el-table>
@@ -137,12 +137,13 @@ const onSubmit = formEl => {
 };
 // 删除
 const handleDelete = async row => {
+    console.log(row);
     proxy.$messageBox
         .confirm('确定要删除吗?', '提示', {
             type: '提示',
         })
         .then(async () => {
-            const data = await proxy.$api.deletemenu({ id: row });
+            const data = await proxy.$api.deleteOrganization({ id: row });
             if (data.code == 200) {
                 proxy.$message.success(data.message);
                 getOrganizationList();
@@ -153,7 +154,7 @@ const handleDelete = async row => {
 const handleEdit = async row => {
     dialogVisible.value = true;
     // 调用详情接口
-    const data = await proxy.$api.detail({ id: row.id });
+    const data = await proxy.$api.detailOrganization({ id: row });
     Object.assign(form, data.data);
     if (!data.data.parentId) {
         form.parentId = 0;
