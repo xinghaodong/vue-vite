@@ -231,6 +231,14 @@ export default {
     addOrganization(params) {
         return oPost(baseUrl + '/orgManagement/add', params);
     },
+    // 组织详情
+    detailOrganization(params) {
+        return oGet(baseUrl + '/orgManagement/detail', params);
+    },
+    // 删除组织
+    deleteOrganization(params) {
+        return oPost(baseUrl + '/orgManagement/delete', params);
+    },
 };
 
 //封装post/get请求

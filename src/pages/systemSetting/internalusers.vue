@@ -29,14 +29,14 @@
                     <!-- <div class="demo-image__preview"> -->
                     <el-image
                         style="width: 30px; height: 30px"
-                        :src="`${proxy.$api.img_url}${scope.row.avatar.filePath}`"
+                        :src="`${proxy.$api.img_url}${scope.row?.avatar?.filePath}`"
                         :zoom-rate="1.2"
                         :max-scale="7"
                         :min-scale="0.2"
                         :initial-index="0"
                         :z-index="999"
                         fit="cover"
-                        :preview-src-list="[`${proxy.$api.img_url}${scope.row.avatar.filePath}`]"
+                        :preview-src-list="[`${proxy.$api.img_url}${scope.row?.avatar?.filePath}`]"
                     />
                     <!-- </div> -->
                     <!-- <img :src="`${proxy.$api.img_url}${scope.row.avatar_url}`" alt="" style="width: 50px; height: 50px" /> -->
