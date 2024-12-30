@@ -235,6 +235,10 @@ export default {
     detailOrganization(params) {
         return oGet(baseUrl + '/orgManagement/detail', params);
     },
+    // 修改组织
+    updateOrganization(params) {
+        return oPost(baseUrl + '/orgManagement/update', params);
+    },
     // 删除组织
     deleteOrganization(params) {
         return oPost(baseUrl + '/orgManagement/delete', params);
