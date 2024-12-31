@@ -12,9 +12,9 @@
             >
         </div>
         <!-- 生成一个菜单树表格 -->
-        <el-table :data="treeData" style="width: 100%; margin-bottom: 20px" row-key="id" border default-expand-all>
+        <el-table :data="treeData" style="width: 100%; margin-bottom: 20px" row-key="organid" border default-expand-all>
             <el-table-column prop="organame" label="组织名" />
-            <el-table-column prop="organid" label="organid" />
+            <el-table-column prop="orgcode" label="组织编码" />
             <el-table-column label="操作" width="140" align="left">
                 <template #default="scope">
                     <el-button v-if="scope.row.organid" type="primary" link @click="handleEdit(scope.row.organid)">编辑</el-button>
@@ -27,7 +27,7 @@
             <el-form :model="form" :label-width="formLabelWidth" :rules="rules" ref="ruleFormRef">
                 <el-row>
                     <el-col :xs="24" :sm="24" :md="24" :lg="24" :xl="24">
-                        <el-form-item label="组织名称" prop="name">
+                        <el-form-item label="组织名称" prop="organame">
                             <el-input v-model="form.organame" autocomplete="off" />
                         </el-form-item>
                     </el-col>
@@ -36,12 +36,12 @@
                             <el-tree-select
                                 @change="val => handleUnitChange(val)"
                                 v-model="form.parentId"
-                                node-key="id"
-                                :data="treeData"
-                                :props="treeProps"
-                                :default-expanded-keys="[0]"
+                                node-key="organid"
+                                :data="treeDatas"
+                                :props="defaultProps"
+                                :default-expanded-keys="[treeDatas[0].organid]"
                                 check-strictly
-                                :render-after-expand="false"
+                                :render-after-expand="true"
                                 placeholder="请选择上级组织"
                             />
                         </el-form-item>
@@ -56,6 +56,16 @@
                                 组织编码
                             </template>
                             <el-input v-model="form.orgcode" placeholder="请输入" clearable />
+                        </el-form-item>
+                    </el-col>
+                    <!-- 当前成员 -->
+                    <el-col :xs="24" :sm="24" :md="24" :lg="24" :xl="24" v-if="form.organid">
+                        <el-form-item prop="members" label="当前成员">
+                            <el-table :data="form.employees" style="width: 100%; margin-bottom: 20px" border>
+                                <el-table-column prop="username" label="账号" />
+                                <el-table-column prop="name" label="姓名" />
+                                <el-table-column prop="email" label="邮箱" />
+                            </el-table>
                         </el-form-item>
                     </el-col>
                 </el-row>
@@ -81,10 +91,6 @@ const userInfoStore = useUserInfoStore();
 const { userInfo } = storeToRefs(userInfoStore); // 响应式
 const formLabelWidth = '100px';
 const ruleFormRef = ref();
-const treeProps = {
-    children: 'children',
-    label: 'name',
-};
 const rules = {
     organame: [{ required: true, message: '请输入组织名', trigger: 'blur' }],
     parentId: [{ required: false, message: '请选择上级菜单', trigger: 'change' }],
@@ -97,6 +103,8 @@ const form = reactive({
     orgcode: '',
 });
 const treeData = ref(null);
+const treeDatas = ref([]);
+const defaultProps = { children: 'children', label: 'organame', value: 'organid' };
 const handleClose = done => {
     done();
 };
@@ -113,7 +121,7 @@ const onSubmit = formEl => {
         }
         if (form.organid) {
             // 更新菜单
-            proxy.$api.updatemenu(form).then(res => {
+            proxy.$api.updateOrganization(form).then(res => {
                 if (res.code == 200) {
                     proxy.$message.success(res.message);
                     dialogVisible.value = false;
@@ -165,15 +173,18 @@ const handleEdit = async row => {
 const getOrganizationList = async () => {
     const res = await proxy.$api.getOrganizationList();
     console.log(res.data, '66');
-    // const treedata = getParentMenuTree(res.data);
+    const treedata = getParentMenuTree(res.data);
+    treeDatas.value = treedata;
     treeData.value = res.data;
+
+    console.log(treeDatas.value, '6699', treeData.value);
 };
 
 const getParentMenuTree = tableTreeDdata => {
     let parent = {
         parentId: '',
-        name: '顶级菜单',
-        id: 0,
+        organame: '顶级组织',
+        organid: 0,
         children: tableTreeDdata,
     };
     return [parent];

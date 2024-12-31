@@ -96,6 +96,20 @@
                         <el-option v-for="item in roleList" :key="item.id" :label="item.name" :value="item.id"></el-option>
                     </el-select>
                 </el-form-item>
+                <!-- 所属组织 -->
+                <el-form-item label="所属组织" prop="organid">
+                    <el-tree-select
+                        @change="val => handleUnitChange(val)"
+                        v-model="ruleForm.organid"
+                        node-key="organid"
+                        :data="zztree"
+                        :props="defaultProps"
+                        :default-expanded-keys="[zztree[0].organid]"
+                        check-strictly
+                        :render-after-expand="true"
+                        placeholder="请选择组织"
+                    />
+                </el-form-item>
             </el-form>
             <template #footer>
                 <span class="dialog-footer">
@@ -128,6 +142,8 @@ const formTemplate = {
     avatar: { filePath: '' },
 };
 let ruleForm = reactive({ ...formTemplate });
+const zztree = ref(null);
+const defaultProps = { children: 'children', label: 'organame', value: 'organid' };
 // 重置ruleForm数据函数
 const rules = {
     username: [{ required: true, message: '请输入账号', trigger: 'blur' }],
@@ -150,6 +166,7 @@ const rules = {
         },
     ],
     roleIds: [{ required: true, message: '请选择角色', trigger: 'change' }],
+    organid: [{ required: true, message: '请选择组织', trigger: 'change' }],
 };
 // 重置表单sF
 const resetForm = () => {
@@ -181,6 +198,12 @@ onMounted(() => {
     getInternalUsers();
     proxy.$api.getRolsList().then(res => {
         roleList.value = res.data;
+    });
+    // 组织列表
+    proxy.$api.getOrganizationList().then(res => {
+        console.log(res.data, 'res.data');
+        zztree.value = res.data;
+        // ruleForm.organizationId = res.data[0].id;
     });
 });
 onBeforeUnmount(() => {
@@ -260,6 +283,7 @@ const handleDelete = row => {
             proxy.$message.info('已取消');
         });
 };
+const handleUnitChange = val => {};
 // 禁用/解除禁用
 const handleRelieve = row => {
     let fromData = {
