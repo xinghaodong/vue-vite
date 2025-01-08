@@ -2,19 +2,18 @@
     <div>
         <!--首页 -->
         <div class="mb-4">
-            <el-button
-                type="primary"
-                @click="
-                    dialogVisible = true;
-                    resetForm(ruleFormRef);
-                "
-                >新增</el-button
-            >
+            <el-button type="primary" @click="add">新增</el-button>
         </div>
         <!-- 生成一个菜单树表格 -->
         <el-table :data="treeData" style="width: 100%; margin-bottom: 20px" row-key="id" border default-expand-all>
             <el-table-column prop="name" label="菜单名" />
             <el-table-column prop="url" label="菜单名地址" />
+            <el-table-column prop="menutype" label="资源类型" width="100">
+                <template #default="{ row }">
+                    <el-tag v-if="row.menutype == 1" type="success">菜单</el-tag>
+                    <el-tag v-if="row.menutype == 2">按钮</el-tag>
+                </template>
+            </el-table-column>
             <el-table-column prop="id" label="id" />
             <el-table-column label="操作" width="140" align="left">
                 <template #default="scope">
@@ -52,12 +51,12 @@
                         <el-input v-model="form.url" autocomplete="off" />
                     </el-form-item>
                 </el-col> -->
-                    <!-- <el-col :xs="12" :sm="12" :md="12" :lg="12" :xl="24">
+                    <el-col :xs="12" :sm="12" :md="12" :lg="12" :xl="24">
                         <el-form-item label="资源类型" prop="menutype">
-                            <el-radio v-model="form.menutype" :label="1" border>菜单</el-radio>
-                            <el-radio v-model="form.menutype" :label="2" border>按钮</el-radio>
+                            <el-radio v-model="form.menutype" label="1" border>菜单</el-radio>
+                            <el-radio v-model="form.menutype" label="2" border>按钮</el-radio>
                         </el-form-item>
-                    </el-col> -->
+                    </el-col>
                     <el-col :xs="12" :sm="12" :md="12" :lg="12" :xl="12">
                         <el-form-item label="资源序号" prop="sorts">
                             <el-input-number v-model="form.sorts" placeholder="请输入"></el-input-number>
@@ -102,7 +101,7 @@
                             <el-input v-model="form.component" placeholder="请输入"></el-input>
                         </el-form-item>
                     </el-col>
-                    <!-- <el-col :xs="24" :sm="24" :md="24" :lg="24" :xl="24">
+                    <el-col :xs="24" :sm="24" :md="24" :lg="24" :xl="24">
                         <el-form-item label="" prop="perms">
                             <template #label>
                                 <el-tooltip content="权限唯一标识，如：`user:add`，模块名：功能名" placement="top">
@@ -112,7 +111,15 @@
                             </template>
                             <el-input v-model="form.perms" placeholder="请输入"></el-input>
                         </el-form-item>
-                    </el-col> -->
+                    </el-col>
+                    <el-col :xs="24" :sm="24" :md="24" :lg="24" :xl="24">
+                        <!-- 角色 下拉多选 -->
+                        <el-form-item label="资源角色" prop="roleIds">
+                            <el-select v-model="form.roleIds" multiple placeholder="请选择">
+                                <el-option v-for="item in roleList" :key="item.id" :label="item.name" :value="item.id" />
+                            </el-select>
+                        </el-form-item>
+                    </el-col>
                     <!-- <el-col :xs="24" :sm="24" :md="24" :lg="24" :xl="24">
                         <el-form-item label="是否有效" prop="states">
                             <el-radio v-model="form.states" :label="1" border>是</el-radio>
@@ -129,12 +136,10 @@
                     <el-col :xs="24" :sm="24" :md="24" :lg="24" :xl="24">
                         <el-form-item label="菜单图标" prop="icon">
                             <el-col :span="22">
-                                <!-- 图标选择 Popover -->
                                 <el-popover ref="iconListPopover" :width="500" popper-class="mod-menu__icon-popover" placement="top-start" trigger="click" :visible="visible">
                                     <div class="popover-title">请选择图标</div>
                                     <el-scrollbar style="height: 95%" wrap-style="overflow-x:hidden;">
                                         <div class="mod-menu__icon-list">
-                                            <!-- 遍历图标列表 -->
                                             <el-button
                                                 v-for="(item, index) in iconList"
                                                 :key="index"
@@ -149,7 +154,6 @@
                                             </el-button>
                                         </div>
                                     </el-scrollbar>
-                                    <!-- 绑定当前选择图标 -->
                                     <template #reference>
                                         <el-input v-model="form.icon" @click="visible = true" :readonly="true" placeholder="请选择菜单图标">
                                             <template #prepend>
@@ -196,6 +200,7 @@ const rules = {
     url: [{ required: false, message: '请输入菜单地址', trigger: 'blur' }],
     code: [{ required: true, message: '请输入菜单编码', trigger: 'blur' }],
     sorts: [{ required: true, message: '请输入菜单序号', trigger: 'blur' }],
+    menutype: [{ required: true, message: '请选择菜单类型', trigger: 'blur' }],
 };
 const visible = ref(false);
 // 示例的图标列表
@@ -206,18 +211,17 @@ Object.keys(proxy.$icon).map(item => {
         value: item,
     });
 });
-const form = reactive({
-    name: '',
-    parentId: 0,
-    url: '',
-    component: '',
-    sorts: '',
-    keepalive: 1,
-    icon: '',
-});
+const formTemplate = { name: '', parentId: 0, url: '', component: '', sorts: 1, keepalive: 1, icon: '', menutype: 1, perms: '', code: '', roleIds: [] };
+const form = reactive({ ...formTemplate });
 const treeData = ref(null);
+const roleList = ref([]);
 const handleClose = done => {
     done();
+};
+const add = () => {
+    dialogVisible.value = true;
+    Object.assign(form, formTemplate);
+    resetForm(ruleFormRef);
 };
 const handleUnitChange = val => {};
 // 重置表单
@@ -235,6 +239,7 @@ const onSubmit = formEl => {
         if (!valid) {
             return false;
         }
+        console.log(form);
         if (form.id) {
             // 更新菜单
             proxy.$api.updatemenu(form).then(res => {
@@ -305,6 +310,9 @@ const getParentMenuTree = tableTreeDdata => {
 onMounted(async () => {
     try {
         await getTreeData();
+        proxy.$api.getRolsList().then(res => {
+            roleList.value = res.data;
+        });
     } catch (error) {
         console.error('失败信息:', error);
     }

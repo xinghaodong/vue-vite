@@ -129,7 +129,6 @@ const submitResource = () => {
         treeArray = treeArray.concat(treeArray1);
     }
     console.log(ruleForm, treeArray, '333');
-
     proxy.$api.assignMenusToRole({ id: ruleForm.id, menuIds: treeArray || [] }).then(res => {
         proxy.$message.success(res.message);
         dialogVisibleResource.value = false;

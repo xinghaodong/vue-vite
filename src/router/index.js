@@ -76,6 +76,7 @@ function transformRoute(route, parentPath = '') {
 
 // 异步加载路由并添加到路由器
 const setupDynamicRoutes = async () => {
+    console.log('开始加载动态路由...');
     try {
         const res = await api.menus();
         const backendRoutes = res.data;
@@ -104,8 +105,11 @@ router.beforeEach(async (to, from, next) => {
     NProgress.start(); // 开启进度条
     const useMenuStores = useMenuStore();
     const funcAll = () => {
-        localStorage.clear(); // 清除所有 localStorage 数据
+        dynamicRoutesLoaded = false;
         useMenuStores.changeRemoveAll();
+        useMenuStores.clearAll();
+        localStorage.clear(); // 清除所有 localStorage 数据
+        console.log('清除所有 localStorage 数据');
     };
     if (to.path === '/login') {
         // localStorage.clear(); // 清除所有 localStorage 数据

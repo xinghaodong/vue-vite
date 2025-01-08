@@ -145,6 +145,7 @@ const onSubmit = formEl => {
 };
 // 删除
 const handleDelete = async row => {
+    console.log(row);
     proxy.$messageBox
         .confirm('确定要删除吗?', '提示', {
             type: '提示',

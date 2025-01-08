@@ -70,7 +70,7 @@ const rightMouseData = ref(null);
 const rightMouseKey = ref(null);
 // 一定一个波尔变量是否显示关闭右侧菜单
 const isRightMenu = ref(false);
-const isShowRouter = ref(true);
+const isShowRouter = ref(false);
 const isActiveMenu = ref(false);
 const isLeftMenu = ref(false);
 // 定义contextMenuVisible默认为 false
@@ -236,9 +236,10 @@ onMounted(async () => {
     getMatched();
     try {
         userData.value = allArray.value;
+        nextTick(() => {
+            isShowRouter.value = true; // 确保在DOM更新后再显示路由
+        });
         return;
-        // const res = await proxy.$api.menus();
-        // userData.value = res.data;
         getscoket();
     } catch (error) {
         console.error('失败信息:', error);
