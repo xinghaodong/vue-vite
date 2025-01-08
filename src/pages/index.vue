@@ -2,14 +2,7 @@
     <div>
         <!--首页 -->
         <div class="mb-4">
-            <el-button
-                type="primary"
-                @click="
-                    dialogVisible = true;
-                    resetForm(ruleFormRef);
-                "
-                >新增</el-button
-            >
+            <el-button type="primary" @click="add">新增</el-button>
         </div>
         <!-- 生成一个菜单树表格 -->
         <el-table :data="treeData" style="width: 100%; margin-bottom: 20px" row-key="id" border default-expand-all>
@@ -143,12 +136,10 @@
                     <el-col :xs="24" :sm="24" :md="24" :lg="24" :xl="24">
                         <el-form-item label="菜单图标" prop="icon">
                             <el-col :span="22">
-                                <!-- 图标选择 Popover -->
                                 <el-popover ref="iconListPopover" :width="500" popper-class="mod-menu__icon-popover" placement="top-start" trigger="click" :visible="visible">
                                     <div class="popover-title">请选择图标</div>
                                     <el-scrollbar style="height: 95%" wrap-style="overflow-x:hidden;">
                                         <div class="mod-menu__icon-list">
-                                            <!-- 遍历图标列表 -->
                                             <el-button
                                                 v-for="(item, index) in iconList"
                                                 :key="index"
@@ -163,7 +154,6 @@
                                             </el-button>
                                         </div>
                                     </el-scrollbar>
-                                    <!-- 绑定当前选择图标 -->
                                     <template #reference>
                                         <el-input v-model="form.icon" @click="visible = true" :readonly="true" placeholder="请选择菜单图标">
                                             <template #prepend>
@@ -221,19 +211,17 @@ Object.keys(proxy.$icon).map(item => {
         value: item,
     });
 });
-const form = reactive({
-    name: '',
-    parentId: 0,
-    url: '',
-    component: '',
-    sorts: 1,
-    keepalive: 1,
-    icon: '',
-});
+const formTemplate = { name: '', parentId: 0, url: '', component: '', sorts: 1, keepalive: 1, icon: '', menutype: 1, perms: '', code: '', roleIds: [] };
+const form = reactive({ ...formTemplate });
 const treeData = ref(null);
 const roleList = ref([]);
 const handleClose = done => {
     done();
+};
+const add = () => {
+    dialogVisible.value = true;
+    Object.assign(form, formTemplate);
+    resetForm(ruleFormRef);
 };
 const handleUnitChange = val => {};
 // 重置表单
