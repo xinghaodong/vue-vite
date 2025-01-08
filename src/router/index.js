@@ -66,7 +66,7 @@ function transformRoute(route, parentPath = '') {
         if (components[componentPath]) {
             transformed.component = components[componentPath];
         } else {
-            console.error(`组件不存在: ${componentPath}`);
+            // console.error(`组件不存在: ${componentPath}`);
             // router.addRoute({ path: '/:catchAll(.*)', redirect: '/404' });
             return null; // 跳过无效路由
         }
@@ -74,12 +74,27 @@ function transformRoute(route, parentPath = '') {
     return transformed;
 }
 
+function filterMenuTree(menuTree) {
+    return menuTree
+        .filter(menu => menu.menutype !== '2') // 过滤掉 menutype 为 "2" 的节点
+        .map(menu => {
+            if (menu.children && menu.children.length > 0) {
+                // 递归处理子菜单
+                menu.children = filterMenuTree(menu.children);
+            }
+            return menu;
+        });
+}
+
 // 异步加载路由并添加到路由器
 const setupDynamicRoutes = async () => {
     console.log('开始加载动态路由...');
     try {
-        const res = await api.menus();
-        const backendRoutes = res.data;
+        const res = await api.menus({ type: 1 });
+        let backendRoutes = res.data;
+        // 递归过滤掉 menutype == 2 的数据
+        backendRoutes = filterMenuTree(backendRoutes);
+        console.log('后端返回的路由:', backendRoutes);
         const useMenuStores = useMenuStore();
         useMenuStores.getAllMenu(backendRoutes);
         // 转换路由
@@ -95,7 +110,7 @@ const setupDynamicRoutes = async () => {
         });
         return res;
     } catch (error) {
-        console.error('Failed to setup dynamic routes:', error);
+        console.error(error);
     }
 };
 
