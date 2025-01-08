@@ -172,19 +172,8 @@ const rules = {
 const resetForm = () => {
     ruleForm = reactive({ ...formTemplate });
     if (ruleFormRef.value) ruleFormRef.value.resetFields();
-    // if (formRef.value) {
-    //     formRef.value.resetFields();
-    // }
 };
 const dialogVisible = ref(false);
-// const requestajax = async () => {
-//     // try catch包下
-//     const formData = new FormData();
-//     formData.append('file', ruleForm.file);
-//     console.log(ruleForm.file, 'ruleForm.file');
-//     const res = await proxy.$api.post('/api/upload/uploadFile', formData);
-//     console.log(res, '4554');
-// };
 const handleSizeChange = val => {
     pageSize.value = val;
     getInternalUsers();
@@ -201,7 +190,6 @@ onMounted(() => {
     });
     // 组织列表
     proxy.$api.getOrganizationList().then(res => {
-        console.log(res.data, 'res.data');
         zztree.value = res.data;
         // ruleForm.organizationId = res.data[0].id;
     });
