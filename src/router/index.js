@@ -66,7 +66,7 @@ function transformRoute(route, parentPath = '') {
         if (components[componentPath]) {
             transformed.component = components[componentPath];
         } else {
-            console.error(`组件不存在: ${componentPath}`);
+            // console.error(`组件不存在: ${componentPath}`);
             // router.addRoute({ path: '/:catchAll(.*)', redirect: '/404' });
             return null; // 跳过无效路由
         }
