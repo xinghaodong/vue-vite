@@ -8,6 +8,7 @@ const useUserInfoStore = defineStore('userInfo', {
     // 修改
     actions: {
         changeUserInfo(obj) {
+            console.log(obj, '66898989898988');
             this.userInfo = obj;
         },
     },

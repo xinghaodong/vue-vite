@@ -37,10 +37,10 @@ import useUserInfoStore from '@/stortes/user'; //引入仓库
 import menuStore from '@/stortes/menu'; //引入仓库
 import { storeToRefs } from 'pinia'; //引入pinia转换
 const userInfoStore = useUserInfoStore();
-// const userdata = storeToRefs(userInfoStore); // 响应式
+const { userInfo } = storeToRefs(userInfoStore); // 响应式
 const { proxy } = getCurrentInstance();
 const menuInfoStore = menuStore();
-const { editableTabsValue } = storeToRefs(menuInfoStore); // 响应式
+const { editableTabsValue, btnPermsArry } = storeToRefs(menuInfoStore); // 响应式
 let intervalId = null;
 let flag = ref(0);
 onMounted(async () => {
@@ -96,6 +96,9 @@ const onSubmit = formEl => {
             const data = await proxy.$api.login(ruleForm);
 
             if (data.code == 200) {
+                console.log(userInfoStore, 'userInfoStoreuserInfoStore');
+                menuInfoStore.getPerms(data.data.perms);
+                userInfoStore.changeUserInfo(data.data.informationObject);
                 // userInfoStore.changeUserInfo(data.data);
                 localStorage.setItem('token', data.data.token);
                 localStorage.setItem('refreshToken', data.data.refreshToken);

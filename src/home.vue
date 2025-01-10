@@ -11,7 +11,6 @@
                     <div class="flex flex-row">
                         <!-- 点击 折叠   -->
                         <el-icon style="display: block; font-size: 24px; cursor: pointer" @click="foldEvent"><Fold /></el-icon>
-
                         <!-- <el-breadcrumb :separator-icon="ArrowRight" style="line-height: 46px; padding-left: 20px">
                             <template v-for="(item, index) in breadList">
                                 <el-breadcrumb-item v-if="item.name" :key="index">{{ item.meta.title }}</el-breadcrumb-item>
@@ -19,11 +18,18 @@
                         </el-breadcrumb> -->
                     </div>
                     <div class="relative ml-3">
-                        <div>
-                            <span class="absolute -inset-1.5"></span>
-                            <span class="sr-only">Open user menu</span>
-                            <img class="h-9 w-9 rounded-full" :src="`${proxy.$api.img_url}${userInfo.avatar_url}`" alt="" />
-                        </div>
+                        <el-dropdown trigger="click" @command="handleContextOut">
+                            <div style="cursor: pointer">
+                                <span class="absolute -inset-1.5"></span>
+                                <span class="sr-only">Open user menu</span>
+                                <img class="h-9 w-9 rounded-full" style="object-fit: cover;cu" :src="`${proxy.$api.img_url}${userInfo.avatar?.filePath}`" alt="" />
+                            </div>
+                            <template #dropdown>
+                                <el-dropdown-menu>
+                                    <el-dropdown-item command="contextout">退出登录</el-dropdown-item>
+                                </el-dropdown-menu>
+                            </template>
+                        </el-dropdown>
                     </div>
                 </div>
                 <!-- tab-click 事件名字 -->
@@ -95,6 +101,8 @@ const handleClickOutside = e => {
     // 确保 contextMenuElement 已经被赋值
     if (contextMenuElement.value && !contextMenuElement.value.contains(e.target)) {
         contextMenuVisible.value = false;
+    } else {
+        contextMenuVisible.value = false;
     }
 };
 // 定义函数 refresh
@@ -133,34 +141,49 @@ const closeAll = () => {
         proxy.$router.push(editableTabsValue.value);
     });
 };
+
+const handleContextOut = e => {
+    if (e === 'contextout') {
+        // 退出登录
+        proxy.$messageBox
+            .confirm('确定退出登录吗？', '提示', {
+                type: '提示',
+            })
+            .then(() => {
+                proxy.$router.push('/login');
+            });
+    }
+};
 const handleContextMenu = e => {
+    contextMenuVisible.value = false;
     let result = findNodeById(userData.value, e.srcElement.id.split('-')[1]);
-    rightMouseKey.value = e.srcElement.id.split('-')[1];
-    rightMouseData.value = result;
-    // 判断当前右键点击的是否是第0或者是第一项
-    let index = activeTabArray.value.findIndex(item => item.url === rightMouseKey.value);
-    if (index == 0 || index == 1) {
-        isLeftMenu.value = false;
-    } else {
-        isLeftMenu.value = true;
+    if (result) {
+        contextMenuVisible.value = true;
+        left.value = e.clientX - 10;
+        top.value = e.clientY + 15;
+        rightMouseKey.value = e.srcElement.id.split('-')[1];
+        rightMouseData.value = result;
+        // 判断当前右键点击的是否是第0或者是第一项
+        let index = activeTabArray.value.findIndex(item => item.url === rightMouseKey.value);
+        if (index == 0 || index == 1) {
+            isLeftMenu.value = false;
+        } else {
+            isLeftMenu.value = true;
+        }
+        // 判断当前右键点击的菜单项是否是当前路由
+        if (rightMouseKey.value == editableTabsValue.value) {
+            isActiveMenu.value = true;
+        } else {
+            isActiveMenu.value = false;
+        }
+        // 如果当前右键点击的菜单项是最后一项那就就不显示 关闭右侧的li
+        if (rightMouseKey.value == activeTabArray.value[activeTabArray.value.length - 1].url) {
+            // isRightMenu 设置为false
+            isRightMenu.value = false;
+        } else {
+            isRightMenu.value = true;
+        }
     }
-    // 判断当前右键点击的菜单项是否是当前路由
-    if (rightMouseKey.value == editableTabsValue.value) {
-        isActiveMenu.value = true;
-    } else {
-        isActiveMenu.value = false;
-    }
-    // 如果当前右键点击的菜单项是最后一项那就就不显示 关闭右侧的li
-    if (rightMouseKey.value == activeTabArray.value[activeTabArray.value.length - 1].url) {
-        // isRightMenu 设置为false
-        isRightMenu.value = false;
-    } else {
-        isRightMenu.value = true;
-    }
-    e.preventDefault();
-    contextMenuVisible.value = true;
-    left.value = e.clientX - 10;
-    top.value = e.clientY + 15;
 };
 
 const removeTab = pane => {

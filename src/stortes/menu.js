@@ -10,10 +10,18 @@ const menuStore = defineStore('menu', {
             },
         ],
         editableTabsValue: '/index',
+        // 菜单
         allArray: [],
+        // 按钮权限
+        btnPermsArry: [],
     }),
     // 修改
     actions: {
+        // 获取按钮权限
+        getPerms(val) {
+            this.btnPermsArry = val;
+            return val;
+        },
         // 获取所有菜单
         getAllMenu(val) {
             this.allArray = val;
@@ -88,12 +96,13 @@ const menuStore = defineStore('menu', {
         },
         clearAll() {
             this.allArray = [];
+            this.btnPermsArry = [];
         },
     },
     persist: {
         key: 'piniaMenuStore', //存储名称
         storage: localStorage, // 存储方式
-        paths: ['activeTabArray', 'editableTabsValue', 'allArray'], //指定 state 中哪些数据需要被持久化。[] 表示不持久化任何状态，undefined 或 null 表示持久化整个 state
+        paths: ['activeTabArray', 'editableTabsValue', 'allArray', 'btnPermsArry'], //指定 state 中哪些数据需要被持久化。[] 表示不持久化任何状态，undefined 或 null 表示持久化整个 state
     },
 });
 

@@ -2,23 +2,22 @@
     <div>
         <!--首页 -->
         <div class="mb-4">
-            <el-button type="primary" @click="add">新增</el-button>
+            <el-button v-has-permi="['menu:add']" type="primary" @click="add">新增</el-button>
         </div>
         <!-- 生成一个菜单树表格 -->
         <el-table :data="treeData" style="width: 100%; margin-bottom: 20px" row-key="id" border default-expand-all>
             <el-table-column prop="name" label="菜单名" />
             <el-table-column prop="url" label="菜单名地址" />
-            <el-table-column prop="menutype" label="资源类型" width="100">
+            <el-table-column prop="menutype" label="资源类型">
                 <template #default="{ row }">
                     <el-tag v-if="row.menutype == 1" type="success">菜单</el-tag>
                     <el-tag v-if="row.menutype == 2">按钮</el-tag>
                 </template>
             </el-table-column>
-            <el-table-column prop="id" label="id" />
             <el-table-column label="操作" width="140" align="left">
                 <template #default="scope">
-                    <el-button v-if="scope.row.id" type="primary" link @click="handleEdit(scope.row)">编辑</el-button>
-                    <el-button v-if="scope.row.id" type="primary" link @click="handleDelete(scope.row.id)">删除</el-button>
+                    <el-button v-has-permi="['menu:add']" v-if="scope.row.id" type="primary" link @click="handleEdit(scope.row)">编辑</el-button>
+                    <el-button v-has-permi="['menu:add']" v-if="scope.row.id" type="primary" link @click="handleDelete(scope.row.id)">删除</el-button>
                 </template>
             </el-table-column>
         </el-table>
@@ -136,7 +135,15 @@
                     <el-col :xs="24" :sm="24" :md="24" :lg="24" :xl="24">
                         <el-form-item label="菜单图标" prop="icon">
                             <el-col :span="22">
-                                <el-popover ref="iconListPopover" :width="500" popper-class="mod-menu__icon-popover" placement="top-start" trigger="click" :visible="visible">
+                                <el-popover
+                                    ref="iconListPopover"
+                                    :width="500"
+                                    popper-class="mod-menu__icon-popover"
+                                    placement="top-start"
+                                    trigger="click"
+                                    :visible="visible"
+                                    @before-leave="handlePopoverClose"
+                                >
                                     <div class="popover-title">请选择图标</div>
                                     <el-scrollbar style="height: 95%" wrap-style="overflow-x:hidden;">
                                         <div class="mod-menu__icon-list">
@@ -180,7 +187,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, getCurrentInstance } from 'vue';
+import { ref, reactive, onMounted, getCurrentInstance, onBeforeUnmount } from 'vue';
 import useUserInfoStore from '@/stortes/user'; //引入仓库
 import { storeToRefs } from 'pinia'; //引入pinia转换
 const { proxy } = getCurrentInstance();
@@ -232,6 +239,20 @@ const resetForm = () => {
 const iconActiveHandle = iconValue => {
     visible.value = false; // 关闭弹出框
     form.icon = iconValue;
+};
+
+// 点击空白区域关闭弹出框
+const handlePopoverClose = () => {
+    visible.value = false;
+};
+
+// 检测点击空白区域
+// 监听点击空白区域关闭弹出框
+const handleClickOutside = event => {
+    const popoverEl = document.querySelector('.mod-menu__icon-popover');
+    if (popoverEl && !popoverEl.contains(event.target)) {
+        visible.value = false; // 点击外部区域时关闭弹出框
+    }
 };
 
 const onSubmit = formEl => {
@@ -309,6 +330,8 @@ const getParentMenuTree = tableTreeDdata => {
 
 onMounted(async () => {
     try {
+        // 监听点击事件
+        document.addEventListener('mousedown', handleClickOutside);
         await getTreeData();
         proxy.$api.getRolsList().then(res => {
             roleList.value = res.data;
@@ -316,6 +339,11 @@ onMounted(async () => {
     } catch (error) {
         console.error('失败信息:', error);
     }
+});
+onBeforeUnmount(() => {
+    document.removeEventListener('mousedown', handleClickOutside);
+    // window.removeEventListener('onmessageWS', getSocketData);
+    // proxy.$websocket.close();
 });
 </script>
 <style>
