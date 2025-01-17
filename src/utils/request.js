@@ -243,6 +243,18 @@ export default {
     deleteOrganization(params) {
         return oPost(baseUrl + '/orgManagement/delete', params);
     },
+    // 新增流程图
+    addFlowChart(params) {
+        return oPost(baseUrl + '/process-approval', params);
+    },
+    // 模板列表
+    getFlowChartList(params) {
+        return oGet(baseUrl + '/process-approval', params);
+    },
+    // 模板详情
+    detailFlowChart(params) {
+        return oGet(baseUrl + '/process-approval/detail', params);
+    },
 };
 
 //封装post/get请求
