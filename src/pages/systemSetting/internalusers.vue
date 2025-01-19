@@ -48,8 +48,8 @@
             <!-- 操作 -->
             <el-table-column label="操作" width="130" fixed="right">
                 <template #default="scope">
-                    <el-button  v-has-permi="['add:user']" link type="primary" @click="handleEdit(scope.row)">编辑</el-button>
-                    <el-button  v-has-permi="['add:user']" link type="primary" @click="handleDelete(scope.row)">删除</el-button>
+                    <el-button v-has-permi="['add:user']" link type="primary" @click="handleEdit(scope.row)">编辑</el-button>
+                    <el-button v-has-permi="['add:user']" link type="primary" @click="handleDelete(scope.row)">删除</el-button>
                     <!-- <el-button link type="primary" @click="handleRelieve(scope.row)" v-text="scope.row.is_active == 0 ? '解除' : '禁用'"></el-button> -->
                 </template>
             </el-table-column>
@@ -205,10 +205,10 @@ const handleAvatarSuccess = (res, uploadFile) => {
 
 const beforeAvatarUpload = rawFile => {
     if (rawFile.type != 'image/jpeg' && rawFile.type != 'image/png') {
-        proxy.$message.error(' picture must be JPG format!');
+        proxy.$message.error('图片必须是jpg或png格式');
         return false;
     } else if (rawFile.size / 1024 / 1024 > 5) {
-        proxy.$message.error(' picture size can not exceed 5MB!');
+        proxy.$message.error('图片不能超过5M');
         return false;
     }
     return true;

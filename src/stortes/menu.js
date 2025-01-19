@@ -10,8 +10,10 @@ const menuStore = defineStore('menu', {
             },
         ],
         editableTabsValue: '/index',
-        // 菜单
+        // 不含按钮菜单
         allArray: [],
+        // 含按钮菜单
+        allMenuArray: [],
         // 按钮权限
         btnPermsArry: [],
     }),
@@ -22,9 +24,14 @@ const menuStore = defineStore('menu', {
             this.btnPermsArry = val;
             return val;
         },
-        // 获取所有菜单
+        // 获取不含按钮菜单
         getAllMenu(val) {
             this.allArray = val;
+            return val;
+        },
+        // 获取含按钮菜单
+        getAllMenuWithBtn(val) {
+            this.allMenuArray = val;
             return val;
         },
         /**
@@ -35,12 +42,20 @@ const menuStore = defineStore('menu', {
          * 对象应包含一个URL属性，用于唯一标识菜单项。
          */
         changeMenu(obj) {
+            // console.log(
+            //     '检查',
+            //     this.activeTabArray,
+            //     obj,
+            //     this.activeTabArray.some(item => item.url == obj.url),
+            // );
             // 检查新的菜单项是否已经存在于活跃菜单数组中
             if (this.activeTabArray.some(item => item.url == obj.url)) {
+                // 存在就
                 return;
             }
             // 如果新菜单项不存在于活跃菜单数组中，则将其添加到数组中
             this.activeTabArray.push(obj);
+            console.log(this.activeTabArray, '55555');
         },
         // 当前选中的tab页签
         changeTabsValue(key) {

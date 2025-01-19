@@ -57,7 +57,12 @@ function transformRoute(route, parentPath = '') {
         meta: {
             icon: route.icon,
             keepalive: route.keepalive == '1',
+            title: route.name,
         },
+        url: route.url,
+        keepalive: route.keepalive == '1',
+        menutype: route.menutype,
+        sorts: route.sorts,
         children: route.children ? route.children.map(child => transformRoute(child, `${parentPath}${route.url}/`)).filter(Boolean) : undefined,
     };
 
@@ -85,20 +90,22 @@ function filterMenuTree(menuTree) {
             return menu;
         });
 }
-
+let backendRoutes = [];
 // 异步加载路由并添加到路由器
 const setupDynamicRoutes = async () => {
     console.log('开始加载动态路由...');
     try {
-        const res = await api.menus({ type: 1 });
-        let backendRoutes = res.data;
-        // 递归过滤掉 menutype == 2 的数据
-        backendRoutes = filterMenuTree(backendRoutes);
-        console.log('后端返回的路由:', backendRoutes);
+        const res = await api.menus();
+        backendRoutes = res.data;
+        let menu = JSON.parse(JSON.stringify(backendRoutes));
         const useMenuStores = useMenuStore();
-        useMenuStores.getAllMenu(backendRoutes);
+        // 递归过滤掉 menutype == 2 的数据
+        menu = filterMenuTree(menu);
+        useMenuStores.getAllMenu(menu);
+        useMenuStores.getAllMenuWithBtn(backendRoutes);
         // 转换路由
         const transformedRoutes = backendRoutes.map(route => transformRoute(route)).filter(Boolean); // 过滤掉无效路由
+        console.log('转换后的路由--------------------:', transformedRoutes);
         // 添加动态路由到 `/home`
         transformedRoutes.forEach(route => {
             router.addRoute('home', route);
@@ -124,7 +131,6 @@ router.beforeEach(async (to, from, next) => {
         useMenuStores.changeRemoveAll();
         useMenuStores.clearAll();
         localStorage.clear(); // 清除所有 localStorage 数据
-        console.log('清除所有 localStorage 数据');
     };
     if (to.path === '/login') {
         // localStorage.clear(); // 清除所有 localStorage 数据
@@ -142,6 +148,7 @@ router.beforeEach(async (to, from, next) => {
     if (!dynamicRoutesLoaded) {
         try {
             await setupDynamicRoutes();
+
             dynamicRoutesLoaded = true; // 标记动态路由已加载
             next({ ...to, replace: true }); // 重新导航到当前路径，确保新添加的路由生效
             return;
@@ -150,9 +157,33 @@ router.beforeEach(async (to, from, next) => {
             next('/login'); // 跳转到登录页
         }
     } else {
+        // 增加判 对按钮路由 也要更新tab菜单
+        // 从菜单里找到对应的对象
+        // useMenuStores.changeMenu(to);
+        let obj = findNodeById(backendRoutes, to.name);
+        if (obj && obj.menutype == 2) {
+            obj.url = to.fullPath.replace(/^\//, '');
+            useMenuStores.changeMenu(obj);
+            useMenuStores.changeTabsValue(obj.url);
+        }
         next(); // 正常导航
     }
 });
+const findNodeById = (tree, url) => {
+    for (const node of tree) {
+        if (node.code === url) {
+            return node;
+        }
+        if (node.children) {
+            // 如果节点有子节点，继续递归查找
+            const foundNode = findNodeById(node.children, url);
+            if (foundNode) {
+                return foundNode;
+            }
+        }
+    }
+    return null; // 没有找到对应ID的节点
+};
 
 router.afterEach(() => {
     NProgress.done(); // 进度条结束

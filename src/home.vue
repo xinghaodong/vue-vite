@@ -67,7 +67,7 @@ const router = useRouter();
 const { proxy } = getCurrentInstance();
 const menuInfoStore = menuStore();
 const userStore = useUserInfoStore();
-const { activeTabArray, editableTabsValue, allArray } = storeToRefs(menuInfoStore); // 响应式
+const { activeTabArray, editableTabsValue, allArray, allMenuArray } = storeToRefs(menuInfoStore); // 响应式
 const { userInfo } = storeToRefs(userStore);
 const userData = ref(null);
 const breadList = ref([]);
@@ -109,9 +109,12 @@ const handleClickOutside = e => {
 const refresh = () => {
     nextTick(async () => {
         isShowRouter.value = false;
-        await proxy.$router.replace(rightMouseKey.value);
+        await proxy.$router.push(route.fullPath.replace(/^\//, ''));
         isShowRouter.value = true;
-        contextMenuVisible.value = false;
+        // isShowRouter.value = false;
+        // await proxy.$router.replace(rightMouseKey.value);
+        // isShowRouter.value = true;
+        // contextMenuVisible.value = false;
     });
 };
 // 定义上边的函数
@@ -156,12 +159,14 @@ const handleContextOut = e => {
 };
 const handleContextMenu = e => {
     contextMenuVisible.value = false;
-    let result = findNodeById(userData.value, e.srcElement.id.split('-')[1]);
+    let result = findNodeById(allMenuArray.value, route.fullPath.replace(/^\//, ''));
     if (result) {
         contextMenuVisible.value = true;
         left.value = e.clientX - 10;
         top.value = e.clientY + 15;
-        rightMouseKey.value = e.srcElement.id.split('-')[1];
+        // rightMouseKey.value = e.srcElement.id.split('-')[1];
+        // 获取地址栏的菜单的路由参数 拼接在rightMouseKey后边
+        rightMouseKey.value = route.fullPath.replace(/^\//, '');
         rightMouseData.value = result;
         // 判断当前右键点击的是否是第0或者是第一项
         let index = activeTabArray.value.findIndex(item => item.url === rightMouseKey.value);
@@ -191,14 +196,17 @@ const removeTab = pane => {
     proxy.$router.push(editableTabsValue.value);
 };
 const handleClick = (pane, ev) => {
+    console.log(pane, 'pane', activeTabArray.value);
     // 路由跳转
     proxy.$router.push(pane.paneName);
 };
 
 const handleSelect = (key, keyPath) => {
-    menuInfoStore.changeTabsValue(key);
-    let obj = findNodeById(userData.value, key);
-    menuInfoStore.changeMenu(obj);
+    if (key) {
+        menuInfoStore.changeTabsValue(key);
+        let obj = findNodeById(userData.value, key);
+        menuInfoStore.changeMenu(obj);
+    }
 };
 const getSocketData = res => {
     let data = JSON.parse(res.detail.data.data);
