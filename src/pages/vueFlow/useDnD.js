@@ -1,7 +1,5 @@
 import { useVueFlow } from '@vue-flow/core';
 import { ref, watch } from 'vue';
-import api from '@/utils/request';
-import { data } from 'autoprefixer';
 
 let id = 1;
 function getNodeId() {

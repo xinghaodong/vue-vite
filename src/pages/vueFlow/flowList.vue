@@ -43,7 +43,7 @@ const total = ref(0);
 const govueFlow = row => {
     // 路由跳转
     proxy.$router.push({
-        path: '/vueFlow',
+        path: '/home/vueFlow',
         query: { id: row ? row.id : '' },
     });
 };
