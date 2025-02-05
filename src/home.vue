@@ -109,7 +109,7 @@ const handleClickOutside = e => {
 const refresh = () => {
     nextTick(async () => {
         isShowRouter.value = false;
-        await proxy.$router.push(route.fullPath.replace(/^\//, ''));
+        await proxy.$router.push(route.fullPath);
         isShowRouter.value = true;
         // isShowRouter.value = false;
         // await proxy.$router.replace(rightMouseKey.value);
@@ -159,14 +159,14 @@ const handleContextOut = e => {
 };
 const handleContextMenu = e => {
     contextMenuVisible.value = false;
-    let result = findNodeById(allMenuArray.value, route.fullPath.replace(/^\//, ''));
+    let result = findNodeById(allMenuArray.value, route.path);
     if (result) {
         contextMenuVisible.value = true;
         left.value = e.clientX - 10;
         top.value = e.clientY + 15;
         // rightMouseKey.value = e.srcElement.id.split('-')[1];
         // 获取地址栏的菜单的路由参数 拼接在rightMouseKey后边
-        rightMouseKey.value = route.fullPath.replace(/^\//, '');
+        rightMouseKey.value = route.fullPath;
         rightMouseData.value = result;
         // 判断当前右键点击的是否是第0或者是第一项
         let index = activeTabArray.value.findIndex(item => item.url === rightMouseKey.value);
@@ -196,9 +196,8 @@ const removeTab = pane => {
     proxy.$router.push(editableTabsValue.value);
 };
 const handleClick = (pane, ev) => {
-    console.log(pane, 'pane', activeTabArray.value);
     // 路由跳转
-    proxy.$router.push(pane.paneName);
+    proxy.$router.replace(pane.paneName);
 };
 
 const handleSelect = (key, keyPath) => {

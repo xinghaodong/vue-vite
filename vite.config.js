@@ -5,7 +5,6 @@ import path from 'path';
 import Unocss from 'unocss/vite';
 export default defineConfig(({ mode }) => {
     const { VITE_PORT, VITE_BASE_URL, VITE_PROXY_DOMAIN_REAL } = loadEnv(mode, process.cwd());
-    console.log(mode, 'mode');
     const alias = {
         // 设置路径
         // '~': path.resolve(__dirname, './'),
