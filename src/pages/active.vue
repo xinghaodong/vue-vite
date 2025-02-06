@@ -10,7 +10,6 @@
         >
     </div>
     <el-table :data="tableData" border style="width: 100%">
-      
         <el-table-column prop="title" label="活动主题"> </el-table-column>
         <el-table-column prop="statename" label="状态" width="180"> </el-table-column>
         <el-table-column prop="created_at" label="创建时间" width="180"> </el-table-column>
@@ -38,30 +37,24 @@
             </el-form-item>
             <el-form-item label="内容" prop="title">
                 <div style="border: 1px solid #ccc">
-                    <Toolbar style="border-bottom: 1px solid #ccc" :editor="editorRef" :defaultConfig="toolbarConfig" :mode="mode" />
-                    <Editor
-                        style="height: 500px; overflow-y: hidden"
-                        v-model="valueHtml"
-                        :defaultConfig="editorConfig"
-                        :mode="mode"
-                        @onCreated="handleCreated"
-                    />
+                    <!-- <Toolbar style="border-bottom: 1px solid #ccc" :editor="editorRef" :defaultConfig="toolbarConfig" :mode="mode" />
+                    <Editor style="height: 500px; overflow-y: hidden" v-model="valueHtml" :defaultConfig="editorConfig" :mode="mode" @onCreated="handleCreated" /> -->
                 </div>
             </el-form-item>
         </el-form>
         <template #footer>
             <span class="dialog-footer">
-                <el-button @click="(dialogVisible = false)">取 消</el-button>
+                <el-button @click="dialogVisible = false">取 消</el-button>
                 <el-button type="primary" @click="onSubmit(ruleFormRef)">确 定</el-button>
             </span>
         </template>
     </el-dialog>
 </template>
 <script setup>
-import '@wangeditor/editor/dist/css/style.css'; // 引入 css
+// import '@wangeditor/editor/dist/css/style.css'; // 引入 css
 
 import { onBeforeUnmount, ref, shallowRef, onMounted, getCurrentInstance, reactive } from 'vue';
-import { Editor, Toolbar } from '@wangeditor/editor-for-vue';
+// import { Editor, Toolbar } from '@wangeditor/editor-for-vue';
 const { proxy } = getCurrentInstance();
 const tableData = ref([]);
 const ruleFormRef = ref(null);
@@ -103,12 +96,12 @@ editorConfig.MENU_CONF['uploadImage'] = {
     },
 };
 // 创建编辑器
-const handleCreated = (editor) => {
+const handleCreated = editor => {
     editorRef.value = editor; // 记录 editor 实例，重要！
 };
 
-const onSubmit = (formEl) => {
-    formEl.validate(async (valid) => {
+const onSubmit = formEl => {
+    formEl.validate(async valid => {
         if (valid) {
             ruleForm.cont = valueHtml.value;
             const data = await proxy.$api.addActivity(ruleForm);
@@ -123,7 +116,7 @@ const onSubmit = (formEl) => {
     });
 };
 // 编辑 详情
-const handleEdit = async (row) => {
+const handleEdit = async row => {
     dialogVisible.value = true;
     // 接口
     const data = await proxy.$api.getActivityDetail({ id: row.id });
@@ -131,7 +124,7 @@ const handleEdit = async (row) => {
     valueHtml.value = data.data.cont;
 };
 // 删除
-const handleDelete = (row) => {
+const handleDelete = row => {
     proxy.$messageBox
         .confirm('确定要删除吗?', '提示', {
             confirmButtonText: '确定',
