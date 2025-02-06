@@ -3,6 +3,7 @@
         <!--用户管理 -->
         <div class="mb-4">
             <el-button
+                v-has-permi="['add:user']"
                 type="primary"
                 @click="
                     dialogVisible = true;
@@ -11,8 +12,8 @@
                 >新增</el-button
             >
         </div>
-        <el-table size="small" :data="tableData" border style="width: 100%">
-            <el-table-column prop="username" fixed label="账号" width="180"> </el-table-column>
+        <el-table :data="tableData" border style="width: 100%">
+            <el-table-column prop="username" label="账号" width="180"> </el-table-column>
             <el-table-column prop="name" label="姓名" width="180"> </el-table-column>
             <el-table-column prop="email" label="邮箱" width="180"> </el-table-column>
             <el-table-column prop="role" label="权限"> </el-table-column>
@@ -24,22 +25,20 @@
             </el-table-column>
             <!-- 头像 -->
             <!-- el-table-column  居中 -->
-            <el-table-column prop="avatar" label="头像" align="center">
+            <el-table-column prop="avatar" label="头像" center>
                 <template #default="scope">
                     <!-- <div class="demo-image__preview"> -->
                     <el-image
-                        v-if="scope.row.avatar"
-                        style="width: 40px; height: 40px"
-                        :src="`${proxy.$api.img_url}${scope.row.avatar?.filePath}`"
+                        style="width: 30px; height: 30px"
+                        :src="`${proxy.$api.img_url}${scope.row?.avatar?.filePath}`"
                         :zoom-rate="1.2"
                         :max-scale="7"
                         :min-scale="0.2"
                         :initial-index="0"
                         :z-index="999"
                         fit="cover"
-                        :preview-src-list="[`${proxy.$api.img_url}${scope.row.avatar?.filePath}`]"
+                        :preview-src-list="[`${proxy.$api.img_url}${scope.row?.avatar?.filePath}`]"
                     />
-                    <span v-else>--</span>
                     <!-- </div> -->
                     <!-- <img :src="`${proxy.$api.img_url}${scope.row.avatar_url}`" alt="" style="width: 50px; height: 50px" /> -->
                 </template>
@@ -47,11 +46,11 @@
             <el-table-column prop="created_at" label="创建时间" width="180"> </el-table-column>
             <el-table-column prop="updated_at" label="更新时间" width="180"> </el-table-column>
             <!-- 操作 -->
-            <el-table-column label="操作" width="180" fixed="right">
+            <el-table-column label="操作" width="130" fixed="right">
                 <template #default="scope">
-                    <el-button size="small" link type="primary" @click="handleEdit(scope.row)">编辑</el-button>
-                    <el-button size="small" link type="primary" @click="handleDelete(scope.row)">删除</el-button>
-                    <el-button size="small" link type="primary" @click="handleRelieve(scope.row)" v-text="scope.row.is_active == 0 ? '解除' : '禁用'"></el-button>
+                    <el-button v-has-permi="['add:user']" link type="primary" @click="handleEdit(scope.row)">编辑</el-button>
+                    <el-button v-has-permi="['add:user']" link type="primary" @click="handleDelete(scope.row)">删除</el-button>
+                    <!-- <el-button link type="primary" @click="handleRelieve(scope.row)" v-text="scope.row.is_active == 0 ? '解除' : '禁用'"></el-button> -->
                 </template>
             </el-table-column>
         </el-table>
@@ -65,8 +64,7 @@
             :page-size="pageSize"
             layout="total, sizes,->, prev, pager, next, jumper"
             :total="total"
-        >
-        </el-pagination>
+        ></el-pagination>
         <el-dialog :title="ruleForm.id ? '编辑' : '新增'" v-model="dialogVisible" width="50%">
             <el-form ref="ruleFormRef" :rules="rules" :model="ruleForm" label-width="100px">
                 <el-form-item label="账号" prop="username">
@@ -79,25 +77,44 @@
                     <el-input v-model="ruleForm.email"></el-input>
                 </el-form-item>
                 <!-- 头像上传 -->
-                <el-form-item label="头像" v-if="dialogVisible">
+                <el-form-item label="头像">
                     <el-upload
                         :action="uploadUrl"
                         class="avatar-uploader"
                         :show-file-list="false"
                         :on-success="handleAvatarSuccess"
                         :before-upload="beforeAvatarUpload"
-                        :headers="headers"
-                        :data="{ userid: 2 }"
                         name="avatar"
+                        :data="{ userId: ruleForm.id || '' }"
                     >
                         <img v-if="ruleForm.avatar?.filePath" :src="proxy.$api.img_url + ruleForm.avatar?.filePath" class="avatar" />
                         <el-icon v-else class="avatar-uploader-icon"><Plus /></el-icon>
                     </el-upload>
                 </el-form-item>
+                <!-- 所属角色 -->
+                <el-form-item label="所属角色" prop="roleIds">
+                    <el-select v-model="ruleForm.roleIds" multiple placeholder="请选择角色">
+                        <el-option v-for="item in roleList" :key="item.id" :label="item.name" :value="item.id"></el-option>
+                    </el-select>
+                </el-form-item>
+                <!-- 所属组织 -->
+                <el-form-item label="所属组织" prop="organid">
+                    <el-tree-select
+                        @change="val => handleUnitChange(val)"
+                        v-model="ruleForm.organid"
+                        node-key="organid"
+                        :data="zztree"
+                        :props="defaultProps"
+                        :default-expanded-keys="[zztree[0].organid]"
+                        check-strictly
+                        :render-after-expand="true"
+                        placeholder="请选择组织"
+                    />
+                </el-form-item>
             </el-form>
             <template #footer>
                 <span class="dialog-footer">
-                    <el-button @click="closeDialog">取 消</el-button>
+                    <el-button @click="dialogVisible = false">取 消</el-button>
                     <el-button type="primary" @click="onSubmit(ruleFormRef)">确 定</el-button>
                 </span>
             </template>
@@ -106,12 +123,16 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, onBeforeUnmount, getCurrentInstance, nextTick } from 'vue';
+import { ref, reactive, onMounted, onBeforeUnmount, getCurrentInstance } from 'vue';
 const { proxy } = getCurrentInstance();
 const tableData = ref([]);
 const ruleFormRef = ref(null);
 const uploadUrl = `${proxy.$api.baseUrl}/api/upload/uploadFile`;
 const headers = { Authorization: localStorage.getItem('token') };
+const currentPage = ref(1);
+const pageSize = ref(10);
+const total = ref(0);
+const roleList = ref([]);
 // 初始模板对象
 const formTemplate = {
     username: '',
@@ -119,19 +140,18 @@ const formTemplate = {
     email: '',
     role: '',
     is_active: '',
-    avatar: {},
+    avatar: { filePath: '' },
 };
-let total = 0;
-let pageSize = 10;
-let currentPage = 1;
 let ruleForm = reactive({ ...formTemplate });
+const zztree = ref(null);
+const defaultProps = { children: 'children', label: 'organame', value: 'organid' };
 // 重置ruleForm数据函数
 const rules = {
-    name: [{ required: true, message: '请输入姓名', trigger: 'blur' }],
-    username: [
+    username: [{ required: true, message: '请输入账号', trigger: 'blur' }],
+    name: [
         {
             required: true,
-            message: '请输入账号',
+            message: '请输入姓名',
             trigger: 'blur',
         },
     ],
@@ -146,61 +166,66 @@ const rules = {
             trigger: ['blur', 'change'],
         },
     ],
-};
-const closeDialog = () => {
-    dialogVisible.value = false;
-    resetForm(); // 重置表单
+    roleIds: [{ required: true, message: '请选择角色', trigger: 'change' }],
+    organid: [{ required: true, message: '请选择组织', trigger: 'change' }],
 };
 // 重置表单sF
 const resetForm = () => {
     ruleForm = reactive({ ...formTemplate });
-    ruleForm.avatar = {};
     if (ruleFormRef.value) ruleFormRef.value.resetFields();
-    console.log(ruleForm.avatar.filePath, '55');
 };
 const dialogVisible = ref(false);
+const handleSizeChange = val => {
+    pageSize.value = val;
+    getInternalUsers();
+};
+
+const handleCurrentChange = val => {
+    currentPage.value = val;
+    getInternalUsers();
+};
 onMounted(() => {
     getInternalUsers();
+    proxy.$api.getRolsList().then(res => {
+        roleList.value = res.data;
+    });
+    // 组织列表
+    proxy.$api.getOrganizationList().then(res => {
+        zztree.value = res.data;
+        // ruleForm.organizationId = res.data[0].id;
+    });
 });
-const handleSizeChange = val => {
-    pageSize = val;
-    currentPage = 1;
-    getInternalUsers();
+onBeforeUnmount(() => {
+    // proxy.$websocket.close();
+});
+const handleAvatarSuccess = (res, uploadFile) => {
+    const { fileName, filePath, fileSize, id } = res.data;
+    ruleForm.avatar = { fileName, filePath, fileSize, id };
 };
-const handleCurrentChange = val => {
-    currentPage = val;
-    getInternalUsers();
-};
-const handleAvatarSuccess = (response, uploadFile) => {
-    console.log(ruleForm, 'ruleFormruleFormruleForm', response.data.id);
-    ruleForm.avatar.id = response.data.id;
-    ruleForm.avatar.filePath = response.data.filePath;
-};
+
 const beforeAvatarUpload = rawFile => {
     if (rawFile.type != 'image/jpeg' && rawFile.type != 'image/png') {
-        proxy.$message.error(' picture must be JPG format!');
+        proxy.$message.error('图片必须是jpg或png格式');
         return false;
     } else if (rawFile.size / 1024 / 1024 > 5) {
-        proxy.$message.error(' picture size can not exceed 5MB!');
+        proxy.$message.error('图片不能超过5M');
         return false;
     }
     return true;
 };
 // 查询用户的函数
 const getInternalUsers = async () => {
-    // 传入分页参数
-    const params = { page: currentPage, pageSize };
-    console.log(params, 'params');
-    const res = await proxy.$api.find(params);
+    let obj = {
+        page: currentPage.value,
+        pageSize: pageSize.value,
+    };
+    const res = await proxy.$api.find(obj);
     tableData.value = res.data.data;
-    total = res.data.total;
-    console.log(res, 'res');
+    total.value = res.data.total;
 };
 const onSubmit = formEl => {
     formEl.validate(async valid => {
         if (valid) {
-            ruleForm.avatars = ruleForm.avatar?.id || null;
-            console.log(ruleForm, 5555);
             //如果id存在，则修改
             if (ruleForm.id) {
                 const data = await proxy.$api.update(ruleForm);
@@ -225,24 +250,16 @@ const onSubmit = formEl => {
 // 修改
 const handleEdit = row => {
     dialogVisible.value = true;
-    Object.assign(ruleForm, row);
-    if (!ruleForm.avatar) {
-        ruleForm.avatar = {};
-    }
-    // if (!ruleForm.avatar) {
-    //     ruleForm.avatar = {
-    //         filePath: '',
-    //         fileName: '',
-    //         id: '',
-    //     };
-    // }
-    console.log(ruleForm, 'ruleFormruleFormruleForm');
+    proxy.$api.internalusersDetail({ id: row.id }).then(res => {
+        Object.assign(ruleForm, res.data);
+        // ruleForm.roleIds = res.data.data.map(item => item.id);
+    });
 };
 // 删除
 const handleDelete = row => {
     proxy.$messageBox
         .confirm('确定要删除吗?', '提示', {
-            type: 'warning',
+            type: '提示',
         })
         .then(async () => {
             const data = await proxy.$api.delete({ id: row.id });
@@ -255,6 +272,7 @@ const handleDelete = row => {
             proxy.$message.info('已取消');
         });
 };
+const handleUnitChange = val => {};
 // 禁用/解除禁用
 const handleRelieve = row => {
     let fromData = {
@@ -263,12 +281,10 @@ const handleRelieve = row => {
     };
     proxy
         .$confirm('此操作将该用户, 是否继续?', '提示', {
-            confirmButtonText: '确定',
-            cancelButtonText: '取消',
-            type: 'warning',
+            type: '提示',
         })
         .then(async () => {
-            const data = await proxy.$api.ban(fromData);
+            const data = await proxy.$api.post('/api/internalusers/ban', fromData);
             if (data.code == 200) {
                 proxy.$message.success(data.message);
                 getInternalUsers();

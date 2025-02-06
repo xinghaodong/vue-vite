@@ -10,9 +10,9 @@
                         <img src="@/assets/QQ.png" alt="" />
                         <span>使用QQ登录</span>
                     </div>
-                    <el-form ref="ruleFormRef" :rules="rules" :model="ruleForm" label-width="100px" size="small">
+                    <el-form ref="ruleFormRef" :rules="rules" :model="ruleForm" label-width="100px" size="mini">
                         <div class="login-form">
-                            <el-form-item label="账号" prop="name">
+                            <el-form-item label="账号" prop="username">
                                 <el-input class="user" v-model="ruleForm.username"></el-input>
                             </el-form-item>
                             <el-form-item label="密码" prop="password">
@@ -37,10 +37,10 @@ import useUserInfoStore from '@/stortes/user'; //引入仓库
 import menuStore from '@/stortes/menu'; //引入仓库
 import { storeToRefs } from 'pinia'; //引入pinia转换
 const userInfoStore = useUserInfoStore();
-// const userdata = storeToRefs(userInfoStore); // 响应式
+const { userInfo } = storeToRefs(userInfoStore); // 响应式
 const { proxy } = getCurrentInstance();
 const menuInfoStore = menuStore();
-const { editableTabsValue } = storeToRefs(menuInfoStore); // 响应式
+const { editableTabsValue, btnPermsArry } = storeToRefs(menuInfoStore); // 响应式
 let intervalId = null;
 let flag = ref(0);
 onMounted(async () => {
@@ -49,9 +49,9 @@ onMounted(async () => {
         // 定时器执行的逻辑
         changeBg();
     }, 5000);
-    if (proxy.$websocket.socket) {
-        proxy.$websocket.close();
-    }
+    // if (proxy.$websocket.socket) {
+    //     proxy.$websocket.close();
+    // }
 });
 // 销毁
 onUnmounted(() => {
@@ -94,11 +94,14 @@ const onSubmit = formEl => {
     formEl.validate(async valid => {
         if (valid) {
             const data = await proxy.$api.login(ruleForm);
+
             if (data.code == 200) {
-                console.log(data.data.token, 'data.data.token');
-                userInfoStore.changeUserInfo(data.data);
+                console.log(userInfoStore, 'userInfoStoreuserInfoStore');
+                menuInfoStore.getPerms(data.data.perms);
+                userInfoStore.changeUserInfo(data.data.informationObject);
+                // userInfoStore.changeUserInfo(data.data);
                 localStorage.setItem('token', data.data.token);
-                localStorage.setItem('refreshToken', data.data.refreshToken || '');
+                localStorage.setItem('refreshToken', data.data.refreshToken);
                 proxy.$router.push('/index');
                 proxy.$message.success(data.message);
             }

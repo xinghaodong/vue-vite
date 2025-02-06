@@ -1,34 +1,39 @@
 import { defineStore } from 'pinia';
-import api from '@/utils/request';
+
 const menuStore = defineStore('menu', {
     // defineStore('menu',{})  menu就是这个仓库的名称name
-
     state: () => ({
         activeTabArray: [
             {
                 name: '首页',
-                url: '/home',
+                url: '/index',
             },
         ],
-        editableTabsValue: '/home',
-        // 路由菜单
-        routsesMue: [],
+        editableTabsValue: '/index',
+        // 不含按钮菜单
+        allArray: [],
+        // 含按钮菜单
+        allMenuArray: [],
+        // 按钮权限
+        btnPermsArry: [],
     }),
     // 修改
     actions: {
-        // 获取所有菜单
-        getRoutesMue(val) {
-            this.routsesMue = val;
+        // 获取按钮权限
+        getPerms(val) {
+            this.btnPermsArry = val;
+            return val;
         },
-        // 获取所有菜单
-        // async fetchMenuData() {
-        //     try {
-        //         const res = await api.menus();
-        //         this.getRoutesMue(res.data); // 如果你需要进一步处理数据
-        //     } catch (error) {
-        //         console.error('Failed to fetch menu data:', error);
-        //     }
-        // },
+        // 获取不含按钮菜单
+        getAllMenu(val) {
+            this.allArray = val;
+            return val;
+        },
+        // 获取含按钮菜单
+        getAllMenuWithBtn(val) {
+            this.allMenuArray = val;
+            // return val;
+        },
         /**
          * 添加一个新的菜单项到活跃菜单数组中。
          * 如果新菜单项的URL已经存在于活跃菜单数组中，则不执行任何操作。
@@ -37,8 +42,15 @@ const menuStore = defineStore('menu', {
          * 对象应包含一个URL属性，用于唯一标识菜单项。
          */
         changeMenu(obj) {
+            console.log(
+                '检查',
+                this.activeTabArray,
+                obj,
+                this.activeTabArray.some(item => item.url == obj.url),
+            );
             // 检查新的菜单项是否已经存在于活跃菜单数组中
             if (this.activeTabArray.some(item => item.url == obj.url)) {
+                // 存在就
                 return;
             }
             // 如果新菜单项不存在于活跃菜单数组中，则将其添加到数组中
@@ -75,7 +87,9 @@ const menuStore = defineStore('menu', {
         // 关闭其他tabs标签页
         changeRemoveOtherAll(key) {
             let index = this.activeTabArray.findIndex(item => item.url === key);
-            // 删除除了当前点的tabs标签以及首页url: '/workBench'的标签
+            // 删除除了当前点的tabs标签以及首页url: '/index'的标签
+            // this.activeTabArray.splice(index + 1);
+            // this.activeTabArray.splice(1, index - 1);
             this.activeTabArray = [this.activeTabArray[0], this.activeTabArray[index]];
             this.editableTabsValue = key;
         },
@@ -93,19 +107,16 @@ const menuStore = defineStore('menu', {
         changeRemoveAll() {
             this.activeTabArray = [this.activeTabArray[0]];
             this.editableTabsValue = this.activeTabArray[0].url;
-            console.log('调用了关闭标签功能');
         },
-
-        // 异步调用接口获取菜单
-        async getMenus() {
-            return await api.menus();
-            console.log('我是全局数据', res);
+        clearAll() {
+            this.allArray = [];
+            this.btnPermsArry = [];
         },
     },
     persist: {
         key: 'piniaMenuStore', //存储名称
         storage: localStorage, // 存储方式
-        paths: ['activeTabArray', 'editableTabsValue'], //指定 state 中哪些数据需要被持久化。[] 表示不持久化任何状态，undefined 或 null 表示持久化整个 state
+        paths: ['activeTabArray', 'editableTabsValue', 'allArray', 'btnPermsArry'], //指定 state 中哪些数据需要被持久化。[] 表示不持久化任何状态，undefined 或 null 表示持久化整个 state
     },
 });
 

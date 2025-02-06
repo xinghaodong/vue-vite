@@ -21,6 +21,9 @@ body,
 .mb-4 {
     margin-bottom: 16px;
 }
+.table {
+    display: block !important;
+}
 /*#nprogress .bar {
     background-color: red !important;
 }*/

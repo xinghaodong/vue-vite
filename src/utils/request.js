@@ -2,11 +2,11 @@ import axios from 'axios';
 import QS from 'qs';
 import { ElMessage } from 'element-plus';
 import router from '@/router';
-const { VITE_PROXY_DOMAIN_REAL, VITE_STATIC_URL, VITE_PROXY_DOMAIN, MODE } = import.meta.env;
-const baseUrl = MODE == 'development' ? VITE_PROXY_DOMAIN : VITE_PROXY_DOMAIN_REAL;
+const { VITE_PROXY_DOMAIN_REAL, VITE_STATIC_URL, VITE_PROXY_DOMAIN } = import.meta.env;
+const baseUrl = VITE_PROXY_DOMAIN;
 const img_url = VITE_STATIC_URL;
 axios.defaults.baseURL = baseUrl;
-console.log(baseUrl, '当前环境：', VITE_PROXY_DOMAIN_REAL, '当前图片资源：', VITE_STATIC_URL);
+console.log('当前环境：', VITE_PROXY_DOMAIN_REAL, '当前附件资源：', VITE_STATIC_URL);
 // axios.defaults.headers['Content-Type'] = 'application/json';
 /**
  * 控制当前是否处于刷新状态的标志变量。
@@ -31,16 +31,13 @@ let requests = [];
 axios.interceptors.request.use(
     async config => {
         // 从本地存储中获取令牌，并设置到请求头中
-        const token = localStorage.getItem('token');
-        if (token) {
-            config.headers.Authorization = `Bearer ${token}`; // 确保使用 Bearer 方式
-        }
+        config.headers.Authorization = `Bearer ${localStorage.getItem('token') || ''}`;
         return config;
     },
     error => {
         // 错误处理：将错误封装成Promise.reject形式
         return Promise.reject(error);
-    }
+    },
 );
 // 响应拦截器
 axios.interceptors.response.use(
@@ -58,7 +55,7 @@ axios.interceptors.response.use(
                         // 替换token
                         localStorage.setItem('token', token);
                         localStorage.setItem('refreshToken', refreshToken);
-                        response.headers.Authorization = `Bearer ${token}`;
+                        response.headers.Authorization = `Bearer ${localStorage.getItem('token') || ''}`;
                         // token 刷新后将数组的方法重新执行
                         requests.forEach(cb => cb(token));
                         requests = []; // 重新请求完清空
@@ -78,7 +75,7 @@ axios.interceptors.response.use(
                 return new Promise(resolve => {
                     // 用函数形式将 resolve 存入，等待刷新后再执行
                     requests.push(token => {
-                        response.headers.Authorization = `${token}`;
+                        response.headers.Authorization = `Bearer ${localStorage.getItem('token') || ''}`;
                         resolve(axios(response.config));
                     });
                 });
@@ -91,7 +88,6 @@ axios.interceptors.response.use(
             // return Promise.resolve(response); //进行中
         }
         if (response.data.code !== 200) {
-            console.log('服务器异常', response);
             ElMessage.warning(response.data.message);
         }
 
@@ -100,11 +96,12 @@ axios.interceptors.response.use(
     },
     // 服务器状态码不是200的情况
     async error => {
+        console.log(error, 'error');
         ElMessage.warning(error.response.data.message);
         if (error.response.status) {
             return Promise.reject(error.response);
         }
-    }
+    },
 );
 
 /**
@@ -152,14 +149,6 @@ export default {
     login(params) {
         return oPost(baseUrl + '/auth/login', params);
     },
-    //更新菜单
-    updatemenu(params) {
-        return oPost(baseUrl + '/menus/update', params);
-    },
-    // 菜单详情
-    getmenu(params) {
-        return oGet(baseUrl + '/menus/detail', params);
-    },
     // 删除菜单
     deletemenu(params) {
         return oPost(baseUrl + '/menus/deletemenu', params);
@@ -171,6 +160,14 @@ export default {
     // 获取菜单列表
     menus(params) {
         return oGet(baseUrl + '/menus', params);
+    },
+    // 修改菜单
+    updatemenu(params) {
+        return oPost(baseUrl + '/menus/update', params);
+    },
+    // 菜单详情
+    detail(params) {
+        return oGet(baseUrl + '/menus/detail', params);
     },
     //用户管理查询
     find(params) {
@@ -188,52 +185,115 @@ export default {
     delete(params) {
         return oPost(baseUrl + '/internalusers/delete', params);
     },
+    // 用户详情
+    internalusersDetail(params) {
+        return oGet(baseUrl + '/internalusers/detail', params);
+    },
     // 禁用
     ban(params) {
         return oPost(baseUrl + '/internalusers/ban', params);
     },
-    // 新增活动
-    addActivity(params) {
-        return oPost(baseUrl + '/activity/addActivity', params);
-    },
-    // 活动列表
-    getActivityList(params) {
-        return oGet(baseUrl + '/activity/getActivityList', params);
-    },
-    // 活动详情接口
-    getActivityDetail(params) {
-        return oGet(baseUrl + '/activity/getActivityDetail', params);
-    },
-    // 删除活动
-    deleteActivity(params) {
-        return oPost(baseUrl + '/activity/deleteActivity', params);
-    },
-    // 角色列表
-    getRoleList(params) {
+
+    // 获取角色列表
+    getRolsList(params) {
         return oGet(baseUrl + '/role/findAll', params);
     },
-    // 新增角色
-    addRole(params) {
+    // 添加角色
+    addRoles(params) {
         return oPost(baseUrl + '/role/create', params);
     },
     // 删除角色
-    deleteRole(params) {
+    deleteRoles(params) {
         return oPost(baseUrl + '/role/remove', params);
     },
-    // 更新角色
-    updateRole(params) {
+    // 修改角色
+    updateRoles(params) {
         return oPost(baseUrl + '/role/update', params);
     },
-    // 获取角色详情
-    getRoleDetail(params) {
+    // 角色详情
+    detailRoles(params) {
         return oGet(baseUrl + '/role/detail', params);
     },
-    // 角色配置权限
+
+    // 给角色分配菜单
     assignMenusToRole(params) {
         return oPost(baseUrl + '/role/assignMenusToRole', params);
     },
-    // 获取角色权限
     getRoleMenus(params) {
         return oGet(baseUrl + '/role/getRoleMenus', params);
     },
+
+    // 组织列表
+    getOrganizationList(params) {
+        return oGet(baseUrl + '/orgManagement', params);
+    },
+    // 添加组织
+    addOrganization(params) {
+        return oPost(baseUrl + '/orgManagement/add', params);
+    },
+    // 组织详情
+    detailOrganization(params) {
+        return oGet(baseUrl + '/orgManagement/detail', params);
+    },
+    // 修改组织
+    updateOrganization(params) {
+        return oPost(baseUrl + '/orgManagement/update', params);
+    },
+    // 删除组织
+    deleteOrganization(params) {
+        return oPost(baseUrl + '/orgManagement/delete', params);
+    },
+    // 新增流程图
+    addFlowChart(params) {
+        return oPost(baseUrl + '/process-approval', params);
+    },
+    // 模板列表
+    getFlowChartList(params) {
+        return oGet(baseUrl + '/process-approval', params);
+    },
+    // 模板详情
+    detailFlowChart(params) {
+        return oGet(baseUrl + '/process-approval/detail', params);
+    },
 };
+
+//封装post/get请求
+// export default {
+//     post(url, data) {
+//         return new Promise((resolve, reject) => {
+//             axios({
+//                 method: 'post',
+//                 url,
+//                 // data,
+//                 data: QS.stringify(data), //参数序列化
+//             })
+//                 .then(res => {
+//                     if (res) {
+//                         resolve(res.data);
+//                     }
+//                 })
+//                 .catch(err => {
+//                     reject(err);
+//                 });
+//         });
+//     },
+//     get(url, data) {
+//         return new Promise((resolve, reject) => {
+//             axios({
+//                 method: 'get',
+//                 url,
+//                 params: data,
+//             })
+//                 .then(res => {
+//                     if (res) {
+//                         resolve(res.data);
+//                     }
+//                 })
+//                 .catch(err => {
+//                     reject(err);
+//                 });
+//         });
+//     },
+//     baseURL: axios.defaults.baseURL,
+//     img_url,
+// };

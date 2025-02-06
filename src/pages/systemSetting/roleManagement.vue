@@ -1,27 +1,29 @@
 <template>
-    <div class="tables">
+    <div class="table">
         <!-- <table-search :searchList="searchList" @search="search" @reset="reset"></table-search> -->
         <div class="table-box page-main">
-            <div class="table-btn">
+            <div class="table-btn" style="margin-bottom: 20px">
                 <el-button type="primary" plain @click="add">新增角色</el-button>
+                <!-- <el-button style="width: 100px" plain type="primary" @click="getOrganPostCustMsg">角色人员全览</el-button> -->
             </div>
-            <el-table :data="tableData" highlight-current-row style="width: 100%" height="100%" v-loading="loading" border row-key="roid">
+            <el-table :data="tableData" style="width: 100%; margin-bottom: 20px" border>
                 <el-table-column label="角色名称" prop="name"></el-table-column>
-                <el-table-column label="角色是否有效">
+                <el-table-column label="角色是否有效" prop="states">
                     <template v-slot="scope">
-                        <el-icon class="tooltip-icon" :class="scope.row.states == 1 ? 'green-icon' : 'red-icon'">
-                            <component :is="scope.row.states == 1 ? 'check' : 'close'" />
+                        <el-icon class="iconS">
+                            <component :class="scope.row.states == 1 ? 'el-icon-check' : 'el-icon-close'" :is="scope.row.states == 1 ? 'Check' : 'Close'"></component>
                         </el-icon>
                     </template>
                 </el-table-column>
-                <el-table-column label="操作" fixed="right">
+                <el-table-column label="操作" fixed="right" width="180">
                     <template v-slot="scope">
-                        <el-button link size="small" type="primary" @click="editItem(scope.row.id)">编辑</el-button>
-                        <el-button link size="small" type="primary" @click="selectResource(scope.row.id)">分配资源</el-button>
+                        <el-button type="primary" link @click="editItem(scope.row.id)">编辑</el-button>
+                        <el-button type="primary" link @click="selectResource(scope.row.id)">分配资源</el-button>
                     </template>
                 </el-table-column>
             </el-table>
-            <el-pagination
+
+            <!-- <el-pagination
                 style="padding: 16px"
                 background
                 @size-change="handleSizeChange"
@@ -31,11 +33,10 @@
                 :page-size="pageSize"
                 layout="total, sizes,->, prev, pager, next, jumper"
                 :total="total"
-            >
-            </el-pagination>
+            ></el-pagination> -->
 
             <el-dialog :title="title" width="700px" v-model="dialogVisible" :before-close="handleClose">
-                <el-form :model="ruleForm" :rules="rules" ref="ruleFormRef" label-width="100px" class="demo-ruleForm">
+                <el-form :model="ruleForm" :rules="rules" label-width="100px" class="demo-ruleForm">
                     <el-row>
                         <el-col :xs="24" :sm="24" :md="24" :lg="24" :xl="24">
                             <el-form-item label="角色名称" prop="name">
@@ -44,22 +45,21 @@
                         </el-col>
                         <el-col :xs="24" :sm="24" :md="24" :lg="24" :xl="24" v-if="ruleForm.states !== 2">
                             <el-form-item label="是否有效" prop="states">
-                                <el-radio v-model="ruleForm.states" :label="1" border>是</el-radio>
-                                <el-radio v-model="ruleForm.states" :label="0" border>否</el-radio>
+                                <el-radio v-model="ruleForm.states" :value="1" border>是</el-radio>
+                                <el-radio v-model="ruleForm.states" :value="0" border>否</el-radio>
                             </el-form-item>
                         </el-col>
                     </el-row>
                 </el-form>
                 <template #footer>
                     <el-button @click="handleClose">取消</el-button>
-                    <el-button type="primary" @click="submitForm(ruleFormRef)">保存</el-button>
+                    <el-button type="primary" @click="submitForm">保存</el-button>
                 </template>
             </el-dialog>
-
-            <el-dialog title="分配资源" width="700px" v-model="dialogVisibleResource" :before-close="handleClose1">
-                <el-form v-if="dialogVisibleResource" ref="ruleFormRef" :model="ruleData" label-width="100px" class="demo-ruleForm">
+            <el-dialog title="分配资源" width="700px" v-model="dialogVisibleResource">
+                <el-form v-if="dialogVisibleResource" :model="ruleData" label-width="100px" class="demo-ruleForm">
                     <el-form-item label="资源权限">
-                        <el-checkbox v-model="ruleData.menucheckstrictly" :true-value="1" :false-value="0">父子联动</el-checkbox>
+                        <el-checkbox v-model="ruleData.menucheckstrictly" :true-value="1" :false-label="0">父子联动</el-checkbox>
                     </el-form-item>
                 </el-form>
                 <el-tree
@@ -68,161 +68,114 @@
                     :data="resourceList"
                     show-checkbox
                     node-key="id"
-                    :props="{ children: 'children', label: 'name' }"
+                    :props="{
+                        children: 'children',
+                        label: 'name',
+                    }"
                     :check-strictly="!ruleData.menucheckstrictly"
                 >
                 </el-tree>
+
                 <template #footer>
-                    <el-button @click="handleClose1">取消</el-button>
+                    <el-button @click="dialogVisibleResource = false">取消</el-button>
                     <el-button type="primary" @click="submitResource">保存</el-button>
                 </template>
             </el-dialog>
-
-            <!-- Remove "分配员工" dialog -->
-            <!-- Remove "角色人员全览" dialog -->
         </div>
     </div>
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, getCurrentInstance } from 'vue';
+import { ref, reactive, onMounted, getCurrentInstance, nextTick } from 'vue';
 const { proxy } = getCurrentInstance();
 
 const title = ref('');
-const ruleFormRef = ref(null);
 const dialogVisible = ref(false);
-const defaultRuleFormState = {
-    name: '',
-    states: 1,
-};
-let ruleForm = reactive({ ...defaultRuleFormState }); // 或者改为 ref
+const formTemplate = { name: '', states: 1 };
+let ruleForm = reactive({ ...formTemplate });
 const tableData = ref([]);
 const loading = ref(false);
-let total = 0;
-let pageSize = 10;
-let currentPage = 1;
+const dialogVisibleResource = ref(false);
+const resourceList = ref([]);
+const ruleData = reactive({ menucheckstrictly: 0 });
 const rules = {
     name: [{ required: true, message: '请输入角色名称', trigger: 'blur' }],
 };
-const dialogVisibleResource = ref(false);
-const defaultRuleDataState = {
-    menucheckstrictly: 0,
-};
-let ruleData = reactive({ ...defaultRuleDataState });
-let resourceList = ref([]);
-const tree = ref(null);
-
-const resetForm = () => {
-    if (ruleFormRef.value) ruleFormRef.value.resetFields();
-    Object.assign(ruleForm, defaultRuleFormState); // 或者 ruleForm.value = { ...defaultRuleFormState };
-    console.log(ruleForm, 'ruleForm');
-};
-
+const tree = ref(null); // 用 ref 定义树组件的引用
 const add = () => {
-    title.value = '新增';
+    title.value = '新增角色';
     dialogVisible.value = true;
-    resetForm();
+    Object.assign(ruleForm, formTemplate);
 };
 
 const handleClose = () => {
-    resetForm();
     dialogVisible.value = false;
 };
 
-const handleClose1 = () => {
-    dialogVisibleResource.value = false;
-};
-
-// 分配资源
 const selectResource = async id => {
+    ruleForm.id = id;
     const res = await proxy.$api.getRoleMenus({ id });
-    console.log(res.data, 'res');
     dialogVisibleResource.value = true;
-    setTimeout(() => {
+    nextTick(() => {
         tree.value.setCheckedKeys(res.data);
-    }, 10);
+    });
 };
-
-// 分配资源保存
-const submitResource = async () => {
+const submitResource = () => {
     let treeArray = tree.value.getCheckedKeys();
     let treeArray1 = tree.value.getHalfCheckedKeys();
     if (!treeArray.length) {
-        treeArray = 0;
+        treeArray = [];
     } else {
         treeArray = treeArray.concat(treeArray1);
     }
-    let obj = {
-        id: 1,
-        menuIds: treeArray,
-    };
-    console.log(obj, 5555);
-    const res = await proxy.$api.assignMenusToRole(obj);
-    if (res.code == 200) {
+    console.log(ruleForm, treeArray, '333');
+    proxy.$api.assignMenusToRole({ id: ruleForm.id, menuIds: treeArray || [] }).then(res => {
         proxy.$message.success(res.message);
         dialogVisibleResource.value = false;
+    });
+};
+
+const submitForm = () => {
+    if (title.value === '修改角色') {
+        proxy.$api.updateRoles(ruleForm).then(() => {
+            dialogVisible.value = false;
+            getTableData();
+        });
+    } else {
+        proxy.$api.addRoles(ruleForm).then(() => {
+            dialogVisible.value = false;
+            getTableData();
+        });
     }
 };
 
-const submitForm = formEl => {
-    if (!formEl) return;
-    formEl.validate(valid => {
-        if (valid) {
-            console.log(ruleForm, '455');
-            if (title.value === '修改角色') {
-                proxy.$api.updateRole(ruleForm).then(() => {
-                    dialogVisible.value = false;
-                    getTableData();
-                });
-            } else {
-                proxy.$api.addRole(ruleForm).then(() => {
-                    dialogVisible.value = false;
-                    getTableData();
-                });
-            }
-        } else {
-            console.log('error submit!');
-            return false;
-        }
-    });
-};
-
-const editItem = id => {
+const editItem = async id => {
     title.value = '修改角色';
-    proxy.$api.getRoleDetail({ id }).then(res => {
-        Object.assign(ruleForm, res.data);
-        dialogVisible.value = true;
-    });
+    dialogVisible.value = true;
+    const data = await proxy.$api.detailRoles({ id });
+    Object.assign(ruleForm, data.data);
 };
 
-const getTableData = () => {
+const getTableData = async () => {
     loading.value = true;
-    proxy.$api.getRoleList({ currentPage: currentPage, pageSize: pageSize }).then(res => {
-        tableData.value = res.data;
-        // total = res.total; // 假设返回的总条数字段为 total
-        loading.value = false;
-    });
+    const data = await proxy.$api.getRolsList();
+    tableData.value = data.data;
 };
+// const handleSizeChange = val => {
+//     pageSize.value = val;
+//     getTableData();
+// };
 
-const getmenu = async () => {
-    const res = await proxy.$api.menus();
-    resourceList.value = res.data;
-    console.log(resourceList.value, 'resourceList');
-};
-
-const handleSizeChange = val => {
-    pageSize = val;
-    getTableData();
-};
-
-const handleCurrentChange = val => {
-    currentPage.value = val;
-    getTableData();
-};
+// const handleCurrentChange = val => {
+//     currentPage.value = val;
+//     getTableData();
+// };
 
 onMounted(() => {
     getTableData();
-    getmenu();
+    proxy.$api.menus().then(res => {
+        resourceList.value = res.data;
+    });
 });
 </script>
 
@@ -230,30 +183,14 @@ onMounted(() => {
 .el-icon-search {
     cursor: pointer;
 }
-
+.iconS {
+    font-size: 22px;
+}
 .el-icon-check {
     color: #00ff00;
-    font-weight: 800;
-    font-size: 20px;
 }
 
 .el-icon-close {
     color: #ff0000;
-    font-weight: 800;
-    font-size: 20px;
-}
-
-.table-btn:not(:empty) {
-    padding: 0 16px 16px 0;
-}
-.green-icon {
-    color: green;
-    font-size: 18px;
-    font-weight: 600;
-}
-.red-icon {
-    color: red;
-    font-size: 18px;
-    font-weight: 600;
 }
 </style>

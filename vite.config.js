@@ -5,7 +5,6 @@ import path from 'path';
 import Unocss from 'unocss/vite';
 export default defineConfig(({ mode }) => {
     const { VITE_PORT, VITE_BASE_URL, VITE_PROXY_DOMAIN_REAL } = loadEnv(mode, process.cwd());
-    console.log(mode, 'mode');
     const alias = {
         // 设置路径
         // '~': path.resolve(__dirname, './'),
@@ -26,7 +25,6 @@ export default defineConfig(({ mode }) => {
                     // 是否改变请求的源地址，这里设置为 true，表示强制使用绝对路径
                     changeOrigin: true,
                     // 路径重写规则，这里将 /api 开头的请求路径替换为空字符串，即去掉 /api 前缀
-                    // rewrite: path => path.replace(/^\/api/, ''),
                     rewrite: path => path.replace(/^\/api/, ''),
                 },
             },
