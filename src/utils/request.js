@@ -31,7 +31,7 @@ let requests = [];
 axios.interceptors.request.use(
     async config => {
         // 从本地存储中获取令牌，并设置到请求头中
-        config.headers.Authorization = `Bearer ${localStorage.getItem('token') || ''}`;
+        config.headers.Authorization = `Bearer ${sessionStorage.getItem('token') || ''}`;
         return config;
     },
     error => {
@@ -48,22 +48,22 @@ axios.interceptors.response.use(
                 //调用刷新token的接口
                 return axios
                     .post('/api/auth/refresh', {
-                        refreshToken: localStorage.getItem('refreshToken') || '',
+                        refreshToken: sessionStorage.getItem('refreshToken') || '',
                     })
                     .then(res => {
                         const { token, refreshToken } = res.data.data;
                         // 替换token
-                        localStorage.setItem('token', token);
-                        localStorage.setItem('refreshToken', refreshToken);
-                        response.headers.Authorization = `Bearer ${localStorage.getItem('token') || ''}`;
+                        sessionStorage.setItem('token', token);
+                        sessionStorage.setItem('refreshToken', refreshToken);
+                        response.headers.Authorization = `Bearer ${sessionStorage.getItem('token') || ''}`;
                         // token 刷新后将数组的方法重新执行
                         requests.forEach(cb => cb(token));
                         requests = []; // 重新请求完清空
                         return axios(response.config);
                     })
                     .catch(err => {
-                        localStorage.removeItem('token');
-                        localStorage.removeItem('refreshToken');
+                        sessionStorage.removeItem('token');
+                        sessionStorage.removeItem('refreshToken');
                         router.push('/login');
                         return Promise.reject(err);
                     })
@@ -75,7 +75,7 @@ axios.interceptors.response.use(
                 return new Promise(resolve => {
                     // 用函数形式将 resolve 存入，等待刷新后再执行
                     requests.push(token => {
-                        response.headers.Authorization = `Bearer ${localStorage.getItem('token') || ''}`;
+                        response.headers.Authorization = `Bearer ${sessionStorage.getItem('token') || ''}`;
                         resolve(axios(response.config));
                     });
                 });

@@ -130,17 +130,17 @@ router.beforeEach(async (to, from, next) => {
         dynamicRoutesLoaded = false;
         useMenuStores.changeRemoveAll();
         useMenuStores.clearAll();
-        localStorage.clear(); // 清除所有 localStorage 数据
+        sessionStorage.clear(); // 清除所有 sessionStorage 数据
     };
     if (to.path === '/login') {
-        // localStorage.clear(); // 清除所有 localStorage 数据
+        // sessionStorage.clear(); // 清除所有 sessionStorage 数据
         // useMenuStores.changeRemoveAll();
         funcAll();
         next(); // 登录页直接放行
         return;
     }
     // 如果没有 refToken 则跳转回登录页
-    if (!localStorage.getItem('refreshToken')) {
+    if (!sessionStorage.getItem('refreshToken')) {
         funcAll();
         return next('/login');
     }

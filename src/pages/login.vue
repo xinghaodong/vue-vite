@@ -100,8 +100,8 @@ const onSubmit = formEl => {
                 menuInfoStore.getPerms(data.data.perms);
                 userInfoStore.changeUserInfo(data.data.informationObject);
                 // userInfoStore.changeUserInfo(data.data);
-                localStorage.setItem('token', data.data.token);
-                localStorage.setItem('refreshToken', data.data.refreshToken);
+                sessionStorage.setItem('token', data.data.token);
+                sessionStorage.setItem('refreshToken', data.data.refreshToken);
                 proxy.$router.push('/index');
                 proxy.$message.success(data.message);
             }

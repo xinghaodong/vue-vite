@@ -217,8 +217,8 @@ const getSocketData = res => {
         };
         ElNotification(mesg);
         // proxy.$websocket.close();
-        localStorage.removeItem('token');
-        localStorage.removeItem('refreshToken');
+        sessionStorage.removeItem('token');
+        sessionStorage.removeItem('refreshToken');
         setTimeout(() => {
             proxy.$router.push('/login');
         }, 500);
@@ -226,7 +226,7 @@ const getSocketData = res => {
 };
 const getscoket = () => {
     // 从本地缓存里取登录人id
-    // const loginId = JSON.parse(localStorage.getItem('piniaStore'));
+    // const loginId = JSON.parse(sessionStorage.getItem('piniaStore'));
     // let url = `ws://localhost:3001?id=${loginId.userInfo.id}`;
     // proxy.$websocket.initWebSocket(url);
     // window.addEventListener('onmessageWS', getSocketData);

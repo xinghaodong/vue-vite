@@ -89,7 +89,7 @@ editorConfig.MENU_CONF['uploadImage'] = {
     server: uploadUrl,
     base64Limitsize: 5 * 1024,
     headers: {
-        Authorization: localStorage.getItem('token'),
+        Authorization: sessionStorage.getItem('token'),
     },
     customInsert(res, insertFn) {
         insertFn(proxy.$api.img_url + res.data.avatarPath, res.data.avatarPath, res.data.avatarPath);

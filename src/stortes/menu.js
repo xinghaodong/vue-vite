@@ -115,7 +115,7 @@ const menuStore = defineStore('menu', {
     },
     persist: {
         key: 'piniaMenuStore', //存储名称
-        storage: localStorage, // 存储方式
+        storage: sessionStorage, // 存储方式
         paths: ['activeTabArray', 'editableTabsValue', 'allArray', 'btnPermsArry'], //指定 state 中哪些数据需要被持久化。[] 表示不持久化任何状态，undefined 或 null 表示持久化整个 state
     },
 });
