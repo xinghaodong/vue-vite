@@ -116,7 +116,9 @@ const setupDynamicRoutes = async () => {
             redirect: '/404', // 重定向到 404 页面
         });
         return res;
-    } catch (error) {}
+    } catch (error) {
+        console.error(error, '3333');
+    }
 };
 
 // 路由守卫
