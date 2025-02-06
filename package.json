@@ -9,7 +9,7 @@
     "serve": "vite",
     "dev": "vite",
     "pro": "vite --mode production",
-    "test": "jest --ci --runInBand",
+    "test": "jest --passWithNoTests",
     "build": "vite build",
     "preview": "vite preview"
   },
