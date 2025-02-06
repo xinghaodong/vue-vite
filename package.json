@@ -31,6 +31,7 @@
   "devDependencies": {
     "@vitejs/plugin-vue": "^5.0.4",
     "autoprefixer": "^10.4.19",
+    "jest": "^29.7.0",
     "postcss": "^8.4.38",
     "tailwindcss": "^3.4.4",
     "unocss": "^0.61.0",

@@ -9,11 +9,10 @@ on:
 jobs:
     build:
         runs-on: ubuntu-latest
-        timeout-minutes: 3 # 设置超时时间
 
         strategy:
             matrix:
-                node-version: [20.8.1] # 指定为 Node.js 20.8.1
+                node-version: [20.8.1]
 
         steps:
             - name: Checkout Repository
@@ -31,10 +30,11 @@ jobs:
                   npm cache clean --force
                   npm install --legacy-peer-deps
 
+            - name: Install Jest (if not included)
+              run: npm install --save-dev jest
+
             - name: Build Project
               run: npm run build --if-present
 
             - name: Run Tests
-              run: |
-                  npm test -- --forceExit
-                  pkill -f "your-server-process-name"  # 终止相关进程
+              run: npm test
