@@ -40,8 +40,10 @@ jobs:
               run: npm test
 
             - name: Start SSH Agent
-              run: eval "$(ssh-agent -s)"
-              id: sshAgentStep
+              run: |
+                  eval "$(ssh-agent -s)"
+                  echo "SSH_AUTH_SOCK=$SSH_AUTH_SOCK" >> $GITHUB_ENV
+                  echo "SSH_AGENT_PID=$SSH_AGENT_PID" >> $GITHUB_ENV
 
             - name: Add SSH Private Key to SSH Agent
               run: echo "$SSH_PRIVATE_KEY" | tr -d '\r' | ssh-add -
