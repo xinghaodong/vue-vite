@@ -48,12 +48,6 @@ jobs:
       - name: Set Permissions for Known Hosts
         run: chmod 644 ~/.ssh/known_hosts
 
-      - name: Deploy to Server using SCP
-        run: |
-          scp -o StrictHostKeyChecking=no -i /tmp/id_rsa ./dist/* root@${{ secrets.SERVER_IP }}:/var/www/html/
-        env:
-          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-
       - name: Write SSH Private Key to File
         run: echo "$SSH_PRIVATE_KEY" > /tmp/id_rsa
         env:
@@ -61,3 +55,9 @@ jobs:
 
       - name: Set Permissions for SSH Private Key
         run: chmod 600 /tmp/id_rsa
+
+      - name: Deploy to Server using SCP
+        run: scp -o StrictHostKeyChecking=no -i /tmp/id_rsa ./dist/* root@${{ secrets.SERVER_IP }}:/var/www/html/
+
+
+
