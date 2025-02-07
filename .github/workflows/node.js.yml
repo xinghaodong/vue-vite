@@ -1,4 +1,4 @@
-name: Node.js CI
+name: Node.js CI/CD
 
 on:
     push:
@@ -12,7 +12,7 @@ jobs:
 
         strategy:
             matrix:
-                node-version: [20.8.1]
+                node-version: [20.x, 22.x]
 
         steps:
             - name: Checkout Repository
@@ -24,14 +24,8 @@ jobs:
                   node-version: ${{ matrix.node-version }}
                   cache: 'npm'
 
-            - name: Clean and Install Dependencies
-              run: |
-                  rm -rf node_modules package-lock.json
-                  npm cache clean --force
-                  npm install --legacy-peer-deps
-
-            - name: Install Jest (if not included)
-              run: npm install --save-dev jest
+            - name: Install Dependencies
+              run: npm ci
 
             - name: Build Project
               run: npm run build --if-present
@@ -39,22 +33,13 @@ jobs:
             - name: Run Tests
               run: npm test
 
-            - name: Create SSH Directory
-              run: mkdir -p ~/.ssh
-
-            - name: Add Known Hosts
-              run: ssh-keyscan -H ${{ secrets.SERVER_IP }} >> ~/.ssh/known_hosts
-
-            - name: Set Permissions for Known Hosts
-              run: chmod 644 ~/.ssh/known_hosts
-
-            - name: Write SSH Private Key to File
-              run: echo "$SSH_PRIVATE_KEY" > /tmp/id_rsa
-              env:
-                  SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-
-            - name: Set Permissions for SSH Private Key
-              run: chmod 600 /tmp/id_rsa
-
-            - name: Deploy to Server using SCP
-              run: scp -o StrictHostKeyChecking=no -i /tmp/id_rsa -r ./dist/* root@${{ secrets.SERVER_IP }}:/var/www/html/
+            # 部署到服务器
+            - name: Deploy to Server
+              uses: appleboy/scp-action@v0.0.8 # 指定稳定版本
+              with:
+                  host: ${{ secrets.SERVER_IP }}
+                  username: root
+                  key: ${{ secrets.SSH_PRIVATE_KEY }} # 使用 Secrets 中的 SSH 私钥
+                  source: './dist/*'
+                  target: '/var/www/html/'
+                  debug: true # 开启调试模式，查看详细日志
