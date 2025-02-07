@@ -39,6 +39,9 @@ jobs:
             - name: Run Tests
               run: npm test
 
+            - name: Create SSH Directory
+              run: mkdir -p ~/.ssh
+
             - name: Start SSH Agent
               run: |
                   eval "$(ssh-agent -s)"
