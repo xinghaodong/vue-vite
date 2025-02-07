@@ -39,6 +39,17 @@ jobs:
             - name: Run Tests
               run: npm test
 
+            - name: Set up SSH agent
+              run: eval "$(ssh-agent -s)"
+
+            - name: Add SSH private key to the agent store
+              run: ssh-add - <<< "$SSH_PRIVATE_KEY"
+              env:
+                  SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+
+            - name: Known Hosts
+              run: ssh-keyscan -H ${{ secrets.SERVER_IP }} >> ~/.ssh/known_hosts
+
             - name: Deploy to Server
               uses: appleboy/scp-action@v0.1.0 # 推荐指定版本
               with:
@@ -47,4 +58,3 @@ jobs:
                   key: ${{ secrets.SSH_PRIVATE_KEY }}
                   source: './dist/*' # 确保正确传递路径
                   target: '/var/www/html/' # 目标路径
-
