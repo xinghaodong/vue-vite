@@ -4,7 +4,7 @@
             <div class="login-wrapper">
                 <div class="mask"></div>
                 <div class="login-content">
-                    <h1>登 录</h1>
+                    <h1>欢 迎 登 录</h1>
                     <div class="title-text">欢迎来到这个界面，您可以通过这个界面登录到系统，也可以选择其他的登录方式.</div>
                     <div v-show="false" class="other-login">
                         <img src="@/assets/QQ.png" alt="" />
