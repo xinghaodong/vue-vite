@@ -40,10 +40,11 @@ jobs:
               run: npm test
 
             - name: Deploy to Server
-              uses: appleboy/scp-action
+              uses: appleboy/scp-action@v0.1.0 # 推荐指定版本
               with:
                   host: ${{ secrets.SERVER_IP }}
                   username: root
                   key: ${{ secrets.SSH_PRIVATE_KEY }}
-                  source: './dist/*'
-                  target: '/var/www/html/'
+                  source: './dist/*' # 确保正确传递路径
+                  target: '/var/www/html/' # 目标路径
+
