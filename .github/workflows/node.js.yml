@@ -39,9 +39,6 @@ jobs:
             - name: Run Tests
               run: npm test
 
-            - name: Print private key length
-              run: echo "${{ secrets.SSH_PRIVATE_KEY }}" | wc -c
-
             - name: Deploy to Server
               uses: appleboy/scp-action@v0.1.0 # 推荐指定版本
               with:
