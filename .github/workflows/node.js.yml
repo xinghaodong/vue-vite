@@ -39,15 +39,16 @@ jobs:
             - name: Run Tests
               run: npm test
 
-            - name: Set up SSH agent
+            - name: Start SSH Agent
               run: eval "$(ssh-agent -s)"
+              id: sshAgentStep
 
-            - name: Add SSH private key to the agent store
-              run: ssh-add - <<< "$SSH_PRIVATE_KEY"
+            - name: Add SSH Private Key to SSH Agent
+              run: echo "$SSH_PRIVATE_KEY" | tr -d '\r' | ssh-add -
               env:
                   SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
 
-            - name: Known Hosts
+            - name: Add Known Hosts
               run: ssh-keyscan -H ${{ secrets.SERVER_IP }} >> ~/.ssh/known_hosts
 
             - name: Deploy to Server
@@ -58,3 +59,4 @@ jobs:
                   key: ${{ secrets.SSH_PRIVATE_KEY }}
                   source: './dist/*' # 确保正确传递路径
                   target: '/var/www/html/' # 目标路径
+
