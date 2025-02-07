@@ -6,7 +6,7 @@ const { VITE_PROXY_DOMAIN_REAL, VITE_STATIC_URL, VITE_PROXY_DOMAIN } = import.me
 const baseUrl = VITE_PROXY_DOMAIN;
 const img_url = VITE_STATIC_URL;
 axios.defaults.baseURL = baseUrl;
-console.log('当前环境是...........：', VITE_PROXY_DOMAIN_REAL, '当前附件资源：', VITE_STATIC_URL);
+console.log('当前环境：', VITE_PROXY_DOMAIN_REAL, '当前附件资源：', VITE_STATIC_URL);
 console.log('生产');
 // axios.defaults.headers['Content-Type'] = 'application/json';
 /**
