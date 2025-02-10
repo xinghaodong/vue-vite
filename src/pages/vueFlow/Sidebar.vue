@@ -26,6 +26,10 @@
 <script setup>
 import useDragAndDrop from './useDnD';
 import { ref, reactive, onMounted, getCurrentInstance } from 'vue';
+import menuStore from '@/stortes/menu'; //引入仓库
+import { storeToRefs } from 'pinia'; //引入pinia转换
+const menuInfoStore = menuStore();
+const { editableTabsValue } = storeToRefs(menuInfoStore); // 响应式
 const { proxy } = getCurrentInstance();
 
 const { onDragStart, saveData, nodeData } = useDragAndDrop();
@@ -60,6 +64,9 @@ const save = (form, type) => {
                 router.replace({ path: '/flowList' });
                 proxy.$message.success(data.message);
                 ruleFormRef.value.resetFields();
+                // 关闭当前路由页面
+                menuInfoStore.changeRemoveTab(editableTabsValue.value);
+                proxy.$router.push(editableTabsValue.value);
             }
         } else {
             return false;

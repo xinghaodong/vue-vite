@@ -10,6 +10,7 @@
             </DropzoneBackground>
         </VueFlow>
         <Sidebar />
+        <NodeConfigPanel :node="selectedNode" :visible="isDrawerVisible" @update:visible="isDrawerVisible = $event" @update-node="updateNode" />
     </div>
 </template>
 <script setup>
@@ -17,6 +18,7 @@ import { ref, onMounted, getCurrentInstance } from 'vue';
 import { VueFlow, useVueFlow } from '@vue-flow/core';
 import DropzoneBackground from './DropzoneBackground.vue';
 import Sidebar from './Sidebar.vue';
+import NodeConfigPanel from './NodeConfigPanel.vue';
 import useDragAndDrop from './useDnD.js';
 import { useRoute } from 'vue-router';
 const { onConnect, addEdges } = useVueFlow();
@@ -30,6 +32,8 @@ const nodes = ref([]);
 const edges = ref([]);
 const zoom = ref(1);
 const obj = ref({});
+const selectedNode = ref(null);
+const isDrawerVisible = ref(false);
 
 // 初始化数据 调用接口
 
@@ -48,6 +52,15 @@ onMounted(() => {
                 id: route.query.id,
             })
             .then(res => {
+                // 确保 position 的 x 和 y 是数字
+                res.data.nodes.forEach(node => {
+                    node.position.x = Number(node.position.x);
+                    node.position.y = Number(node.position.y);
+                });
+
+                // 确保 res.data.position 数组中的值是数字
+                res.data.position = res.data.position.map(value => Number(value));
+
                 nodes.value = res.data.nodes;
                 edges.value = res.data.edges;
                 zoom.value = res.data.zoom;
@@ -56,9 +69,36 @@ onMounted(() => {
     }
 });
 
-const onNodeClick = (event, node) => {
-    console.log('clicked', event, node);
+const onNodeClick = event => {
+    console.log('clicked', event);
+    selectedNode.value = event.node;
+    isDrawerVisible.value = true;
 };
+
+function updateNode(updatedNode) {
+    console.log('updatedNode', updatedNode);
+    const index = nodes.value.findIndex(node => node.id === updatedNode.id);
+    if (index !== -1) {
+        // 只更新需要更新的属性，而不是整个节点对象
+        nodes.value[index] = {
+            ...nodes.value[index], // 保留原有的所有属性
+            label: updatedNode.label, // 只更新修改的属性
+            data: {
+                ...nodes.value[index].data, // 保留原有的data属性
+                ...updatedNode.data, // 更新新的data属性
+            },
+            // 明确保留这些重要的 Vue Flow 属性
+            position: updatedNode.position,
+            computedPosition: updatedNode.computedPosition,
+            // 其他 Vue Flow 特定属性
+            type: updatedNode.type,
+            zIndex: updatedNode.zIndex,
+        };
+        // 触发响应式更新
+        nodes.value = [...nodes.value];
+    }
+    console.log('nodes', nodes.value);
+}
 </script>
 <style>
 @import 'https://cdn.jsdelivr.net/npm/@vue-flow/core@1.42.0/dist/style.css';
