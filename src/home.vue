@@ -159,14 +159,25 @@ const handleContextOut = e => {
 };
 const handleContextMenu = e => {
     contextMenuVisible.value = false;
-    let result = findNodeById(allMenuArray.value, route.path);
-    if (result) {
+    console.log(allMenuArray.value, e.srcElement.id.split('-')[1], '666', editableTabsValue.value);
+    rightMouseKey.value = e.srcElement.id.split('-')[1];
+    // 判断当前右键点击的菜单项是否是当前路由
+    if (rightMouseKey.value == editableTabsValue.value) {
+        isActiveMenu.value = true;
+    } else {
+        isActiveMenu.value = false;
+    }
+    if (rightMouseKey.value) {
         contextMenuVisible.value = true;
         left.value = e.clientX - 10;
         top.value = e.clientY + 15;
+    }
+    let result = findNodeById(allMenuArray.value, e.srcElement.id.split('-')[1]);
+    if (result) {
+        console.log(allMenuArray.value, e.srcElement.id.split('-')[1], editableTabsValue.value);
+        contextMenuVisible.value = true;
         // rightMouseKey.value = e.srcElement.id.split('-')[1];
         // 获取地址栏的菜单的路由参数 拼接在rightMouseKey后边
-        rightMouseKey.value = route.fullPath;
         rightMouseData.value = result;
         // 判断当前右键点击的是否是第0或者是第一项
         let index = activeTabArray.value.findIndex(item => item.url === rightMouseKey.value);
@@ -174,12 +185,6 @@ const handleContextMenu = e => {
             isLeftMenu.value = false;
         } else {
             isLeftMenu.value = true;
-        }
-        // 判断当前右键点击的菜单项是否是当前路由
-        if (rightMouseKey.value == editableTabsValue.value) {
-            isActiveMenu.value = true;
-        } else {
-            isActiveMenu.value = false;
         }
         // 如果当前右键点击的菜单项是最后一项那就就不显示 关闭右侧的li
         if (rightMouseKey.value == activeTabArray.value[activeTabArray.value.length - 1].url) {

@@ -47,7 +47,7 @@ axios.interceptors.response.use(
                 isRefreshing = true;
                 //调用刷新token的接口
                 return axios
-                    .post('/api/auth/refresh', {
+                    .post('/auth/refresh', {
                         refreshToken: sessionStorage.getItem('refreshToken') || '',
                     })
                     .then(res => {
