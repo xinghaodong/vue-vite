@@ -127,7 +127,7 @@ import { ref, reactive, onMounted, onBeforeUnmount, getCurrentInstance } from 'v
 const { proxy } = getCurrentInstance();
 const tableData = ref([]);
 const ruleFormRef = ref(null);
-const uploadUrl = `${proxy.$api.baseUrl}/api/upload/uploadFile`;
+const uploadUrl = `${proxy.$api.baseUrl}/upload/uploadFile`;
 const headers = { Authorization: sessionStorage.getItem('token') };
 const currentPage = ref(1);
 const pageSize = ref(10);

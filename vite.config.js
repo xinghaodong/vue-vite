@@ -11,24 +11,29 @@ export default defineConfig(({ mode }) => {
         // 设置别名
         '@': path.resolve(__dirname, './src'),
     };
+    const serverConfig =
+        mode === 'development'
+            ? {
+                  // 端口号
+                  port: VITE_PORT,
+                  proxy: {
+                      // 代理路径
+                      '/api': {
+                          // 目标地址
+                          target: `${VITE_PROXY_DOMAIN_REAL}`,
+                          // 是否改变请求的源地址，这里设置为 true，表示强制使用绝对路径
+                          changeOrigin: true,
+                          // 路径重写规则，这里将 /api 开头的请求路径替换为空字符串，即去掉 /api 前缀
+                          rewrite: path => path.replace(/^\/api/, ''),
+                      },
+                  },
+              }
+            : {};
+
     return {
         base: VITE_BASE_URL,
         plugins: [vue(), Unocss()],
-        server: {
-            // 端口号
-            port: VITE_PORT,
-            proxy: {
-                // 代理路径
-                '/api': {
-                    // 目标地址
-                    target: VITE_PROXY_DOMAIN_REAL,
-                    // 是否改变请求的源地址，这里设置为 true，表示强制使用绝对路径
-                    changeOrigin: true,
-                    // 路径重写规则，这里将 /api 开头的请求路径替换为空字符串，即去掉 /api 前缀
-                    rewrite: path => path.replace(/^\/api/, ''),
-                },
-            },
-        },
+        // server: serverConfig,
         resolve: {
             // 配置路径别名， @就代表当前项目的绝对路径
             // __dirname是一个全局变量，表示当前模块所属目录的绝对路径

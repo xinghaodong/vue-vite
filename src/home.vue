@@ -1,7 +1,7 @@
 <template>
     <el-container class="main">
         <el-aside :style="{ width: isCollapse ? '64px' : '200px' }" class="el-aside">
-            <el-menu router :default-active="route.path.substring(1)" @select="handleSelect" :collapse="isCollapse">
+            <el-menu router :default-active="route.fullPath" @select="handleSelect" :collapse="isCollapse">
                 <MenuItem v-for="(item, index) in userData" :key="index" :item="item" :isCollapse="isCollapse" />
             </el-menu>
         </el-aside>
