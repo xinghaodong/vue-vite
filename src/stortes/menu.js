@@ -90,7 +90,13 @@ const menuStore = defineStore('menu', {
             // 删除除了当前点的tabs标签以及首页url: '/index'的标签
             // this.activeTabArray.splice(index + 1);
             // this.activeTabArray.splice(1, index - 1);
-            this.activeTabArray = [this.activeTabArray[0], this.activeTabArray[index]];
+            console.log(this.activeTabArray[index], '99999');
+            if (index == 0) {
+                this.activeTabArray = [this.activeTabArray[0]];
+            } else {
+                this.activeTabArray = [this.activeTabArray[0], this.activeTabArray[index]];
+            }
+            console.log(this.activeTabArray, key, index);
             this.editableTabsValue = key;
         },
         // 关闭左侧tabs标签页

@@ -129,6 +129,17 @@ const closeLeftAll = () => {
 const closeRightAll = () => {
     menuInfoStore.changeRemoveRightAll(rightMouseKey.value);
     contextMenuVisible.value = false;
+    nextTick(() => {
+        console.log(activeTabArray.value, '不走这里么 ', editableTabsValue.value);
+        proxy.$router.push(editableTabsValue.value);
+        //  proxy.$router.push跳转  activeTabArray.value 数组最后一项的url
+        if (activeTabArray.value.length > 1) {
+            proxy.$router.push(activeTabArray.value[activeTabArray.value.length - 1].url);
+            menuInfoStore.changeTabsValue(activeTabArray.value[activeTabArray.value.length - 1].url);
+        } else {
+            proxy.$router.push(editableTabsValue.value);
+        }
+    });
 };
 const closeOtherAll = () => {
     menuInfoStore.changeRemoveOtherAll(rightMouseKey.value);
@@ -158,8 +169,10 @@ const handleContextOut = e => {
     }
 };
 const handleContextMenu = e => {
+    isLeftMenu.value = false;
+    isRightMenu.value = false;
+    isActiveMenu.value = false;
     contextMenuVisible.value = false;
-    console.log(allMenuArray.value, e.srcElement.id.split('-')[1], '666', editableTabsValue.value);
     rightMouseKey.value = e.srcElement.id.split('-')[1];
     // 判断当前右键点击的菜单项是否是当前路由
     if (rightMouseKey.value == editableTabsValue.value) {
@@ -174,8 +187,6 @@ const handleContextMenu = e => {
     }
     let result = findNodeById(allMenuArray.value, e.srcElement.id.split('-')[1]);
     if (result) {
-        console.log(allMenuArray.value, e.srcElement.id.split('-')[1], editableTabsValue.value);
-        contextMenuVisible.value = true;
         // rightMouseKey.value = e.srcElement.id.split('-')[1];
         // 获取地址栏的菜单的路由参数 拼接在rightMouseKey后边
         rightMouseData.value = result;
