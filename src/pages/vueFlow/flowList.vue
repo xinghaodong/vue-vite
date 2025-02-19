@@ -63,6 +63,20 @@ const handleCurrentChange = val => {
     currentPage.value = val;
     getList();
 };
+const handleDelete = async row => {
+    proxy.$messageBox
+        .confirm('确定要删除吗?', '提示', {
+            type: '提示',
+        })
+        .then(async () => {
+            console.log(row);
+            const data = await proxy.$api.deleteFlowChart({ id: row.id });
+            if (data.code == 200) {
+                proxy.$message.success(data.message);
+                getList();
+            }
+        });
+};
 // onMounted
 onMounted(() => {
     getList();

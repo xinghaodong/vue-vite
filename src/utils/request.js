@@ -255,6 +255,10 @@ export default {
     detailFlowChart(params) {
         return oGet(baseUrl + '/process-approval/detail', params);
     },
+    // 删除模板
+    deleteFlowChart(params) {
+        return oPost(baseUrl + '/process-approval/delete', params);
+    },
 };
 
 //封装post/get请求
