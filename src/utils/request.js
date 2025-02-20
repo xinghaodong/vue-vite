@@ -259,6 +259,10 @@ export default {
     deleteFlowChart(params) {
         return oPost(baseUrl + '/process-approval/delete', params);
     },
+    // 更新当前用户主题
+    updateTheme(params) {
+        return oPost(baseUrl + '/internalusers/updateTheme', params);
+    },
 };
 
 //封装post/get请求

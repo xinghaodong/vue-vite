@@ -3,7 +3,7 @@
     <div>
         <!--用户管理 -->
         <div class="mb-4">
-            <el-button type="primary" @click="govueFlow()">新增</el-button>
+            <el-button @click="govueFlow()">新增</el-button>
         </div>
         <el-table :data="tableData" border style="width: 100%">
             <el-table-column prop="name" label="模板名称"> </el-table-column>
@@ -13,8 +13,8 @@
             <!-- 操作 -->
             <el-table-column label="操作" width="130" fixed="right">
                 <template #default="scope">
-                    <el-button link type="primary" @click="govueFlow(scope.row)">编辑</el-button>
-                    <el-button link type="primary" @click="handleDelete(scope.row)">删除</el-button>
+                    <el-button link @click="govueFlow(scope.row)">编辑</el-button>
+                    <el-button link @click="handleDelete(scope.row)">删除</el-button>
                 </template>
             </el-table-column>
         </el-table>

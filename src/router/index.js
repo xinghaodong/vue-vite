@@ -4,9 +4,11 @@ import api from '../utils/request';
 import NProgress from 'nprogress';
 import 'nprogress/nprogress.css';
 import useMenuStore from '@/stortes/menu'; // 引入仓库
-
 // 预加载所有 Vue 文件
 const components = import.meta.glob('@/pages/**/*.vue');
+// 添加主题类
+const isDarkMode = localStorage.getItem('theme') === 'dark';
+const progressBarClass = isDarkMode ? 'dark-progress-bar' : 'light-progress-bar';
 
 NProgress.configure({
     easing: 'ease', // 动画方式
@@ -231,6 +233,12 @@ const findNodeById = (tree, url) => {
 };
 
 router.afterEach(() => {
+    const nprogressContainer = document.querySelector('#nprogress');
+    if (nprogressContainer) {
+        // 清除可能存在的旧主题类
+        nprogressContainer.classList.remove('dark-progress-bar', 'light-progress-bar');
+        nprogressContainer.classList.add(progressBarClass);
+    }
     NProgress.done(); // 进度条结束
 });
 
