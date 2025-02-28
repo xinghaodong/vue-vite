@@ -99,6 +99,13 @@ const onSubmit = formEl => {
                 console.log(userInfoStore, 'userInfoStoreuserInfoStore');
                 menuInfoStore.getPerms(data.data.perms);
                 userInfoStore.changeUserInfo(data.data.informationObject);
+
+                localStorage.setItem('theme', data.data.informationObject.theme);
+                if (data.data.informationObject.theme) {
+                    document.documentElement.classList.add('dark');
+                } else {
+                    document.documentElement.classList.remove('dark');
+                }
                 // userInfoStore.changeUserInfo(data.data);
                 sessionStorage.setItem('token', data.data.token);
                 sessionStorage.setItem('refreshToken', data.data.refreshToken);

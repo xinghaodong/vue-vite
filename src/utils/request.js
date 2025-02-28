@@ -32,6 +32,12 @@ axios.interceptors.request.use(
     async config => {
         // 从本地存储中获取令牌，并设置到请求头中
         config.headers.Authorization = `Bearer ${sessionStorage.getItem('token') || ''}`;
+
+        // 检查 URL 是否是 /api/ai/invoke，设置流式响应
+        if (config.url.includes('/api/ai/stream')) {
+            config.responseType = 'stream';
+        }
+        console.log('请求config：', config.responseType);
         return config;
     },
     error => {
@@ -262,6 +268,10 @@ export default {
     // 更新当前用户主题
     updateTheme(params) {
         return oPost(baseUrl + '/internalusers/updateTheme', params);
+    },
+    // ai
+    getAi(params) {
+        return oGet(baseUrl + '/ai/stream', params);
     },
 };
 

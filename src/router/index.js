@@ -52,6 +52,12 @@ const router = createRouter({
             path: '/login',
             component: () => import('@/pages/login.vue'),
         },
+        // ai聊天界面
+        {
+            name: 'ai',
+            path: '/ai',
+            component: () => import('@/pages/ai/index.vue'),
+        },
     ],
 });
 
@@ -133,6 +139,7 @@ router.beforeEach(async (to, from, next) => {
         useMenuStores.changeRemoveAll();
         useMenuStores.clearAll();
         sessionStorage.clear(); // 清除所有 sessionStorage 数据
+        localStorage.clear();
     };
     if (to.path === '/login') {
         // sessionStorage.clear(); // 清除所有 sessionStorage 数据
@@ -145,6 +152,11 @@ router.beforeEach(async (to, from, next) => {
     if (!sessionStorage.getItem('refreshToken')) {
         funcAll();
         return next('/login');
+    }
+    // 如果是ai界面直接放行
+    if (to.path === '/ai') {
+        next();
+        return;
     }
 
     if (!dynamicRoutesLoaded) {
