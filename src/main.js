@@ -11,6 +11,7 @@ import { checkPermissions } from './utils/permissions';
 import hasPermi from './directives/hasPermi'; // 引入自定义指令
 // import '@/assets/css/tailwind.css';
 import 'uno.css';
+import 'highlight.js/styles/github.css';
 const app = createApp(App);
 app.config.globalProperties.$api = axios;
 app.config.globalProperties.$icon = ElementPlusIconsVue;
