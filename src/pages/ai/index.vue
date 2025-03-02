@@ -18,7 +18,7 @@
                     </div>
                 </div>
                 <!-- 可滚动的历史记录部分 -->
-                <div class="flex-1 overflow-auto custom-scrollbar" @scroll="onScroll">
+                <div class="flex-1 overflow-auto custom-scrollbar">
                     <div class="p-4">
                         <div class="text-sm text-gray-600">今天</div>
                         <div class="text-sm text-gray-800 p-2 hover:bg-gray-100 rounded">业界服务修改优化</div>
@@ -45,7 +45,7 @@
             </div>
 
             <!-- 可滚动的聊天区域 -->
-            <div class="flex-1 overflow-auto custom-scrollbar p-4" :class="[chatList.length > 0 ? 'h-16' : 'max-h-18']" ref="chatContainer">
+            <div @scroll="onScroll" class="flex-1 overflow-auto custom-scrollbar p-4" :class="[chatList.length > 0 ? 'h-16' : 'max-h-18']" ref="chatContainer">
                 <!-- 聊天消息列表 -->
                 <div v-for="(message, index) in chatList" :key="index" class="w-full max-w-4xl mx-auto mb-5">
                     <div :class="['flex', message.role === 'user' ? 'justify-end' : 'justify-start']">
@@ -168,13 +168,22 @@ const checkWindowSize = () => {
 };
 
 // 检测用户是否正在交互
+// const onScroll = () => {
+//     console.log('onScroll');
+//     const container = chatContainer.value;
+//     if (container) {
+//         const isAtBottom = container.scrollTop + container.clientHeight >= container.scrollHeight - 10;
+//         isUserInteracting.value = !isAtBottom;
+//         showScrollToBottomButton.value = !isAtBottom;
+//     }
+// };
+
 const onScroll = () => {
-    console.log('onScroll');
     const container = chatContainer.value;
     if (container) {
         const isAtBottom = container.scrollTop + container.clientHeight >= container.scrollHeight - 10;
-        isUserInteracting.value = !isAtBottom;
         showScrollToBottomButton.value = !isAtBottom;
+        isUserInteracting.value = !isAtBottom; // 如果在底部，重置为 false
     }
 };
 
@@ -184,7 +193,7 @@ const scrollToBottom = () => {
     if (container) {
         container.scrollTop = container.scrollHeight;
         showScrollToBottomButton.value = false;
-        isUserInteracting.value = false;
+        isUserInteracting.value = false; // 重置用户交互状态
     }
 };
 
@@ -199,8 +208,6 @@ const handleEnter = event => {
 const sendMessage = async e => {
     console.log(e, 'sendMessage');
     if (!inputText.value) return;
-
-    // 添加用户消息
     chatList.value.push({
         role: 'user',
         content: inputText.value,
@@ -223,16 +230,25 @@ const sendMessage = async e => {
             const lastIndex = chatList.value.length - 1;
             // 使用 markdown-it 渲染完整的 Markdown 内容
             const renderedContent = md.render(fullContent);
+            // nextTick(() => {
+            //     // 更新最后一项内容
+            //     chatList.value[lastIndex].content = renderedContent;
+            // });
+            // // 如果用户没有交互，则自动滚动到底部
+            // if (!isUserInteracting.value) {
+            //     nextTick(() => {
+            //         scrollToBottom();
+            //     });
+            // }
+            // 更新内容
+            chatList.value[lastIndex].content = renderedContent;
+            // 在 DOM 更新后检查是否需要滚动
             nextTick(() => {
-                // 更新最后一项内容
-                chatList.value[lastIndex].content = renderedContent;
-            });
-            // 如果用户没有交互，则自动滚动到底部
-            if (!isUserInteracting.value) {
-                nextTick(() => {
+                const container = chatContainer.value;
+                if (container && !isUserInteracting.value) {
                     scrollToBottom();
-                });
-            }
+                }
+            });
         });
     };
     // 错误处理
