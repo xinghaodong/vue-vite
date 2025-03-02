@@ -53,7 +53,7 @@
                         <div
                             v-if="show"
                             v-html="message.content"
-                            :class="['max-w-[80%] rounded-lg p-3 text-sm', message.role === 'user' ? 'bg-blue-500 text-white' : 'bg-gray-100']"
+                            :class="['max-w-[90%] rounded-lg p-3 text-sm', message.role === 'user' ? 'bg-blue-500 text-white' : 'bg-gray-100']"
                         ></div>
                     </div>
                 </div>
@@ -212,6 +212,7 @@ const sendMessage = async e => {
         role: 'user',
         content: inputText.value,
     });
+    // 
 
     let prompt = inputText.value;
     const eventSource = new EventSource(`${VITE_STATIC_URL}ai/stream?prompt=${encodeURIComponent(prompt)}`);
