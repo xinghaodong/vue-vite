@@ -141,6 +141,11 @@ router.beforeEach(async (to, from, next) => {
         sessionStorage.clear(); // 清除所有 sessionStorage 数据
         localStorage.clear();
     };
+    // 如果是ai界面直接放行 无需登录
+    if (to.path === '/ai') {
+        next();
+        return;
+    }
     if (to.path === '/login') {
         // sessionStorage.clear(); // 清除所有 sessionStorage 数据
         // useMenuStores.changeRemoveAll();
@@ -152,11 +157,6 @@ router.beforeEach(async (to, from, next) => {
     if (!sessionStorage.getItem('refreshToken')) {
         funcAll();
         return next('/login');
-    }
-    // 如果是ai界面直接放行
-    if (to.path === '/ai') {
-        next();
-        return;
     }
 
     if (!dynamicRoutesLoaded) {

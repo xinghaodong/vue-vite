@@ -277,6 +277,15 @@ export default {
     saveFirstDialogue(params) {
         return oPost(baseUrl + '/ai/start-conversation', params);
     },
+    // 查询回话记录
+    getAllConversations(params) {
+        return oGet(baseUrl + '/ai/all-conversations', params);
+    },
+
+    // 查询历史对话记录
+    getHistory(params) {
+        return oGet(baseUrl + '/ai/history', params);
+    },
 };
 
 //封装post/get请求

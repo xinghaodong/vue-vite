@@ -50,21 +50,9 @@
                 <div v-for="(message, index) in chatList" :key="index" class="w-full max-w-4xl mx-auto mb-5">
                     <div :class="['flex', message.role === 'user' ? 'justify-end' : 'justify-start']">
                         <!-- style="white-space: pre-wrap" -->
-                        <div
-                            v-if="show"
-                            v-html="message.content"
-                            :class="['max-w-[90%] rounded-lg p-3 text-sm', message.role === 'user' ? 'bg-blue-500 text-white' : 'bg-gray-100']"
-                        ></div>
+                        <div v-if="show" v-html="message.content" :class="['rounded-lg p-3 text-sm', message.role === 'user' ? 'bg-blue-500 text-white' : 'bg-gray-100']"></div>
                     </div>
                 </div>
-                <!-- 滚动到底部按钮 -->
-                <button
-                    v-if="showScrollToBottomButton"
-                    class="absolute bottom-4 right-4 bg-blue-500 text-white px-4 py-2 rounded-full shadow-md hover:bg-blue-600 transition-colors"
-                    @click="scrollToBottom"
-                >
-                    ↓
-                </button>
             </div>
             <div class="border-t border-gray-200 bg-white p-4">
                 <h1 v-if="chatList.length == 0" class="text-3xl font-semibold mb-8 text-center">有什么可以帮忙的?</h1>
@@ -82,6 +70,17 @@
                         <button @click="sendMessage" class="cursor-pointer absolute right-3 bottom-3 h-8 px-4 bg-black text-white rounded-lg flex items-center justify-center">
                             发送
                         </button>
+
+                        <!-- 滚动到底部按钮 -->
+                        <div class="flex justify-center right-0 left-0 -top-14 absolute cuper-pointer">
+                            <button
+                                v-if="showScrollToBottomButton"
+                                class="cursor-pointer bg-blue-500 text-white px-4 py-2 rounded-full shadow-md hover:bg-blue-600 transition-colors"
+                                @click="scrollToBottom"
+                            >
+                                ↓
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -137,11 +136,11 @@ const textareaHeight = ref(84); // 初始高度
 const isSidebarOpen = ref(true);
 // 当前回话内容的list
 const chatList = ref([
-    {
-        role: 'assistant',
-        content:
-            "如果你想要删除当前操作项，首先需要明确这个“操作项”是如何在你的代码或应用中表示的。例如，它可能是一个列表中的项目、一个表格行、或者是某个特定的数据结构中的元素等。\n\n这里我给出一个简单的例子：假设你有一个网页上的待办事项列表（To-Do List），每个事项都有一个删除按钮。点击删除按钮时，你需要从DOM（文档对象模型）中移除该项，并且如果有必要的话，也从存储这些数据的数据结构中移除（比如一个数组）。\n\n以下是一个简单的示例代码：\n\n```javascript\n// 假设我们有一个待办事项的列表，存储在一个数组中\nlet todos = [\n    { id: 1, text: '学习JavaScript' },\n    { id: 2, text: '练习编程题目' },\n    { id: 3, text: '完成项目作业' }\n];\n\n// 渲染函数，用于将todos数组中的数据渲染到页面上\nfunction renderTodos() {\n    const todoListElement = document.getElementById('todoList');\n    todoListElement.innerHTML = ''; // 清空现有内容\n\n    todos.forEach(todo => {\n        const li = document.createElement('li');\n        li.textContent = todo.text;\n\n        const deleteButton = document.createElement('button');\n        deleteButton.textContent = '删除';\n        \n        // 绑定点击事件，使用闭包保存当前todo的id\n        deleteButton.onclick = ((id) => {\n            return () => deleteTodo(id);\n        })(todo.id);\n\n        li.appendChild(deleteButton);\n        todoListElement.appendChild(li);\n    });\n}\n\n// 删除函数，根据ID删除对应的待办事项\nfunction deleteTodo(id) {\n    todos = todos.filter(todo => todo.id !== id); // 从数组中过滤掉要删除的项\n    renderTodos(); // 重新渲染列表\n}\n\n// 页面加载完成后调用renderTodos渲染初始列表\nwindow.onload = () => {\n    renderTodos();\n};\n```\n\n在这个例子中，`deleteTodo` 函数会根据传入的 `id` 来删除对应的待办事项，并且调用 `renderTodos` 函数来更新显示。请确保在HTML文件中有相应的元素，如具有 `id=\"todoList\"` 的元素，以供这段脚本正确运行。\n\n请注意，这只是一个非常基础的例子，实际的应用可能会涉及到更复杂的逻辑和状态管理。如果你能提供更多的上下文信息，我可以提供更加具体的帮助。",
-    },
+    // {
+    //     role: 'assistant',
+    //     content:
+    //         "如果你想要删除当前操作项，首先需要明确这个“操作项”是如何在你的代码或应用中表示的。例如，它可能是一个列表中的项目、一个表格行、或者是某个特定的数据结构中的元素等。\n\n这里我给出一个简单的例子：假设你有一个网页上的待办事项列表（To-Do List），每个事项都有一个删除按钮。点击删除按钮时，你需要从DOM（文档对象模型）中移除该项，并且如果有必要的话，也从存储这些数据的数据结构中移除（比如一个数组）。\n\n以下是一个简单的示例代码：\n\n```javascript\n// 假设我们有一个待办事项的列表，存储在一个数组中\nlet todos = [\n    { id: 1, text: '学习JavaScript' },\n    { id: 2, text: '练习编程题目' },\n    { id: 3, text: '完成项目作业' }\n];\n\n// 渲染函数，用于将todos数组中的数据渲染到页面上\nfunction renderTodos() {\n    const todoListElement = document.getElementById('todoList');\n    todoListElement.innerHTML = ''; // 清空现有内容\n\n    todos.forEach(todo => {\n        const li = document.createElement('li');\n        li.textContent = todo.text;\n\n        const deleteButton = document.createElement('button');\n        deleteButton.textContent = '删除';\n        \n        // 绑定点击事件，使用闭包保存当前todo的id\n        deleteButton.onclick = ((id) => {\n            return () => deleteTodo(id);\n        })(todo.id);\n\n        li.appendChild(deleteButton);\n        todoListElement.appendChild(li);\n    });\n}\n\n// 删除函数，根据ID删除对应的待办事项\nfunction deleteTodo(id) {\n    todos = todos.filter(todo => todo.id !== id); // 从数组中过滤掉要删除的项\n    renderTodos(); // 重新渲染列表\n}\n\n// 页面加载完成后调用renderTodos渲染初始列表\nwindow.onload = () => {\n    renderTodos();\n};\n```\n\n在这个例子中，`deleteTodo` 函数会根据传入的 `id` 来删除对应的待办事项，并且调用 `renderTodos` 函数来更新显示。请确保在HTML文件中有相应的元素，如具有 `id=\"todoList\"` 的元素，以供这段脚本正确运行。\n\n请注意，这只是一个非常基础的例子，实际的应用可能会涉及到更复杂的逻辑和状态管理。如果你能提供更多的上下文信息，我可以提供更加具体的帮助。",
+    // },
 ]);
 const chatContainer = ref(null);
 const show = ref(false);
@@ -259,14 +258,27 @@ onMounted(() => {
     checkWindowSize();
     window.addEventListener('resize', checkWindowSize);
 
-    const fullContent = chatList.value[0].content; // 解码数据
-    // 使用 markdown-it 渲染完整的 Markdown 内容
-    const renderedContent = md.render(fullContent);
-    chatList.value[0].content = renderedContent;
-    setTimeout(() => {
-        show.value = true;
-    }, 100);
+    // 查询历史聊天记录
+    proxy.$api.getAllConversations().then(res => {
+        if (res.code === 200) {
+            res.data[0].messages.forEach(element => {
+                console.log(element, 'element');
+                chatList.value.push({
+                    role: element.role,
+                    content: element.content,
+                });
+            });
+            show.value = true;
+        }
+    });
 
+    // const fullContent = chatList.value[0].content; // 解码数据
+    // // 使用 markdown-it 渲染完整的 Markdown 内容
+    // const renderedContent = md.render(fullContent);
+    // chatList.value[0].content = renderedContent;
+    // setTimeout(() => {
+    //     show.value = true;
+    // }, 100);
     // 动态绑定复制按钮的点击事件
     document.body.addEventListener('click', async event => {
         const target = event.target;
