@@ -91,9 +91,8 @@
 
 <script setup>
 import { getCurrentInstance, ref, onMounted, watch, nextTick } from 'vue';
-const { VITE_PROXY_DOMAIN_REAL, VITE_STATIC_URL, VITE_PROXY_DOMAIN } = import.meta.env;
+const { VITE_STATIC_URL } = import.meta.env;
 import { ElMessage } from 'element-plus';
-import { getCurrentInstance, ref, onMounted, watch, nextTick } from 'vue';
 const { proxy } = getCurrentInstance();
 import MarkdownIt from 'markdown-it';
 import hljs from 'highlight.js';
@@ -169,17 +168,6 @@ const checkWindowSize = () => {
     }
 };
 
-// 检测用户是否正在交互
-// const onScroll = () => {
-//     console.log('onScroll');
-//     const container = chatContainer.value;
-//     if (container) {
-//         const isAtBottom = container.scrollTop + container.clientHeight >= container.scrollHeight - 10;
-//         isUserInteracting.value = !isAtBottom;
-//         showScrollToBottomButton.value = !isAtBottom;
-//     }
-// };
-
 const onScroll = () => {
     const container = chatContainer.value;
     if (container) {
@@ -240,16 +228,6 @@ const sendMessage = async e => {
             const lastIndex = chatList.value.length - 1;
             // 使用 markdown-it 渲染完整的 Markdown 内容
             const renderedContent = md.render(fullContent);
-            // nextTick(() => {
-            //     // 更新最后一项内容
-            //     chatList.value[lastIndex].content = renderedContent;
-            // });
-            // // 如果用户没有交互，则自动滚动到底部
-            // if (!isUserInteracting.value) {
-            //     nextTick(() => {
-            //         scrollToBottom();
-            //     });
-            // }
             // 更新内容
             chatList.value[lastIndex].content = renderedContent;
             // 在 DOM 更新后检查是否需要滚动
@@ -274,21 +252,6 @@ const sendMessage = async e => {
 
     // 清空输入框
     inputText.value = '';
-};
-// 滚动到底部
-// const scrollToBottom = () => {
-//     if (chatContainer.value) {
-//         chatContainer.value.scrollTop = chatContainer.value.scrollHeight;
-//     }
-// };
-// 复制消息内容
-const copyMessage = async text => {
-    try {
-        await navigator.clipboard.writeText(text);
-        alert('复制成功！');
-    } catch (err) {
-        console.error('复制失败：', err);
-    }
 };
 
 onMounted(() => {
