@@ -269,9 +269,13 @@ export default {
     updateTheme(params) {
         return oPost(baseUrl + '/internalusers/updateTheme', params);
     },
-    // ai
+    // 获取ai流
     getAi(params) {
         return oGet(baseUrl + '/ai/stream', params);
+    },
+    // 保存第一次对话生成对话id
+    saveFirstDialogue(params) {
+        return oPost(baseUrl + '/ai/start-conversation', params);
     },
 };
 

@@ -77,8 +77,9 @@
 </template>
 
 <script setup>
-import { ref, onMounted, watch, nextTick } from 'vue';
-const { VITE_PROXY_DOMAIN_REAL, VITE_STATIC_URL, VITE_PROXY_DOMAIN } = import.meta.env;
+import { getCurrentInstance, ref, onMounted, watch, nextTick } from 'vue';
+const { proxy } = getCurrentInstance();
+const { VITE_STATIC_URL } = import.meta.env;
 import MarkdownIt from 'markdown-it';
 import hljs from 'highlight.js';
 import DOMPurify from 'dompurify';
@@ -203,15 +204,19 @@ const checkWindowSize = () => {
 
 const sendMessage = async () => {
     if (!inputText.value) return;
-
+    let data = '';
+    // 如果 chatList 数据是空的
+    if (chatList.value.length === 0) {
+        // 保存第一次对话生成对话id调用 初始接口
+        data = await proxy.$api.saveFirstDialogue({ content: inputText.value });
+    }
     // 添加用户消息
     chatList.value.push({
         role: 'user',
         content: inputText.value,
     });
-
     let prompt = inputText.value;
-    const eventSource = new EventSource(`${VITE_STATIC_URL}ai/stream?prompt=${encodeURIComponent(prompt)}`);
+    const eventSource = new EventSource(`${VITE_STATIC_URL}ai/stream?prompt=${encodeURIComponent(prompt)}&conversationId=${encodeURIComponent(data.data.conversationId)}`);
 
     // 初始化助手消息
     chatList.value.push({
