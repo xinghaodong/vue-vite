@@ -80,7 +80,7 @@
                         <div
                             v-if="show"
                             v-html="message.content"
-                            :class="['rounded-lg p-3 text-sm', message.role === 'user' ? 'bg-blue-500 text-white' : 'bg-gray-100 w-full']"
+                            :class="['rounded-lg p-3 text-sm overflow-hidden', message.role === 'user' ? 'bg-blue-500 text-white' : 'bg-gray-100 w-full']"
                         ></div>
                     </div>
                 </div>
