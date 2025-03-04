@@ -2,6 +2,7 @@ import axios from 'axios';
 import QS from 'qs';
 import { ElMessage } from 'element-plus';
 import router from '@/router';
+import { setActivePinia } from 'pinia';
 const { VITE_PROXY_DOMAIN_REAL, VITE_STATIC_URL, VITE_PROXY_DOMAIN } = import.meta.env;
 const baseUrl = VITE_PROXY_DOMAIN;
 const img_url = VITE_STATIC_URL;
@@ -285,6 +286,10 @@ export default {
     // 查询历史对话记录
     getHistory(params) {
         return oGet(baseUrl + '/ai/history', params);
+    },
+    // 保存聊天记录
+    seteRecord(params) {
+        return oPost(baseUrl + '/ai/save-record', params);
     },
 };
 

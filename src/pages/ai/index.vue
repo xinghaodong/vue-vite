@@ -1,21 +1,35 @@
 <template>
     <div class="flex h-screen overflow-hidden">
+        <!-- 移动端遮罩层 - 仅在移动端且侧边栏打开时显示 -->
+        <div v-if="isSidebarOpen && isMobile" class="fixed inset-0 bg-black bg-opacity-50 z-40" @click="closeSidebar"></div>
+
         <!-- 左侧边栏 -->
-        <div :class="['bg-gray-50 border-r border-gray-200 flex flex-col transition-all duration-100 ease-in-out', isSidebarOpen ? 'w-64' : 'w-0']">
+        <div
+            :class="[
+                'bg-gray-50 border-r border-gray-200 flex flex-col transition-all duration-300 ease-in-out',
+                isSidebarOpen ? 'w-64' : 'w-0',
+                isMobile ? 'fixed top-0 left-0 bottom-0 z-50' : '',
+            ]"
+        >
             <template v-if="isSidebarOpen">
                 <!-- 固定的顶部Logo部分 -->
-                <div class="p-4">
-                    <div class="flex items-center space-x-2 mb-6">
+                <div class="flex justify-between h-16 border-b border-gray-200 items-center px-2 flex-shrink-0">
+                    <div class="flex items-center space-x-2">
                         <span class="font-semibold">ChatGPT</span>
                     </div>
-                    <div class="space-y-2">
-                        <div class="flex items-center space-x-2 p-2 hover:bg-gray-100 rounded">
-                            <span>ChatGPT</span>
-                        </div>
-                        <div class="flex items-center space-x-2 p-2 hover:bg-gray-100 rounded">
-                            <span>探索 GPT</span>
-                        </div>
-                    </div>
+                    <svg
+                        class="cursor-pointer h-6 w-6 flex items-center justify-center rounded-md hover:bg-gray-100"
+                        @click="toggleSidebar"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                    >
+                        <line x1="3" y1="12" x2="21" y2="12"></line>
+                        <line x1="3" y1="6" x2="21" y2="6"></line>
+                        <line x1="3" y1="18" x2="21" y2="18"></line>
+                    </svg>
                 </div>
                 <!-- 可滚动的历史记录部分 -->
                 <div class="flex-1 overflow-auto custom-scrollbar">
@@ -38,8 +52,22 @@
         <div class="flex-1 flex flex-col overflow-hidden">
             <!-- 固定的顶部栏 -->
             <div class="h-16 border-b border-gray-200 flex items-center px-2 flex-shrink-0">
-                <el-icon class="h-6 w-6 text-2xl px-3" style="display: block; cursor: pointer" @click="toggleSidebar"><Fold /></el-icon>
-                <div class="flex-1 flex items-center">
+                <svg
+                    v-if="!isSidebarOpen"
+                    class="cursor-pointer h-6 w-6 flex items-center justify-center rounded-md hover:bg-gray-100"
+                    @click="toggleSidebar"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                >
+                    <line x1="3" y1="12" x2="21" y2="12"></line>
+                    <line x1="3" y1="6" x2="21" y2="6"></line>
+                    <line x1="3" y1="18" x2="21" y2="18"></line>
+                </svg>
+
+                <div class="flex-1 flex items-center ml-2">
                     <span class="text-xl font-semibold">ChatGPT</span>
                 </div>
             </div>
@@ -47,17 +75,49 @@
             <!-- 可滚动的聊天区域 -->
             <div @scroll="onScroll" class="flex-1 overflow-auto custom-scrollbar p-4" :class="[chatList.length > 0 ? 'h-16' : 'max-h-18']" ref="chatContainer">
                 <!-- 聊天消息列表 -->
-                <div v-for="(message, index) in chatList" :key="index" class="w-full max-w-4xl mx-auto mb-5">
+                <div v-for="(message, index) in chatList" :key="index" class="w-full max-w-5xl mx-auto mb-5 overflow-auto">
                     <div :class="['flex', message.role === 'user' ? 'justify-end' : 'justify-start']">
-                        <!-- style="white-space: pre-wrap" -->
-                        <div v-if="show" v-html="message.content" :class="['rounded-lg p-3 text-sm', message.role === 'user' ? 'bg-blue-500 text-white' : 'bg-gray-100']"></div>
+                        <div
+                            v-if="show"
+                            v-html="message.content"
+                            :class="['rounded-lg p-3 text-sm', message.role === 'user' ? 'bg-blue-500 text-white' : 'bg-gray-100 w-full']"
+                        ></div>
                     </div>
                 </div>
             </div>
+
             <div class="border-t border-gray-200 bg-white p-4">
                 <h1 v-if="chatList.length == 0" class="text-3xl font-semibold mb-8 text-center">有什么可以帮忙的?</h1>
-                <div class="w-full max-w-4xl mx-auto">
-                    <div class="relative w-full max-w-4xl mx-auto">
+                <div class="w-full max-w-5xl mx-auto">
+                    <div class="relative w-full max-w-5xl mx-auto">
+                        <svg
+                            v-if="showScrollToBottomButton"
+                            class="absolute bottom-24 left-1/2 transform -translate-x-1/2 z-10 bg-white icon cursor-pointer text-white px-4 py-2 rounded-full shadow-md transition-colors"
+                            @click="scrollToBottom"
+                            t="1741071381431"
+                            viewBox="0 0 1024 1024"
+                            version="1.1"
+                            xmlns="http://www.w3.org/2000/svg"
+                            p-id="9645"
+                            width="24"
+                            height="24"
+                        >
+                            <path
+                                d="M512 64C213.3 64 64 213.3 64 512s149.3 448 448 448 448-149.3 448-448S810.7 64 512 64z m0 803.2c-236.8 0-355.3-118.4-355.3-355.3S275.1 156.7 512 156.7 867.3 275.1 867.3 512 748.8 867.2 512 867.2z"
+                                fill="#040000"
+                                p-id="9646"
+                            ></path>
+                            <path
+                                d="M692.4 503c-9.2-0.1-92-4.2-176.3-5.2-84.3-0.9-155.8 3.3-161.8 1.3-22.4-7.5-36.7 21.1-27.2 32.8 7.6 9.4 162 181.4 175.1 197.4 14.9 23.2 44.8 6.5 44.8 6.5 9.8-11.3 157.2-188.3 168.2-201.7 8-9.9 8.6-30.8-22.8-31.1z"
+                                fill="#040000"
+                                p-id="9647"
+                            ></path>
+                            <path
+                                d="M589.5 527.7V317.4c0-32.7-26.4-59.1-59-59.1h-14.8c-32.6 0-59 26.4-59 59.1v210.3c0 32.7 26.4 59 59 59h14.8c32.6 0.1 59-26.3 59-59z"
+                                fill="#040000"
+                                p-id="9648"
+                            ></path>
+                        </svg>
                         <textarea
                             @keydown.enter="handleEnter"
                             v-model="inputText"
@@ -70,17 +130,6 @@
                         <button @click="sendMessage" class="cursor-pointer absolute right-3 bottom-3 h-8 px-4 bg-black text-white rounded-lg flex items-center justify-center">
                             发送
                         </button>
-
-                        <!-- 滚动到底部按钮 -->
-                        <div class="flex justify-center right-0 left-0 -top-14 absolute cuper-pointer">
-                            <button
-                                v-if="showScrollToBottomButton"
-                                class="cursor-pointer bg-blue-500 text-white px-4 py-2 rounded-full shadow-md hover:bg-blue-600 transition-colors"
-                                @click="scrollToBottom"
-                            >
-                                ↓
-                            </button>
-                        </div>
                     </div>
                 </div>
             </div>
@@ -89,7 +138,7 @@
 </template>
 
 <script setup>
-import { getCurrentInstance, ref, onMounted, watch, nextTick } from 'vue';
+import { getCurrentInstance, ref, onMounted, watch, nextTick, computed } from 'vue';
 const { VITE_STATIC_URL } = import.meta.env;
 import { ElMessage } from 'element-plus';
 const { proxy } = getCurrentInstance();
@@ -126,7 +175,7 @@ md.renderer.rules.fence = function (tokens, idx) {
     // 通过高亮生成的 HTML 渲染，而不使用 MarkdownIt 默认的 <pre><code>
     const highlightedCode = md.options.highlight(token.content, token.info);
     return `<pre style="position: relative; padding-top: 20px;">
-                <button class="copy-button" style="position: absolute; top: 4px; right: 4px;">Copy</button>
+                <button class="copy-button" style="position: absolute; top: 4px; right: 4px;">复制</button>
                 ${highlightedCode}
             </pre>`;
 };
@@ -134,16 +183,13 @@ md.renderer.rules.fence = function (tokens, idx) {
 const inputText = ref('');
 const textareaHeight = ref(84); // 初始高度
 const isSidebarOpen = ref(true);
+const conversationId = ref(''); // 当前回话id
 // 当前回话内容的list
-const chatList = ref([
-    // {
-    //     role: 'assistant',
-    //     content:
-    //         "如果你想要删除当前操作项，首先需要明确这个“操作项”是如何在你的代码或应用中表示的。例如，它可能是一个列表中的项目、一个表格行、或者是某个特定的数据结构中的元素等。\n\n这里我给出一个简单的例子：假设你有一个网页上的待办事项列表（To-Do List），每个事项都有一个删除按钮。点击删除按钮时，你需要从DOM（文档对象模型）中移除该项，并且如果有必要的话，也从存储这些数据的数据结构中移除（比如一个数组）。\n\n以下是一个简单的示例代码：\n\n```javascript\n// 假设我们有一个待办事项的列表，存储在一个数组中\nlet todos = [\n    { id: 1, text: '学习JavaScript' },\n    { id: 2, text: '练习编程题目' },\n    { id: 3, text: '完成项目作业' }\n];\n\n// 渲染函数，用于将todos数组中的数据渲染到页面上\nfunction renderTodos() {\n    const todoListElement = document.getElementById('todoList');\n    todoListElement.innerHTML = ''; // 清空现有内容\n\n    todos.forEach(todo => {\n        const li = document.createElement('li');\n        li.textContent = todo.text;\n\n        const deleteButton = document.createElement('button');\n        deleteButton.textContent = '删除';\n        \n        // 绑定点击事件，使用闭包保存当前todo的id\n        deleteButton.onclick = ((id) => {\n            return () => deleteTodo(id);\n        })(todo.id);\n\n        li.appendChild(deleteButton);\n        todoListElement.appendChild(li);\n    });\n}\n\n// 删除函数，根据ID删除对应的待办事项\nfunction deleteTodo(id) {\n    todos = todos.filter(todo => todo.id !== id); // 从数组中过滤掉要删除的项\n    renderTodos(); // 重新渲染列表\n}\n\n// 页面加载完成后调用renderTodos渲染初始列表\nwindow.onload = () => {\n    renderTodos();\n};\n```\n\n在这个例子中，`deleteTodo` 函数会根据传入的 `id` 来删除对应的待办事项，并且调用 `renderTodos` 函数来更新显示。请确保在HTML文件中有相应的元素，如具有 `id=\"todoList\"` 的元素，以供这段脚本正确运行。\n\n请注意，这只是一个非常基础的例子，实际的应用可能会涉及到更复杂的逻辑和状态管理。如果你能提供更多的上下文信息，我可以提供更加具体的帮助。",
-    // },
-]);
+const chatList = ref([]);
 const chatContainer = ref(null);
 const show = ref(false);
+const windowWidth = ref(window.innerWidth);
+const isMobile = computed(() => windowWidth.value < 768);
 
 const showScrollToBottomButton = ref(false);
 const isUserInteracting = ref(false);
@@ -157,10 +203,23 @@ const adjustTextareaHeight = e => {
 
 const toggleSidebar = () => {
     isSidebarOpen.value = !isSidebarOpen.value;
+
+    // 在移动设备上打开侧边栏时，阻止背景滚动
+    if (isMobile.value && isSidebarOpen.value) {
+        document.body.style.overflow = 'hidden';
+    } else {
+        document.body.style.overflow = '';
+    }
+};
+
+const closeSidebar = () => {
+    isSidebarOpen.value = false;
+    document.body.style.overflow = '';
 };
 
 const checkWindowSize = () => {
-    if (window.innerWidth < 768) {
+    windowWidth.value = window.innerWidth;
+    if (windowWidth.value < 768) {
         isSidebarOpen.value = false;
     } else {
         isSidebarOpen.value = true;
@@ -189,26 +248,37 @@ const scrollToBottom = () => {
 // 处理回车事件
 const handleEnter = event => {
     if (event.key === 'Enter' && !event.shiftKey) {
-        console.log(event, 'handleEnter');
         event.preventDefault(); // 阻止默认行为（如换行）
         sendMessage(); // 调用发送消息方法
     }
 };
+
 const sendMessage = async e => {
-    console.log(e, 'sendMessage');
     if (!inputText.value) return;
     let data = '';
     // 如果 chatList 数据是空的
     if (chatList.value.length === 0) {
         // 保存第一次对话生成对话id调用 初始接口
         data = await proxy.$api.saveFirstDialogue({ content: inputText.value });
+    } else {
+        data = {
+            data: {
+                conversationId: conversationId.value,
+            },
+        };
+        // 保存对话信息
+        let res = await proxy.$api.seteRecord({
+            role: 'user',
+            content: inputText.value,
+            conversationId: conversationId.value,
+        });
     }
+
     // 添加用户消息
     chatList.value.push({
         role: 'user',
         content: inputText.value,
     });
-    //
 
     let prompt = inputText.value;
     const eventSource = new EventSource(`${VITE_STATIC_URL}ai/stream?prompt=${encodeURIComponent(prompt)}&conversationId=${encodeURIComponent(data.data.conversationId)}`);
@@ -256,29 +326,32 @@ const sendMessage = async e => {
 onMounted(() => {
     adjustTextareaHeight({ target: document.querySelector('textarea') });
     checkWindowSize();
-    window.addEventListener('resize', checkWindowSize);
+    window.addEventListener('resize', () => {
+        checkWindowSize();
+    });
 
     // 查询历史聊天记录
     proxy.$api.getAllConversations().then(res => {
         if (res.code === 200) {
-            res.data[0].messages.forEach(element => {
-                console.log(element, 'element');
+            conversationId.value = res.data[0].conversationId;
+            res.data[0].messages.forEach((element, index) => {
                 chatList.value.push({
                     role: element.role,
                     content: element.content,
+                });
+                const fullContent = element.content; // 解码数据
+                // 使用 markdown-it 渲染完整的 Markdown 内容
+                const renderedContent = md.render(fullContent);
+                chatList.value[index].content = renderedContent;
+                // 滚动到最底部
+                nextTick(() => {
+                    scrollToBottom();
                 });
             });
             show.value = true;
         }
     });
 
-    // const fullContent = chatList.value[0].content; // 解码数据
-    // // 使用 markdown-it 渲染完整的 Markdown 内容
-    // const renderedContent = md.render(fullContent);
-    // chatList.value[0].content = renderedContent;
-    // setTimeout(() => {
-    //     show.value = true;
-    // }, 100);
     // 动态绑定复制按钮的点击事件
     document.body.addEventListener('click', async event => {
         const target = event.target;
@@ -298,8 +371,9 @@ onMounted(() => {
     });
 });
 
+// 监听侧边栏状态，控制body滚动
 watch(isSidebarOpen, newValue => {
-    if (newValue && window.innerWidth < 768) {
+    if (newValue && isMobile.value) {
         document.body.style.overflow = 'hidden';
     } else {
         document.body.style.overflow = '';
@@ -333,7 +407,6 @@ const actions = [{ icon: '🖼️', text: '创建图片' }];
 .hljs-title.function_ {
     color: rgb(0, 224, 224);
 }
-
 .hljs-string {
     color: #a6e22e !important;
 }
@@ -350,7 +423,7 @@ pre {
     font-size: 13px;
     width: -webkit-fill-available;
     /* padding-top: 0px !important;
-    padding-bottom: 0px !important; */
+        padding-bottom: 0px !important; */
 }
 
 code {
@@ -386,12 +459,12 @@ code.hljs {
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb {
-    background: #ccc;
+    background: hsl(0, 1%, 79%);
     border-radius: 4px;
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-    background: #888;
+    background: #999898;
     cursor: pointer;
 }
 
