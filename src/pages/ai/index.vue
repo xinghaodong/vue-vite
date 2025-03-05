@@ -77,11 +77,7 @@
                 <!-- 聊天消息列表 -->
                 <div v-for="(message, index) in chatList" :key="index" class="w-full max-w-5xl mx-auto mb-5 overflow-auto">
                     <div :class="['flex', message.role === 'user' ? 'justify-end' : 'justify-start']">
-                        <div
-                            v-if="show"
-                            v-html="message.content"
-                            :class="['rounded-lg p-3 text-sm overflow-hidden', message.role === 'user' ? 'bg-blue-500 text-white' : 'bg-gray-100 w-full']"
-                        ></div>
+                        <div v-html="message.content" :class="['rounded-lg p-3 text-sm', message.role === 'user' ? 'bg-blue-500 text-white' : 'bg-gray-100 w-full']"></div>
                     </div>
                 </div>
             </div>
@@ -279,7 +275,6 @@ const sendMessage = async e => {
         role: 'user',
         content: inputText.value,
     });
-
     let prompt = inputText.value;
     const eventSource = new EventSource(`${VITE_STATIC_URL}ai/stream?prompt=${encodeURIComponent(prompt)}&conversationId=${encodeURIComponent(data.data.conversationId)}`);
 
@@ -329,29 +324,6 @@ onMounted(() => {
     window.addEventListener('resize', () => {
         checkWindowSize();
     });
-
-    // 查询历史聊天记录
-    proxy.$api.getAllConversations().then(res => {
-        if (res.code === 200) {
-            conversationId.value = res.data[0].conversationId;
-            res.data[0].messages.forEach((element, index) => {
-                chatList.value.push({
-                    role: element.role,
-                    content: element.content,
-                });
-                const fullContent = element.content; // 解码数据
-                // 使用 markdown-it 渲染完整的 Markdown 内容
-                const renderedContent = md.render(fullContent);
-                chatList.value[index].content = renderedContent;
-                // 滚动到最底部
-                nextTick(() => {
-                    scrollToBottom();
-                });
-            });
-            show.value = true;
-        }
-    });
-
     // 动态绑定复制按钮的点击事件
     document.body.addEventListener('click', async event => {
         const target = event.target;
@@ -411,6 +383,11 @@ const actions = [{ icon: '🖼️', text: '创建图片' }];
     color: #a6e22e !important;
 }
 
+.hljs-title,
+.hljs-title.class_ {
+    color: #fff;
+}
+
 pre {
     position: relative; /* 确保复制按钮定位正确 */
     border-radius: 5px;
@@ -428,6 +405,7 @@ pre {
 
 code {
     font-family: 'Courier New', monospace;
+    font-size: 0.9rem;
 }
 code.hljs {
     padding-top: 0px !important;
