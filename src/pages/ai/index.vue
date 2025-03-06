@@ -17,25 +17,48 @@
                     <div class="flex items-center space-x-2">
                         <span class="font-semibold">ChatGPT</span>
                     </div>
-                    <svg
-                        class="cursor-pointer h-6 w-6 flex items-center justify-center rounded-md hover:bg-gray-100"
-                        @click="toggleSidebar"
-                        fill="none"
-                        stroke="currentColor"
-                        stroke-width="2"
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                    >
-                        <line x1="3" y1="12" x2="21" y2="12"></line>
-                        <line x1="3" y1="6" x2="21" y2="6"></line>
-                        <line x1="3" y1="18" x2="21" y2="18"></line>
-                    </svg>
+                    <div class="flex items-center space-x-2">
+                        <svg
+                            class="cursor-pointer h-6 w-6 flex items-center justify-center rounded-md hover:bg-gray-100"
+                            @click="toggleSidebar"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                        >
+                            <line x1="3" y1="12" x2="21" y2="12"></line>
+                            <line x1="3" y1="6" x2="21" y2="6"></line>
+                            <line x1="3" y1="18" x2="21" y2="18"></line>
+                        </svg>
+                        <svg
+                            class="cursor-pointer icon ml-2 h-4 w-4 flex items-center justify-center rounded-md hover:bg-gray-100"
+                            t="1741244175768"
+                            viewBox="0 0 1024 1024"
+                            version="1.1"
+                            xmlns="http://www.w3.org/2000/svg"
+                            p-id="3528"
+                            width="16"
+                            height="16"
+                        >
+                            <path
+                                d="M802.133333 546.133333c58.026667 0 112.64 20.48 157.013334 54.613334 3.413333 3.413333 10.24 3.413333 17.066666 0s10.24-10.24 10.24-13.653334V146.773333C989.866667 64.853333 925.013333 0 846.506667 0H146.773333C64.853333 0 0 64.853333 0 146.773333v426.666667C0 651.946667 64.853333 716.8 146.773333 716.8h85.333334L136.533333 965.973333c-3.413333 6.826667 0 13.653333 6.826667 20.48 3.413333 3.413333 6.826667 3.413333 10.24 3.413334 3.413333 0 6.826667 0 10.24-3.413334l337.92-269.653333h47.786667c6.826667 0 13.653333-3.413333 17.066666-10.24 37.546667-98.986667 129.706667-160.426667 235.52-160.426667zM546.133333 341.333333c0 37.546667-30.72 68.266667-68.266666 68.266667s-68.266667-30.72-68.266667-68.266667 30.72-68.266667 68.266667-68.266666 68.266667 30.72 68.266666 68.266666zM204.8 341.333333c0-37.546667 30.72-68.266667 68.266667-68.266666s68.266667 30.72 68.266666 68.266666-30.72 68.266667-68.266666 68.266667-68.266667-30.72-68.266667-68.266667z m546.133333 0c0 37.546667-30.72 68.266667-68.266666 68.266667s-68.266667-30.72-68.266667-68.266667 30.72-68.266667 68.266667-68.266666 68.266667 30.72 68.266666 68.266666z"
+                                fill=""
+                                p-id="3529"
+                            ></path>
+                            <path
+                                d="M802.133333 580.266667c-122.88 0-221.866667 98.986667-221.866666 221.866666s98.986667 221.866667 221.866666 221.866667 221.866667-98.986667 221.866667-221.866667-98.986667-221.866667-221.866667-221.866666z m68.266667 238.933333H819.2v51.2c0 10.24-6.826667 17.066667-17.066667 17.066667s-17.066667-6.826667-17.066666-17.066667V819.2h-51.2c-10.24 0-17.066667-6.826667-17.066667-17.066667s6.826667-17.066667 17.066667-17.066666H785.066667v-51.2c0-10.24 6.826667-17.066667 17.066666-17.066667s17.066667 6.826667 17.066667 17.066667V785.066667h51.2c10.24 0 17.066667 6.826667 17.066667 17.066666s-6.826667 17.066667-17.066667 17.066667z"
+                                fill=""
+                                p-id="3530"
+                            ></path>
+                        </svg>
+                    </div>
                 </div>
                 <!-- 可滚动的历史记录部分 -->
                 <div class="flex-1 overflow-auto custom-scrollbar">
-                    <div class="p-4">
+                    <div class="p-4" v-if="sidebarList.length > 0">
                         <div class="text-sm text-gray-600">今天</div>
-                        <div class="text-sm text-gray-800 p-2 hover:bg-gray-100 rounded">业界服务修改优化</div>
+                        <div class="text-sm text-gray-800 p-2 hover:bg-gray-100 rounded">{{ sidebarList[0].content }}</div>
 
                         <div class="text-sm text-gray-600 mt-4">前 30 天</div>
                         <div class="space-y-1">
@@ -67,6 +90,29 @@
                     <line x1="3" y1="18" x2="21" y2="18"></line>
                 </svg>
 
+                <svg
+                    v-if="!isSidebarOpen"
+                    class="cursor-pointer icon ml-2 h-4 w-4 flex items-center justify-center rounded-md hover:bg-gray-100"
+                    t="1741244175768"
+                    viewBox="0 0 1024 1024"
+                    version="1.1"
+                    xmlns="http://www.w3.org/2000/svg"
+                    p-id="3528"
+                    width="16"
+                    height="16"
+                >
+                    <path
+                        d="M802.133333 546.133333c58.026667 0 112.64 20.48 157.013334 54.613334 3.413333 3.413333 10.24 3.413333 17.066666 0s10.24-10.24 10.24-13.653334V146.773333C989.866667 64.853333 925.013333 0 846.506667 0H146.773333C64.853333 0 0 64.853333 0 146.773333v426.666667C0 651.946667 64.853333 716.8 146.773333 716.8h85.333334L136.533333 965.973333c-3.413333 6.826667 0 13.653333 6.826667 20.48 3.413333 3.413333 6.826667 3.413333 10.24 3.413334 3.413333 0 6.826667 0 10.24-3.413334l337.92-269.653333h47.786667c6.826667 0 13.653333-3.413333 17.066666-10.24 37.546667-98.986667 129.706667-160.426667 235.52-160.426667zM546.133333 341.333333c0 37.546667-30.72 68.266667-68.266666 68.266667s-68.266667-30.72-68.266667-68.266667 30.72-68.266667 68.266667-68.266666 68.266667 30.72 68.266666 68.266666zM204.8 341.333333c0-37.546667 30.72-68.266667 68.266667-68.266666s68.266667 30.72 68.266666 68.266666-30.72 68.266667-68.266666 68.266667-68.266667-30.72-68.266667-68.266667z m546.133333 0c0 37.546667-30.72 68.266667-68.266666 68.266667s-68.266667-30.72-68.266667-68.266667 30.72-68.266667 68.266667-68.266666 68.266667 30.72 68.266666 68.266666z"
+                        fill=""
+                        p-id="3529"
+                    ></path>
+                    <path
+                        d="M802.133333 580.266667c-122.88 0-221.866667 98.986667-221.866666 221.866666s98.986667 221.866667 221.866666 221.866667 221.866667-98.986667 221.866667-221.866667-98.986667-221.866667-221.866667-221.866666z m68.266667 238.933333H819.2v51.2c0 10.24-6.826667 17.066667-17.066667 17.066667s-17.066667-6.826667-17.066666-17.066667V819.2h-51.2c-10.24 0-17.066667-6.826667-17.066667-17.066667s6.826667-17.066667 17.066667-17.066666H785.066667v-51.2c0-10.24 6.826667-17.066667 17.066666-17.066667s17.066667 6.826667 17.066667 17.066667V785.066667h51.2c10.24 0 17.066667 6.826667 17.066667 17.066666s-6.826667 17.066667-17.066667 17.066667z"
+                        fill=""
+                        p-id="3530"
+                    ></path>
+                </svg>
+
                 <div class="flex-1 flex items-center ml-2">
                     <span class="text-xl font-semibold">ChatGPT</span>
                 </div>
@@ -77,7 +123,10 @@
                 <!-- 聊天消息列表 -->
                 <div v-for="(message, index) in chatList" :key="index" class="w-full max-w-5xl mx-auto mb-5 overflow-auto">
                     <div :class="['flex', message.role === 'user' ? 'justify-end' : 'justify-start']">
-                        <div v-html="message.content" :class="['rounded-lg p-3 text-sm', message.role === 'user' ? 'bg-blue-500 text-white' : 'bg-gray-100 w-full']"></div>
+                        <div
+                            v-html="message.content"
+                            :class="['rounded-lg overflow-hidden p-3 text-sm', message.role === 'user' ? 'bg-blue-500 text-white' : 'bg-gray-100 w-full']"
+                        ></div>
                     </div>
                 </div>
             </div>
@@ -88,7 +137,7 @@
                     <div class="relative w-full max-w-5xl mx-auto">
                         <svg
                             v-if="showScrollToBottomButton"
-                            class="absolute bottom-24 left-1/2 transform -translate-x-1/2 z-10 bg-white icon cursor-pointer text-white px-4 py-2 rounded-full shadow-md transition-colors"
+                            class="animate-bounce absolute bottom-24 left-4/9 transform -translate-x-1/2 z-10 bg-white icon cursor-pointer text-white px-4 py-2 rounded-full shadow-md transition-colors"
                             @click="scrollToBottom"
                             t="1741071381431"
                             viewBox="0 0 1024 1024"
@@ -182,6 +231,7 @@ const isSidebarOpen = ref(true);
 const conversationId = ref(''); // 当前回话id
 // 当前回话内容的list
 const chatList = ref([]);
+const sidebarList = ref([]);
 const chatContainer = ref(null);
 const show = ref(false);
 const windowWidth = ref(window.innerWidth);
@@ -235,7 +285,10 @@ const onScroll = () => {
 const scrollToBottom = () => {
     const container = chatContainer.value;
     if (container) {
-        container.scrollTop = container.scrollHeight;
+        container.scrollTo({
+            top: container.scrollHeight,
+            behavior: 'smooth', // 启用平滑滚动
+        });
         showScrollToBottomButton.value = false;
         isUserInteracting.value = false; // 重置用户交互状态
     }
@@ -256,27 +309,15 @@ const sendMessage = async e => {
     if (chatList.value.length === 0) {
         // 保存第一次对话生成对话id调用 初始接口
         data = await proxy.$api.saveFirstDialogue({ content: inputText.value });
-    } else {
-        data = {
-            data: {
-                conversationId: conversationId.value,
-            },
-        };
-        // 保存对话信息
-        let res = await proxy.$api.seteRecord({
-            role: 'user',
-            content: inputText.value,
-            conversationId: conversationId.value,
-        });
+        conversationId.value = data.data.conversationId;
     }
-
     // 添加用户消息
     chatList.value.push({
         role: 'user',
         content: inputText.value,
     });
     let prompt = inputText.value;
-    const eventSource = new EventSource(`${VITE_STATIC_URL}ai/stream?prompt=${encodeURIComponent(prompt)}&conversationId=${encodeURIComponent(data.data.conversationId)}`);
+    const eventSource = new EventSource(`${VITE_STATIC_URL}ai/stream?prompt=${encodeURIComponent(prompt)}&conversationId=${encodeURIComponent(conversationId.value)}`);
 
     // 初始化助手消息
     chatList.value.push({
@@ -324,6 +365,49 @@ onMounted(() => {
     window.addEventListener('resize', () => {
         checkWindowSize();
     });
+
+    // 查询历史聊天记录
+    proxy.$api.getAllConversations().then(res => {
+        if (res.code === 200) {
+            if (Array.isArray(res.data) && res.data.length > 0) {
+                conversationId.value = res.data[0].conversation_id;
+                proxy.$api.getRecord({ conversationId: conversationId.value }).then(res => {
+                    console.log(res, '333');
+                    sidebarList.value = res.data;
+                    chatList.value = res.data.map(item => {
+                        const fullContent = item.content; // 解码数据
+                        // 使用 markdown-it 渲染完整的 Markdown 内容
+                        const renderedContent = md.render(fullContent);
+                        return {
+                            role: item.role,
+                            content: renderedContent,
+                        };
+                    });
+                    // 滚动到最底部
+                    nextTick(() => {
+                        scrollToBottom();
+                    });
+                });
+            }
+            // conversationId.value = res.data[0].conversationId;
+            // res.data[0].messages.forEach((element, index) => {
+            //     chatList.value.push({
+            //         role: element.role,
+            //         content: element.content,
+            //     });
+            //     const fullContent = element.content; // 解码数据
+            //     // 使用 markdown-it 渲染完整的 Markdown 内容
+            //     const renderedContent = md.render(fullContent);
+            //     chatList.value[index].content = renderedContent;
+            //     // 滚动到最底部
+            //     nextTick(() => {
+            //         scrollToBottom();
+            //     });
+            // });
+            // show.value = true;
+        }
+    });
+
     // 动态绑定复制按钮的点击事件
     document.body.addEventListener('click', async event => {
         const target = event.target;
@@ -433,7 +517,7 @@ code.hljs {
 }
 
 .custom-scrollbar::-webkit-scrollbar-track {
-    background: #f1f1f1;
+    background: #fff;
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb {

@@ -291,6 +291,10 @@ export default {
     seteRecord(params) {
         return oPost(baseUrl + '/ai/save-record', params);
     },
+    // 根据对话id查询对话记录
+    getRecord(params) {
+        return oGet(baseUrl + '/ai/conversation-history', params);
+    },
 };
 
 //封装post/get请求
