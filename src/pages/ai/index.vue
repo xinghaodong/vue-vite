@@ -368,7 +368,9 @@ onMounted(async () => {
                 await navigator.clipboard.writeText(codeText); // 复制到剪贴板
                 // element 提示
                 ElMessage.success('复制成功');
-            } catch (error) {}
+            } catch (error) {
+                console.error('复制失败', error);
+            }
         }
     });
 });
