@@ -15,7 +15,7 @@
                 <!-- 固定的顶部Logo部分 -->
                 <div class="flex justify-between h-16 border-b border-gray-200 items-center px-2 flex-shrink-0">
                     <div class="flex items-center space-x-2">
-                        <span class="font-semibold">ChatGPT11</span>
+                        <span class="font-semibold">ChatGPT</span>
                     </div>
                     <div class="flex items-center space-x-2">
                         <svg
@@ -47,8 +47,8 @@
                                 v-for="(item, index) in sidebarList"
                                 :key="index"
                                 :class="[
-                                    'truncate text-sm text-gray-800 p-2 hover:bg-gray-100 rounded cursor-pointer',
-                                    item.conversation_id == conversationId ? 'bg-gradient-to-r from-cyan-500 to-blue-500 text-white' : '',
+                                    'truncate text-sm p-2 hover:bg-gray-100 rounded cursor-pointer',
+                                    item.conversation_id == conversationId ? 'bg-gradient-to-r from-cyan-500 to-blue-500 text-white' : 'text-gray-800',
                                 ]"
                             >
                                 <span>
