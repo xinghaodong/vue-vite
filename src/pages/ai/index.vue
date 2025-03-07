@@ -363,10 +363,19 @@ onMounted(async () => {
             const preElement = target.closest('pre'); // 找到最近的 <pre> 元素
             const codeElement = preElement.querySelector('code'); // 获取 <code> 元素
             const codeText = codeElement.textContent; // 获取代码内容
-
             try {
-                await navigator.clipboard.writeText(codeText); // 复制到剪贴板
-                // element 提示
+                if (navigator.clipboard) {
+                    // 使用浏览器内置的剪贴板 API http下不支持走备用方案
+                    await navigator.clipboard.writeText(codeText);
+                } else {
+                    // 备用方案：使用 document.execCommand('copy')
+                    const textarea = document.createElement('textarea');
+                    textarea.value = codeText;
+                    document.body.appendChild(textarea);
+                    textarea.select();
+                    document.execCommand('copy');
+                    document.body.removeChild(textarea);
+                }
                 ElMessage.success('复制成功');
             } catch (error) {
                 console.error('复制失败', error);
