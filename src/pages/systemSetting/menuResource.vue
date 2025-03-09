@@ -189,7 +189,6 @@
 
 <script setup>
 import { ref, reactive, onMounted, getCurrentInstance, onBeforeUnmount } from 'vue';
-const { VITE_PROXY_DOMAIN_REAL, VITE_STATIC_URL, VITE_PROXY_DOMAIN } = import.meta.env;
 import useUserInfoStore from '@/stortes/user'; //引入仓库
 import { storeToRefs } from 'pinia'; //引入pinia转换
 const { proxy } = getCurrentInstance();
@@ -341,74 +340,6 @@ onMounted(async () => {
             roleList.value = res.data;
         });
 
-        let prompt = '你现在的模型是什么？我现在是申请了api 想知道用了多少免费额度了？';
-        let obj = {
-            prompt,
-            type: 'text',
-        };
-        const eventSource = new EventSource(`${VITE_STATIC_URL}ai/stream?prompt=${encodeURIComponent(prompt)}`);
-
-        let result = ''; // 用来拼接流式响应内容
-
-        // 处理接收到的数据
-        eventSource.onmessage = event => {
-            console.log('接收到流数据:', event.data);
-            requestAnimationFrame(() => {
-                result += event.data;
-                aimessage.value = result;
-            });
-        };
-
-        // 错误处理
-        eventSource.onerror = error => {
-            console.error('EventSource 发生错误', error);
-            eventSource.close();
-        };
-
-        // 当连接打开时
-        eventSource.onopen = () => {
-            console.log('连接已打开');
-        };
-
-        // 监听结束事件
-        eventSource.addEventListener('end', () => {
-            console.log('数据流结束');
-            console.log('最终响应:', result);
-            eventSource.close();
-        });
-
-        // proxy.$api
-        //     .getAi(obj)
-        //     .then(res => {
-        //         if (res._readableState) {
-        //             let fullResponse = '';
-
-        //             res.on('data', chunk => {
-        //                 const text = Buffer.from(chunk.data.data).toString('utf8');
-        //                 console.log('接收到流数据:', text);
-        //                 fullResponse += text;
-        //             });
-
-        //             res.on('end', () => {
-        //                 console.log('最终完整数据:', fullResponse);
-        //             });
-
-        //             res.on('error', err => {
-        //                 console.error('流式请求失败:', err);
-        //             });
-        //         } else {
-        //             const bufferData = res?.buffer?.head?.data?.data;
-        //             if (bufferData) {
-        //                 const decodedText = Buffer.from(bufferData).toString('utf8');
-        //                 console.log('完整数据:', decodedText);
-        //             } else {
-        //                 console.log('返回数据格式不匹配:', res);
-        //             }
-        //         }
-        //     })
-        //     .catch(error => {
-        //         console.error('请求失败:', error);
-        //     });
     } catch (error) {
         console.error('失败信息:', error);
     }

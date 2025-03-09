@@ -125,13 +125,18 @@
 <script setup>
 import { getCurrentInstance, ref, onMounted, watch, nextTick, computed } from 'vue';
 const { VITE_STATIC_URL } = import.meta.env;
-import { ElMessage } from 'element-plus';
 const { proxy } = getCurrentInstance();
 import MarkdownIt from 'markdown-it';
 import hljs from 'highlight.js';
-import 'highlight.js/styles/github.css'; // 引入样式
+// import 'highlight.js/styles/github.css'; // 引入样式
+import 'highlight.js/styles/atom-one-dark.css';
 import svgicon from './comp/svg.vue';
 import svgbot from './comp/svgbot.vue';
+import xml from "highlight.js/lib/languages/xml"; // Vue 代码用 XML 高亮
+hljs.registerLanguage("vue", xml);
+
+import { useCodeCopy } from './hooks/useCodeCopy';
+useCodeCopy()
 
 // 初始化 markdown-it 并启用代码高亮
 const md = new MarkdownIt({
@@ -355,39 +360,11 @@ onMounted(async () => {
         sidebarList.value = list;
         getHistory(conversationId.value);
     }
-    // 动态绑定复制按钮的点击事件
-    document.body.addEventListener('click', async event => {
-        const target = event.target;
-        // 检查是否点击了复制按钮
-        if (target.classList.contains('copy-button')) {
-            const preElement = target.closest('pre'); // 找到最近的 <pre> 元素
-            const codeElement = preElement.querySelector('code'); // 获取 <code> 元素
-            const codeText = codeElement.textContent; // 获取代码内容
-            try {
-                if (navigator.clipboard) {
-                    // 使用浏览器内置的剪贴板 API http下不支持走备用方案
-                    await navigator.clipboard.writeText(codeText);
-                } else {
-                    // 备用方案：使用 document.execCommand('copy')
-                    const textarea = document.createElement('textarea');
-                    textarea.value = codeText;
-                    document.body.appendChild(textarea);
-                    textarea.select();
-                    document.execCommand('copy');
-                    document.body.removeChild(textarea);
-                }
-                ElMessage.success('复制成功');
-            } catch (error) {
-                console.error('复制失败', error);
-            }
-        }
-    });
 });
 
 // 监听侧边栏状态，控制body滚动
 watch(isSidebarOpen, newValue => {
     if (newValue && isMobile.value) {
-        console.log('侧边栏', isMobile.value);
         document.body.style.overflow = 'hidden';
     } else {
         document.body.style.overflow = '';
@@ -397,102 +374,7 @@ watch(isSidebarOpen, newValue => {
 const actions = [{ icon: '🖼️', text: '创建图片' }];
 </script>
 
-<style>
-/* 代码高亮样式 */
-.hljs {
-    display: block;
-    overflow-x: auto;
-    padding: 10px;
-    background: #2d2d2d;
-    border-radius: 8px;
-    font-family: 'Courier New', monospace;
-    color: #f8f8f2;
-}
-
-.hljs-comment {
-    color: #7d8b8c;
-}
-
-.hljs-keyword {
-    color: rgb(220, 198, 224);
-}
-.hljs-title.function_ {
-    color: rgb(0, 224, 224);
-}
-.hljs-string {
-    color: #a6e22e !important;
-}
-
-.hljs-title,
-.hljs-title.class_ {
-    color: #fff;
-}
-
-pre {
-    position: relative; /* 确保复制按钮定位正确 */
-    border-radius: 5px;
-    overflow-x: auto;
-    display: inline-flex;
-    background: #2d2d2d;
-    color: rgb(248, 248, 242);
-    padding: 16px 8px;
-    margin: 0px;
-    font-size: 13px;
-    width: -webkit-fill-available;
-    /* padding-top: 0px !important;
-        padding-bottom: 0px !important; */
-}
-
-code {
-    font-family: 'Courier New', monospace;
-    font-size: 0.9rem;
-}
-code.hljs {
-    padding-top: 0px !important;
-    padding-bottom: 0px !important;
-}
-.copy-button {
-    background: #fff;
-    color: #333;
-    font-size: 12px;
-    padding: 4px 6px;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    transition: background 0.2s ease-in-out;
-}
-
-.copy-button:hover {
-    background: rgba(254, 251, 251, 0.2);
-}
-</style>
-
-<style scoped>
-.custom-scrollbar::-webkit-scrollbar {
-    width: 8px;
-}
-
-.custom-scrollbar::-webkit-scrollbar-track {
-    background: #fff;
-}
-
-.custom-scrollbar::-webkit-scrollbar-thumb {
-    background: hsl(0, 1%, 79%);
-    border-radius: 4px;
-}
-
-.custom-scrollbar::-webkit-scrollbar-thumb:hover {
-    background: #999898;
-    cursor: pointer;
-}
-
-@media (max-width: 767px) {
-    .w-64 {
-        position: fixed;
-        top: 0;
-        left: 0;
-        bottom: 0;
-        z-index: 50;
-    }
-}
+<style >
+/* 导入样式文件 */
+@import '../../assets/css/ai.css';
 </style>

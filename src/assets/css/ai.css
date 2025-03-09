@@ -1,0 +1,96 @@
+/* 代码高亮样式 */
+.hljs {
+    display: block;
+    overflow-x: auto;
+    padding: 10px;
+    background: #2d2d2d;
+    border-radius: 8px;
+    font-family: 'Courier New', monospace;
+    color: #f8f8f2;
+}
+
+.hljs-comment {
+    color: #7d8b8c;
+}
+
+.hljs-keyword {
+    color: rgb(220, 198, 224);
+}
+.hljs-title.function_ {
+    color: rgb(0, 224, 224);
+}
+.hljs-string {
+    color: #a6e22e !important;
+}
+
+.hljs-title,
+.hljs-title.class_ {
+    color: #fff;
+}
+
+pre {
+    position: relative; /* 确保复制按钮定位正确 */
+    border-radius: 5px;
+    overflow-x: auto;
+    display: inline-flex;
+    background: #2d2d2d;
+    color: rgb(248, 248, 242);
+    padding: 16px 8px;
+    margin: 0px;
+    font-size: 13px;
+    width: -webkit-fill-available;
+    margin-top: 12px;
+    padding-top: 6px;
+    /* padding-top: 0px !important;
+        padding-bottom: 0px !important; */
+}
+
+code {
+    font-family: 'Courier New', monospace;
+    font-size: 0.9rem;
+}
+code.hljs {
+    padding-top: 0px !important;
+    padding-bottom: 0px !important;
+}
+.copy-button {
+    background: #fff;
+    color: #333;
+    font-size: 12px;
+    padding: 4px 6px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background 0.2s ease-in-out;
+}
+
+.copy-button:hover {
+    background: rgba(254, 251, 251, 0.2);
+}
+.custom-scrollbar::-webkit-scrollbar {
+    width: 8px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+    background: #fff;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+    background: hsl(0, 1%, 79%);
+    border-radius: 4px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: #999898;
+    cursor: pointer;
+}
+
+@media (max-width: 767px) {
+    .w-64 {
+        position: fixed;
+        top: 0;
+        left: 0;
+        bottom: 0;
+        z-index: 50;
+    }
+}
