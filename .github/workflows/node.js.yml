@@ -47,3 +47,11 @@ jobs:
                   key: ${{ secrets.SSH_PRIVATE_KEY }}
                   source: ./dist/*
                   target: /var/www/html/
+
+            - name: Push to Gitee
+              run: |
+                  git config --global user.name "xinghaodong"
+                  git config --global user.email "975115611@qq.com"
+
+                  git remote add gitee https://oauth2:${{ secrets.GITEE_TOKEN }}@gitee.com/xing-hao-dong/vue-vite.git
+                  git push -u gitee HEAD:master -f  # 强制同步到 Gitee
