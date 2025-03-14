@@ -295,6 +295,10 @@ export default {
     getRecord(params) {
         return oGet(baseUrl + '/ai/conversation-history', params);
     },
+    // 查询天气
+    getWeather(params) {
+        return oGet(baseUrl + '/ai/weather', params);
+    },
 };
 
 //封装post/get请求
