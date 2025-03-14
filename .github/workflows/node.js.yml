@@ -55,16 +55,14 @@ jobs:
                   git config --global user.name "xing-hao-dong"
                   git config --global user.email "975115611@qq.com"
 
-                  # 添加 Gitee 远程仓库
                   git remote add gitee https://gitee.com/xing-hao-dong/vue-vite.git
+                  git fetch gitee
                   
-                  # 提交所有修改 (包括构建后的文件)
+                  # 强制拉取并自动接受本地版本的更改
+                  git merge -X ours gitee/master || echo "No merge necessary"
+                  
                   git add -A
                   git commit -m "CI: Auto-commit changes before pushing to Gitee" || echo "No changes to commit"
 
-                  # 拉取 Gitee 仓库的完整历史并合并
-                  git fetch gitee
-                  git pull --rebase gitee master || echo "No rebase necessary"
-
-                  # 推送更改到 Gitee 仓库
                   git push https://oauth2:${{ secrets.GITEE_TOKEN }}@gitee.com/xing-hao-dong/vue-vite.git HEAD:master -f
+
