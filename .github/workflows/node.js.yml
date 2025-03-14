@@ -50,19 +50,24 @@ jobs:
                   source: ./dist/*
                   target: /var/www/html/
 
-            - name: Push to Gitee1
+                        # 推送到Gitee
+            - name: Push to Gitee
               run: |
                   git config --global user.name "xing-hao-dong"
                   git config --global user.email "975115611@qq.com"
+                  
+                  # 添加 Gitee 远程仓库（如果已存在则不会重复添加）
+                  git remote add gitee https://gitee.com/xing-hao-dong/nest-typeorm.git || echo "Remote 'gitee' already exists"
 
-                  git remote add gitee https://gitee.com/xing-hao-dong/vue-vite.git
+                  # 允许合并不相关的历史记录
                   git fetch gitee
-                  
-                  # 强制拉取并自动接受本地版本的更改
-                  git merge -X ours gitee/master || echo "No merge necessary"
-                  
+                  git merge --allow-unrelated-histories -X ours gitee/master || echo "No merge necessary"
+
+                  # 提交所有更改
                   git add -A
                   git commit -m "CI: Auto-commit changes before pushing to Gitee" || echo "No changes to commit"
 
-                  git push https://oauth2:${{ secrets.GITEE_TOKEN }}@gitee.com/xing-hao-dong/vue-vite.git HEAD:master -f
+                  # 推送更改到 Gitee 仓库
+                  git push https://oauth2:${{ secrets.GITEE_TOKEN }}@gitee.com/xing-hao-dong/nest-typeorm.git HEAD:master -f
+
 
