@@ -50,7 +50,7 @@ jobs:
 
             - name: Push to Gitee
               run: |
-                  git config --global user.name "xinghaodong"
+                  git config --global user.name "xing-hao-dong"
                   git config --global user.email "975115611@qq.com"
 
                   git remote add gitee https://gitee.com/xing-hao-dong/vue-vite.git
