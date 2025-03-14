@@ -18,7 +18,7 @@ jobs:
             - name: Checkout Repository
               uses: actions/checkout@v4
               with:
-                  fetch-depth: 0  # 确保完整克隆，不是浅克隆
+                  fetch-depth: 0  # 确保完整克隆
 
             - name: Use Node.js ${{ matrix.node-version }}
               uses: actions/setup-node@v4
@@ -55,7 +55,16 @@ jobs:
                   git config --global user.name "xing-hao-dong"
                   git config --global user.email "975115611@qq.com"
 
+                  # 添加 Gitee 远程仓库
                   git remote add gitee https://gitee.com/xing-hao-dong/vue-vite.git
-                  git fetch gitee  # 确保从 Gitee 拉取完整历史
-                  git pull --rebase gitee master  # 与 Gitee 仓库的 master 分支合并
+                  
+                  # 提交所有修改 (包括构建后的文件)
+                  git add -A
+                  git commit -m "CI: Auto-commit changes before pushing to Gitee" || echo "No changes to commit"
+
+                  # 拉取 Gitee 仓库的完整历史并合并
+                  git fetch gitee
+                  git pull --rebase gitee master || echo "No rebase necessary"
+
+                  # 推送更改到 Gitee 仓库
                   git push https://oauth2:${{ secrets.GITEE_TOKEN }}@gitee.com/xing-hao-dong/vue-vite.git HEAD:master -f
