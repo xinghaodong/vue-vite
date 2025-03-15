@@ -95,7 +95,7 @@
                     <div :class="['flex', message.role === 'user' ? 'justify-end' : 'justify-start']">
                         <div
                             v-html="message.content"
-                            :class="['rounded-lg overflow-hidden p-3 text-sm py-0', message.role === 'user' ? 'bg-blue-500 text-white' : 'bg-gray-100 w-full']"
+                            :class="['rounded-lg overflow-hidden p-3 text-sm py-0', message.role === 'user' ? 'bg-blue-500 text-white' : 'bg-gray-100 w-full pt-3 pb-3']"
                         ></div>
                     </div>
                 </div>
