@@ -2,10 +2,6 @@
     <div class="flex h-screen overflow-hidden">
         <!-- 移动端遮罩层 - 仅在移动端且侧边栏打开时显示 -->
         <div v-if="isSidebarOpen && isMobile" class="fixed inset-0 bg-black bg-opacity-50 z-40" @click="closeSidebar"></div>
-        <!-- <img
-            style="width: 100px; height: 100px"
-            :src="img"
-        ></img> -->
         <!-- 左侧边栏 -->
         <div
             :class="[
@@ -18,7 +14,7 @@
                 <!-- 固定的顶部Logo部分 -->
                 <div class="flex justify-between h-16 border-b border-gray-200 items-center px-2 flex-shrink-0">
                     <div class="flex items-center space-x-2">
-                        <span class="font-semibold">ChatGPT11</span>
+                        <span class="font-semibold">{{ selectedModel }}</span>
                     </div>
                     <div class="flex items-center space-x-2">
                         <svg
@@ -84,7 +80,21 @@
                 </svg>
                 <svgicon v-if="!isSidebarOpen" @click="newConversation" />
                 <div class="flex-1 flex items-center ml-4">
-                    <span class="text-xl font-semibold">ChatGPT</span>
+                    <span class="text-xl font-semibold">{{ selectedModel }}</span>
+                </div>
+                <!-- 下拉选择大模型 -->
+                <div class="relative">
+                    <select
+                        v-model="selectedModel"
+                        class="appearance-none bg-white border border-gray-300 rounded-md py-2 px-4 pr-8 leading-tight focus:outline-none focus:border-blue-500"
+                    >
+                        <option v-for="model in modelList" :key="model.value" :value="model.value">{{ model.label }}</option>
+                    </select>
+                    <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700">
+                        <svg class="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                            <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z" />
+                        </svg>
+                    </div>
                 </div>
             </div>
 
@@ -173,7 +183,6 @@ md.renderer.rules.fence = function (tokens, idx) {
                 ${highlightedCode}
             </pre>`;
 };
-// const img = ref('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAUAAAAFACAIAAABC8jL9AAAACXBIWXMAAA7EAAAOxAGVKw4bAAARHklEQVR4nO3daVMb15rA8XNOtzaE2DEgg7FZzGpjO\/Fys98kldTMfIr5GPNxUjOv5uVU3RdzMzN36k5u3SR2Ei8Y8AIOeMF4BcQiCbV6XrjKdhyQWtC0z4P\/v0pVqhwsdZD+nJb09EGrZ7MKgEzmbR8AgN0jYEAwAgYEI2BAMAIGBCNgQDACBgQjYEAwAgYEcyv\/Z7+5L5rjsJB+Plf1a8L6\/oR1X7bdThBR3pdElb8\/rMCAYAQMCEbAgGAEDAhGwIBgBAwIRsCAYAQMCEbAgGAEDAhGwIBgVWahgwgyy2qbd3mON8p56SjZdjxB7P25wQoMCEbAgGAEDAhGwIBgBAwIRsCAYAQMCEbAgGAEDAhGwIBgBAwIFsIsdBBRzgPbNhMb5bx0WDPMYX0PbZupPnjPQ1ZgQDACBgQjYEAwAgYEI2BAMAIGBCNgQDACBgQjYEAwAgYEI2BAsIhmoQ+qKPeXjtJB\/f86eFiBAcEIGBCMgAHBCBgQjIABwQgYEIyAAcEIGBCMgAHBCBgQjIABwZiF3hPbZn1t24cZ+40VGBCMgAHBCBgQjIABwQgYEIyAAcEIGBCMgAHBCBgQjIABwQgYECyiWWjmbyuzbR\/mILcT5Jhtm80+eM9DVmBAMAIGBCNgQDACBgQjYEAwAgYEI2BAMAIGBCNgQDACBgQjYECwEGahw5rjlSjKWd+w5pNtu52wvJvPQ1ZgQDACBgQjYEAwAgYEI2BAMAIGBCNgQDACBgQjYEAwAgYEI2BAMK2ezb7tYzjgJM4VR+ng7dUcJVZgQDACBgQjYEAwAgYEI2BAMAIGBCNgQDACBgQjYEAwAgYEI2BAsBD2hQ5C4jywxP2Tw5orjnK\/6yjvKwhZ\/++swIBgBAwIRsCAYAQMCEbAgGAEDAhGwIBgBAwIRsCAYAQMCEbAgGBVZqHDmguVOA98UO8rynnyd\/m+wuqiMlZgQDACBgQjYEAwAgYEI2BAMAIGBCNgQDACBgQjYEAwAgYEI2BAsCqz0BL3ag4iyrnr\/d5n2C2pRNEki7o55\/zbRsfSor+66q+t+cV8eTOvlVKppB9Pmvp63dCgO7r0YN29Zw1eIebnE2XP2fXdhoZ58r2IaGN37If0hm5bcY8sxY8sxXoX4+lN879+6bX\/rl\/8azOvN\/P+yrJ\/X6npKfXPumW13nvQVrrdXXjQtvWksbRe57+V48feEbA82lf1G6ZnKTY8nzy6GD+0XNuD6Pi6Oec259yxO8lHTaX5zsLc4eLs4WIuXfb1Ph0y9gsByzNyJ3HmZir7ONa45jh7a+7Qstu27AwvJB+0bf1yfPPy8XxYB4loELAkDevm6+8zQwuJVN7sMd2XjNKZDWdwwXQ\/ih97EP\/rqfWnTV4ot4wIELAMyYIeuZP44qdM28q+PGRG6XRen59KD95N\/M\/7a9f684U4L4wFIGABmnLm4yv1Z6fq4qV9f5HaknP\/6W8NnU\/d7ybWlzPl\/b477BEB2679ufvFxfrxuaRbjugtplTRXJhM1xXMX86sP24uVf8LeHsI2GrZx+5XP2SGF5IR369b1hM3U3Wb5s\/ncw\/aadheTGLZq\/25+9UPmcG7ibdy746vB+8mvvoh0\/6cn\/L2ImBLNeXMH39OD95NhPVu8y44vh5eSH5xsb4px\/PEUvxwtVGiqD+6kj55K1VrvcmU7u427muP6sqKv\/hgT+9Fjc8l1+vK357N5RO8L22dEPaFDiLKmeqwZo+D3M4+zcSemE2+N1O3i3etTp12\/vBBLP7aSffdhfKf\/qO4srL79tyyPjtVd6+t+MtwzWMeUc45ByHx+Vz5vjg1sk7rsvP5pfpUseaHJnvYnJxw4799ydzRacZPOrHYng4pXtJfXso0rPNssQ4PiXU+uZxuydX80sZx1PhJp6HxzUU7HlfDI+7h7r1edtS66n79fWaPN4LQ8RrYItpXE7eS43OpWv+iMWpwyOnvd5ztOm1r16NjzupKubi14y34ZbW56ZcrvlgeWkiMziWmjxW45sEeBGyRzLo5fTOVytfcR2OjHj+xzfL70vEh09Ye39ra8ZVwoaAu\/VhamK9UcCpvztxM3e3YyqWZ0LIFAVuk\/348+yRmVG0BO4460ut0VzxJTiR1V7bKzcbj+uFioVjc+Y58nX0c61mKTfUVajpC7B9eA9sivaH77sfTGzU\/Io2NeuK0k9jzsNbhbjM0UuUHeuOaMzyfTG9wDm0LArZF24rb+zBR6\/KrlBo76XR0hvA4uq46856TTFY6AMfXRxfj+3RFFHaBgK3geCr7JFZ1bw2tVTKl6zOv\/nFdtbXzSW+tWtvM++eqHMOhZffIUtxlPtoO\/Ci1QrJgBu5Vn3lubNLnzrutba8WyWtXvKlJb3gknEXY8\/z19eojH0eWYj8fNyWXt7LePgK2QmJLZ59UeSyMUaNjztgJNx5\/9YfpevPoUeHqFe\/TFvP6n+\/OoyX\/xnT17Th6F+PJol6v2+vdYe84hbZCy6rTsFZl1qKzywwed96otLVVnzrt3r7p3ZkLYR+cSz+WNjaqr8DpTdOcs2BDWkS2L\/R+741c6+1EORMbxCdP6ypft5BM6dFx59ChbX7g9g04M9Pe9HWvq8tU+Ci4qtu3vLnZQD8FHF9nn7q3e6q\/+I7y+2zDHt212vt9cQpthcOPqpz+HjqkBwcds92yl8no0++5\/\/3t1r9+U0intQ6csDHq9S9+9KjsBV7FDz+KK7UR9KuxbwjYCk3Vzp9LJVXc8tV2HzIZo470mv4B59qV0lou6FVHbW0m261d59UNNjXrG9NeKdjby1UPGNEgYCvUV5vfePq0PDPtnT1rth3YqKvTwyPO3QXv2dNAASeT+twf3NGx38xOe54qFoq3bgZahaseMKLBw2CFukKVE99CXk1Neo8f7\/jJTXePGRoOdNmgMaqv3xw9at648sFx1LkLblNzoFPwqgeMaBCwFRKF6g\/E8nN\/ZtorFLZfY11XnZhw0+nqXTU26pExpz6zzVd2dpqTE4FOyoIcMCLAwyCG76vr17xf7+y4CDc3648\/i5mKD6njqGP95lifs+17XW5M9Q+a7h4T\/J0wvF0EbIVCItBUUz7vf\/\/3UoX3mUbHnMPdlR7TtnZz+r3YtpcNv9DaYsZPVF\/JAx4w9hsBW2Ej8H5xDx+UZyoOS5097yZ2viDh5Cmnra3i5QquGjhuurJVFuHgB4x9RcBWWKurYUG79GPpyZMd+znS64yf2H6F7cya0dHqH\/+k03p03EmlKhVc0wFj\/xCwFZbraxiEfPqkfP3ajqfRiYQaGnZaWt\/Mz3XV+QtusmKWLw0MOv0DlVKv6YCxfwjYCvcP1XBNYKmklh76uZ1nNrqy5uTEb06ktVaj407v0aAPt++\/mBvZUU0HjP0T0SBHWPOlYc2yRjkvHcQ3R9v\/\/e9FP9jrykRCHeszme0+B3rBdVX\/gDM3691d8F\/cZmurHht3K1+s\/5Lvqxsz3sKvO54ka62+Odp+tFneMJbEOfnKWIGt0Nio0+mgX9zRacZ2eJX7Ulu7Hhpx4gmtlIrF1PCoW\/V9qZeWl\/2pyVI+v+OPk4YG3dTEB01WIGArxBO68sc\/r7vwQayurno\/wyNOb69RSrW0mr5+E3Bvd6+kZm95i4vlCqcDHR06FidgKzALbYVEQmW7zY2Z6m\/tDgwGfSlbV6e7e8z8fHn8hHOoY\/u\/4vtqebn85PGrWJ898y\/\/VMpvVrrl3mNOMupfeIrtEbAVXFdns6alVVe9GmFry\/c8VXnc6oX1df\/GjNfVpU+d2X7Dd6VULuf\/139uzc3W8JlQS6s+1KEdhxXYCpxC26K5JdAM4\/yv5ckr1S\/5K3tqatJbfu6fu+C67o43evumN19xM\/ffO9ytm1t42tiCR8IW6bTuHzCZhuor2+XLXtXfNvjkSfnGjHeszxzr2\/HtrrWc\/+MPJa+W\/SXTaXWk1wlyyQSiQcAW6cqazq7qW2osPy9fu+Jt7fyLjgoFNTPtbW76Z96v9BLp6hVvZbm2icjOTtN7VN6nRwcYr4EtUl+vx8adewvljYqb1RSL6tqVUqHgN+9w7e7qqj993Rs74bS27fgD+u5CefJqbZs7p1JqdNypr2f5tQgBW0RrfXzIvXWzPHm1yqDi6qp\/6ccq+a2u+J63\/S48+U3\/0sWt5RqX36FhZ3ScJ4xdOIW2zqefuY1hjEncvuU9uL9NouWympstLz7wAw5+vdDQqM9eoF7rELB16jPmo09cd8+xFArq4g+l4u9+keDKsn990sut1pBvIqE+\/Mht4c1n+1R5moQ1exzlfKlt97WLmdiBQefh6fIvP3mVf+N2VffvedeuliZOv\/pxUCyqqcnS3YUariUqGf+7ofV\/6VzLP\/9N8wfg+7yvtxMNTopslEzqc+fdjXU1PbWnq\/ZKJfXdX0u\/\/Fx6+dZ2ueyvr6sK72C\/wdP+1cHN7ybW81zBbyUCtlRDo\/nwY7dQ8O\/MVRpLriqf9\/N5pdRubsLT\/q2ewl\/OrC9nuHzfUryqsVdrm\/n409ixvre2xdytnsKfz+ceN\/OrRO1FwFbr7DKffxkbGzdBhp9DVDL+5YHNP32Ye9BOvVbjFNp2L9bhVKp09YpX+N1byvvBddXfRjf+b2KNM2f7sQIL0NBoPvg49vmXsb388sGAGpv0V\/8Q+\/ZsjnpFYAWWIZnUJ0+53UfMxe9LN2a8zYrX6+6C1iqVUn0DzqefufUZ88YnRrAWAUvS0mK+\/sd4z5HS1KT38GF5fT2E29RaZRp0Z5ceG3eOD\/F8EIYHTJ6RMben15n\/1VuY9+7f8wP+RsJttbTq7h7TP2C6soarFCQiYHm0VpmMHj\/hHutznj8rP1ry5+94S0v+6mqg8WatVTqtDnebbLfJZk1zi+H6XrkIWLB0WqfTTlfWHxpxtor+8rK\/tFReWvRXV\/21Nb+YL2\/mtVIqlfTjSVNfrxsadEeX7ugwjY06ntCJhKqwWQdE0OrZ7B5v4qDOxIblXT5m2\/ZYPnjPVT5GAgQjYEAwAgYEI2BAMAIGBCNgQDACBgQjYEAwAgYEI2BAMAIGBItoX+ggwppTte2+DqqD+nhFub\/03vtiBQYEI2BAMAIGBCNgQDACBgQjYEAwAgYEI2BAMAIGBCNgQDACBgQLYV\/od5ltM7pR7udsz97IwR28\/a5ZgQHBCBgQjIABwQgYEIyAAcEIGBCMgAHBCBgQjIABwQgYEIyAAcFC2Bf6oAoypxrlnti2zfFGybaZ6rC+z+wLDbzTCBgQjIABwQgYEIyAAcEIGBCMgAHBCBgQjIABwQgYEIyAAcGqzEIHEeUMaljCmgeOcn9ge\/YifsG2PbHfTazAgGAEDAhGwIBgBAwIRsCAYAQMCEbAgGAEDAhGwIBgBAwIRsCAYCHMQgfB3GxlUX5\/wtpjOcq9kSWK5nnICgwIRsCAYAQMCEbAgGAEDAhGwIBgBAwIRsCAYAQMCEbAgGAEDAgW0Sz0QRXlfs5B2DZXHNb3J8r5dtv2366MFRgQjIABwQgYEIyAAcEIGBCMgAHBCBgQjIABwQgYEIyAAcEIGBCMWeg9kbjfdVh7NUc552zbvHSUj0Xl+2IFBgQjYEAwAgYEI2BAMAIGBCNgQDACBgQjYEAwAgYEI2BAMAIGBItoFjrKOdUo2bYvdBD2zPGGS9Z+zmFhBQYEI2BAMAIGBCNgQDACBgQjYEAwAgYEI2BAMAIGBCNgQDACBgQLYRbatlnfd5lt88lhkThTHQ1WYEAwAgYEI2BAMAIGBCNgQDACBgQjYEAwAgYEI2BAMAIGBCNgQDCtns2+7WMAsEuswIBgBAwIRsCAYAQMCEbAgGAEDAhGwIBgBAwIRsCAYP8PiS8qANro1e8AAAAASUVORK5CYII=')
 
 const inputText = ref('');
 const textareaHeight = ref(84); // 初始高度
@@ -304,7 +313,7 @@ const sendMessage = async e => {
     const renderedContent = md.render(inputText.value);
     chatList.value[lastIndex].content = renderedContent;
     let prompt = inputText.value;
-    const eventSource = new EventSource(`${VITE_STATIC_URL}ai/stream?prompt=${encodeURIComponent(prompt)}&conversationId=${encodeURIComponent(conversationId.value)}`);
+    const eventSource = new EventSource(`${VITE_STATIC_URL}ai/stream?prompt=${encodeURIComponent(prompt)}&conversationId=${encodeURIComponent(conversationId.value)}&model=${selectedModel.value}`);
 
     // 初始化助手消息
     chatList.value.push({
@@ -374,6 +383,12 @@ onMounted(async () => {
 });
 
 const actions = [{ icon: '🖼️', text: '创建图片' }];
+
+const selectedModel = ref('deepseek-r1:14b'); // 默认选择第一个模型
+const modelList = ref([
+    { label: 'deepseek-r1', value: 'deepseek-r1:14b' },
+    { label: 'qwen-plus', value: 'qwen-plus' },
+]);
 </script>
 
 <style>
