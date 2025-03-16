@@ -88,7 +88,7 @@
                         v-model="selectedModel"
                         class="appearance-none bg-white border border-gray-300 rounded-md py-2 px-4 pr-8 leading-tight focus:outline-none focus:border-blue-500"
                     >
-                        <option v-for="model in modelList" :key="model.value" :value="model.value">{{ model.label }}</option>
+                        <option v-for="model in modelList" :key="model.model" :value="model.model">{{ model.name }}</option>
                     </select>
                     <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700">
                         <svg class="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
@@ -312,7 +312,9 @@ const sendMessage = async e => {
     const renderedContent = md.render(inputText.value);
     chatList.value[lastIndex].content = renderedContent;
     let prompt = inputText.value;
-    const eventSource = new EventSource(`${VITE_STATIC_URL}ai/stream?prompt=${encodeURIComponent(prompt)}&conversationId=${encodeURIComponent(conversationId.value)}&model=${selectedModel.value}`);
+    const eventSource = new EventSource(
+        `${VITE_STATIC_URL}ai/stream?prompt=${encodeURIComponent(prompt)}&conversationId=${encodeURIComponent(conversationId.value)}&model=${selectedModel.value}`,
+    );
 
     // 初始化助手消息
     chatList.value.push({
@@ -381,20 +383,18 @@ onMounted(async () => {
     }
     // 获取ollama列表
     proxy.$api.getOllamaList().then(res => {
-        modelList.value = res.data;
+        modelList.value.push(...res.data);
     });
 });
 
 const actions = [{ icon: '🖼️', text: '创建图片' }];
 
 const selectedModel = ref('deepseek-r1:14b'); // 默认选择第一个模型
-const modelList = ref([
-    { label: 'deepseek-r1', value: 'deepseek-r1:14b' },
-    { label: 'qwen-plus', value: 'qwen-plus' },
-]);
+const modelList = ref([{ model: 'qwen-plus', name: 'qwen-plus' }]);
 </script>
 
 <style>
 /* 导入样式文件 */
 @import '../../assets/css/ai.css';
+
 </style>
