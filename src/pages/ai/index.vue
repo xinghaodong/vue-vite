@@ -267,7 +267,6 @@ const newConversation = () => {
     chatList.value = [];
     conversationId.value = '';
 };
-
 // 会话id聊天记录
 const getHistory = conversationId => {
     proxy.$api.getRecord({ conversationId: conversationId }).then(res => {
@@ -380,6 +379,10 @@ onMounted(async () => {
         sidebarList.value = list;
         getHistory(conversationId.value);
     }
+    // 获取ollama列表
+    proxy.$api.getOllamaList().then(res => {
+        modelList.value = res.data;
+    });
 });
 
 const actions = [{ icon: '🖼️', text: '创建图片' }];

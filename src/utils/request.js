@@ -299,6 +299,10 @@ export default {
     getWeather(params) {
         return oGet(baseUrl + '/ai/weather', params);
     },
+    // 获取本机ollama模型
+    getOllamaList(params) {
+        return oGet(baseUrl + '/ai/ollama-models', params);
+    },
 };
 
 //封装post/get请求
