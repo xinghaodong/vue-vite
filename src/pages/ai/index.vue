@@ -80,7 +80,7 @@
                 </svg>
                 <svgicon v-if="!isSidebarOpen" @click="newConversation" />
                 <div class="flex-1 flex items-center ml-4">
-                    <span class="text-xl font-semibold">{{ selectedModel }}</span>
+                    <!-- <span class="text-xl font-semibold">{{ selectedModel }}</span> -->
                 </div>
                 <!-- 下拉选择大模型 -->
                 <div class="relative">
@@ -136,7 +136,7 @@
 </template>
 
 <script setup>
-import { getCurrentInstance, ref, onMounted, watch, nextTick, computed } from 'vue';
+import { getCurrentInstance, ref, onMounted, watch, nextTick, computed, watchEffect } from 'vue';
 const { VITE_STATIC_URL } = import.meta.env;
 const { proxy } = getCurrentInstance();
 import MarkdownIt from 'markdown-it';
@@ -183,6 +183,12 @@ md.renderer.rules.fence = function (tokens, idx) {
                 ${highlightedCode}
             </pre>`;
 };
+
+const actions = [{ icon: '🖼️', text: '创建图片' }];
+
+const selectedModel = ref('');
+
+const modelList = ref([{ model: 'qwen-plus', name: 'qwen-plus' }]);
 
 const inputText = ref('');
 const textareaHeight = ref(84); // 初始高度
@@ -313,7 +319,9 @@ const sendMessage = async e => {
     chatList.value[lastIndex].content = renderedContent;
     let prompt = inputText.value;
     const eventSource = new EventSource(
-        `${VITE_STATIC_URL}ai/stream?prompt=${encodeURIComponent(prompt)}&conversationId=${encodeURIComponent(conversationId.value)}&model=${selectedModel.value}`,
+        `${VITE_STATIC_URL}ai/stream?prompt=${encodeURIComponent(prompt)}&conversationId=${encodeURIComponent(conversationId.value)}&model=${
+            selectedModel.value
+        }&enableInternetSearch=1`,
     );
 
     // 初始化助手消息
@@ -325,13 +333,42 @@ const sendMessage = async e => {
     // 处理接收到的数据
     eventSource.onmessage = event => {
         requestAnimationFrame(() => {
-            const fullContent = JSON.parse(event.data); // 解码数据
-            // 获取最后一项（助手的消息）
+            const data = JSON.parse(event.data); // 解码数据
+            // 如果是正常的 AI 回复内容
             const lastIndex = chatList.value.length - 1;
-            // 使用 markdown-it 渲染完整的 Markdown 内容
-            const renderedContent = md.render(fullContent);
-            // 更新内容
-            chatList.value[lastIndex].content = renderedContent;
+            if (data.status === 'searching') {
+                // 正在联网搜索中，显示提示信息
+                chatList.value[lastIndex].content = '<i>正在联网搜索中，请稍候...</i>';
+                nextTick(() => {
+                    scrollToBottom();
+                });
+                return;
+            }
+
+            if (data.status === 'search_complete') {
+                // 联网搜索完成，这里可以更新 UI 或者显示提示
+                console.log('联网搜索已完成！');
+                return;
+            }
+
+            if (data.status === 'search_failed') {
+                // 联网搜索失败，提示用户
+                chatList.value[lastIndex].content = '<i>联网搜索失败，正在使用本地知识库回答。</i>';
+                nextTick(() => {
+                    scrollToBottom();
+                });
+                return;
+            }
+
+            if (lastIndex >= 0 && chatList.value[lastIndex].role === 'assistant' && chatList.value[lastIndex].content.includes('正在联网搜索中')) {
+                // 找到之前显示的“正在联网搜索中...”的消息并替换
+                chatList.value[lastIndex].content = md.render(data);
+            } else {
+                // 如果不存在“正在联网搜索中...”的消息，则正常添加
+                const renderedContent = md.render(data);
+                chatList.value[lastIndex].content = renderedContent;
+            }
+            console.log(chatList.value, '.333');
             // 在 DOM 更新后检查是否需要滚动
             nextTick(() => {
                 const container = chatContainer.value;
@@ -341,6 +378,7 @@ const sendMessage = async e => {
             });
         });
     };
+
     // 错误处理
     eventSource.onerror = error => {
         console.error('EventSource 发生错误', error);
@@ -370,6 +408,10 @@ onMounted(async () => {
     //     console.log(res.data, '66667777');
     // });
 
+    // proxy.$api.getGoogleSearch({ query: '太原天气' }).then(res => {
+    //     console.log(res.data, '66667777');
+    // });
+
     adjustTextareaHeight({ target: document.querySelector('textarea') });
     checkWindowSize();
     window.addEventListener('resize', () => {
@@ -384,17 +426,25 @@ onMounted(async () => {
     // 获取ollama列表
     proxy.$api.getOllamaList().then(res => {
         modelList.value.push(...res.data);
+        if (modelList.value.length > 0) {
+            if (sessionStorage.getItem('selectedModel')) {
+                selectedModel.value = sessionStorage.getItem('selectedModel');
+            } else {
+                console.log('modelList.value', modelList.value);
+                selectedModel.value = modelList.value[0].model;
+                sessionStorage.setItem('selectedModel', selectedModel.value);
+            }
+        }
     });
 });
-
-const actions = [{ icon: '🖼️', text: '创建图片' }];
-
-const selectedModel = ref('deepseek-r1:14b'); // 默认选择第一个模型
-const modelList = ref([{ model: 'qwen-plus', name: 'qwen-plus' }]);
+watchEffect(() => {
+    if (selectedModel.value) {
+        sessionStorage.setItem('selectedModel', selectedModel.value);
+    }
+});
 </script>
 
 <style>
 /* 导入样式文件 */
 @import '../../assets/css/ai.css';
-
 </style>

@@ -303,6 +303,10 @@ export default {
     getOllamaList(params) {
         return oGet(baseUrl + '/ai/ollama-models', params);
     },
+    // 谷歌搜索
+    getGoogleSearch(params) {
+        return oGet(baseUrl + '/ai/google-search', params);
+    },
 };
 
 //封装post/get请求
