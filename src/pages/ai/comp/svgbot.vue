@@ -1,6 +1,6 @@
 <template>
     <svg
-        class="animate-bounce absolute bottom-24 left-4/9 transform -translate-x-1/2 z-10 bg-white icon cursor-pointer text-white px-4 py-2 rounded-full shadow-md transition-colors"
+        class="animate-bounce absolute bottom-32 left-4/9 transform -translate-x-1/2 z-10 bg-white icon cursor-pointer text-white px-4 py-2 rounded-full shadow-md transition-colors"
         t="1741071381431"
         viewBox="0 0 1024 1024"
         version="1.1"

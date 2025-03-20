@@ -114,20 +114,78 @@
             <div class="border-t border-gray-200 bg-white p-4">
                 <h1 v-if="chatList.length == 0" class="text-3xl font-semibold mb-8 text-center">有什么可以帮忙的?</h1>
                 <div class="w-full max-w-5xl mx-auto">
-                    <div class="relative w-full max-w-5xl mx-auto">
+                    <div class="relative max-w-5xl mx-auto border-solid border-black border-4 rounded-2xl p-4 pb-1.5">
                         <svgbot v-if="showScrollToBottomButton" @click="scrollToBottom" />
                         <textarea
                             @keydown.enter="handleEnter"
                             v-model="inputText"
+                            rows="3"
                             placeholder="你想问什么呢"
-                            rows="1"
-                            class="max-h-48 w-full p-4 border-2 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-shadow duration-200 ease-in-out shadow-md resize-none overflow-auto custom-scrollbar"
-                            style="width: -webkit-fill-available; font-size: 18px"
-                            @input="adjustTextareaHeight"
+                            class="max-h-48 w-full p-1 focus:outline-none resize-none overflow-auto custom-scrollbar"
+                            style="width: -webkit-fill-available; font-size: 18px; border: none"
                         ></textarea>
-                        <button @click="sendMessage" class="cursor-pointer absolute right-3 bottom-3 h-8 px-4 bg-black text-white rounded-lg flex items-center justify-center">
-                            发送
-                        </button>
+                        <!-- @input="adjustTextareaHeight" -->
+                        <div class="flex items-center justify-between mt-2">
+                            <div class="flex items-center space-x-2">
+                                <svg
+                                    @click="toggleSwitch"
+                                    class="icon cursor-pointer"
+                                    :style="{ fill: isSwitchOn ? 'rgb(59 130 247)' : '' }"
+                                    t="1742264837221"
+                                    viewBox="0 0 1024 1024"
+                                    version="1.1"
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    p-id="3363"
+                                    width="24"
+                                    height="24"
+                                >
+                                    <path
+                                        d="M608 249.6c-6.4-25.6-12.8-51.2-19.2-70.4-12.8-38.4-32-70.4-44.8-89.6-12.8-12.8-25.6-19.2-32-19.2s-19.2 6.4-32 19.2c-12.8 19.2-32 51.2-44.8 89.6-6.4 19.2-12.8 44.8-19.2 70.4C448 256 480 256 512 256s64 0 96-6.4zM352 243.2c12.8-70.4 38.4-128 64-166.4-89.6 19.2-160 57.6-217.6 115.2 6.4 6.4 12.8 6.4 25.6 12.8 32 12.8 76.8 25.6 128 38.4zM806.4 204.8c6.4-6.4 19.2-6.4 25.6-12.8-64-57.6-134.4-96-217.6-115.2 25.6 44.8 44.8 96 64 166.4 44.8-12.8 89.6-25.6 128-38.4zM704 480h256c-6.4-89.6-38.4-172.8-89.6-236.8-44.8 25.6-108.8 51.2-185.6 64 12.8 51.2 19.2 108.8 19.2 172.8zM684.8 716.8c70.4 12.8 134.4 32 185.6 64 51.2-64 83.2-147.2 89.6-236.8h-256c0 64-6.4 121.6-19.2 172.8zM627.2 326.4v-12.8C588.8 320 550.4 320 512 320s-76.8 0-108.8-6.4v12.8c-12.8 51.2-19.2 102.4-19.2 153.6h256c0-51.2-6.4-102.4-12.8-153.6zM320 544H64c6.4 89.6 38.4 172.8 89.6 236.8 44.8-25.6 108.8-51.2 185.6-64-12.8-51.2-19.2-108.8-19.2-172.8zM339.2 307.2c-70.4-12.8-134.4-32-185.6-64-51.2 64-83.2 147.2-89.6 236.8h256c0-64 6.4-121.6 19.2-172.8zM396.8 697.6v12.8C435.2 704 473.6 704 512 704s76.8 0 108.8 6.4v-12.8c12.8-51.2 19.2-102.4 19.2-153.6H384c0 51.2 6.4 102.4 12.8 153.6zM416 774.4c6.4 25.6 12.8 51.2 19.2 70.4 12.8 38.4 32 70.4 44.8 89.6 12.8 12.8 19.2 19.2 32 19.2s19.2-6.4 32-19.2c19.2-19.2 32-51.2 44.8-89.6 6.4-19.2 12.8-44.8 19.2-70.4C576 768 544 768 512 768s-64 0-96 6.4zM217.6 819.2c-6.4 6.4-19.2 6.4-25.6 12.8 57.6 57.6 134.4 102.4 217.6 121.6-25.6-44.8-44.8-96-64-166.4-44.8 6.4-89.6 19.2-128 32zM672 780.8c-12.8 70.4-38.4 128-64 166.4 83.2-19.2 160-57.6 217.6-121.6-6.4-6.4-12.8-6.4-25.6-12.8-32-6.4-76.8-19.2-128-32z"
+                                        p-id="3364"
+                                    ></path>
+                                </svg>
+                                <!-- 上传图片按钮 -->
+                                <svg
+                                    t="1742268872076"
+                                    class="icon cursor-pointer pl-2"
+                                    viewBox="0 0 1024 1024"
+                                    version="1.1"
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    p-id="3394"
+                                    width="24"
+                                    height="24"
+                                >
+                                    <path
+                                        d="M520.4 884.9H214c-49.6 0-90-40.4-90-90v-580c0-49.6 40.4-90 90-90h580c49.6 0 90 40.4 90 90v303.3c0 16.6-13.4 30-30 30s-30-13.4-30-30V214.9c0-16.5-13.5-30-30-30H214c-16.5 0-30 13.5-30 30v580c0 16.5 13.5 30 30 30h306.4c16.6 0 30 13.4 30 30s-13.4 30-30 30z m325.8-122.8H615.6c-16.6 0-30-13.4-30-30s13.4-30 30-30h230.7c16.6 0 30 13.4 30 30s-13.5 30-30.1 30zM730.9 877.4c-16.6 0-30-13.4-30-30V616.8c0-16.6 13.4-30 30-30s30 13.4 30 30v230.7c0 16.5-13.4 29.9-30 29.9zM327.8 429.1c-45 0-81.7-36.6-81.7-81.7 0-45 36.6-81.7 81.7-81.7s81.7 36.6 81.7 81.7c0 45-36.7 81.7-81.7 81.7z m0-117.4c-19.7 0-35.7 16-35.7 35.7s16 35.7 35.7 35.7 35.7-16 35.7-35.7-16-35.7-35.7-35.7zM157 678.2c-8.9 0-17.7-3.9-23.6-11.5-10.2-13-8-31.9 5.1-42.1l162.6-127.7c13-10.2 31.9-8 42.1 5.1 10.2 13 8 31.9-5.1 42.1L175.5 671.8c-5.5 4.3-12 6.4-18.5 6.4z m329.5-13.5c-6.2 0-12.5-1.9-17.9-5.9L308.3 539.5c-13.3-9.9-16-28.7-6.2-42s28.7-16 42-6.2l160.3 119.3c13.3 9.9 16 28.7 6.2 42-5.9 7.9-14.9 12.1-24.1 12.1z m0 0c-8.6 0-17.2-3.7-23.1-10.9-10.6-12.8-8.8-31.7 4-42.2l367.5-304c12.8-10.6 31.7-8.8 42.2 4 10.6 12.8 8.8 31.7-4 42.2l-367.5 304c-5.5 4.7-12.3 6.9-19.1 6.9z"
+                                        fill="#333333"
+                                        p-id="3395"
+                                    ></path>
+                                </svg>
+                                <!-- 语音按钮 -->
+                                <svg
+                                    t="1742268730610"
+                                    class="icon cursor-pointer pl-2"
+                                    viewBox="0 0 1024 1024"
+                                    version="1.1"
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    p-id="2391"
+                                    width="23"
+                                    height="23"
+                                >
+                                    <path
+                                        d="M511.546501 703.829938c125.165633 0 224.028344-98.86271 224.028344-224.028344V224.028344C735.574845 98.86271 636.712135 0 511.546501 0 387.287865 0 287.518158 98.86271 287.518158 224.028344v255.77325c0 125.165633 99.769708 224.028344 224.028343 224.028344zM351.914969 224.028344c0-89.792737 70.745793-159.631532 159.631532-159.631533 89.792737 0 160.53853 69.838795 160.53853 159.631533v255.77325c0 89.792737-70.745793 160.53853-160.53853 160.53853-88.88574 0-159.631532-70.745793-159.631532-160.53853V224.028344z"
+                                        fill="#2c2c2c"
+                                        p-id="2392"
+                                    ></path>
+                                    <path
+                                        d="M896.113375 479.801594h-64.396812c0 175.957484-144.212578 320.170062-320.170062 320.170062S192.283437 655.759079 192.283437 479.801594H127.886625c0 201.35341 153.282551 364.612932 351.914969 380.938884v163.259522h64.396812V860.740478c197.725421-16.325952 351.914969-179.585474 351.914969-380.938884z"
+                                        fill="#2c2c2c"
+                                        p-id="2393"
+                                    ></path>
+                                </svg>
+                            </div>
+                            <button @click="sendMessage" class="cursor-pointer h-8 px-4 bg-black text-white rounded-lg flex items-center justify-center">发送</button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -203,13 +261,14 @@ const isMobile = computed(() => windowWidth.value < 768);
 
 const showScrollToBottomButton = ref(false);
 const isUserInteracting = ref(false);
+const isSwitchOn = ref(false);
 
-const adjustTextareaHeight = e => {
-    const textarea = e.target;
-    textarea.style.height = 'auto';
-    textarea.style.height = textarea.scrollHeight + 'px';
-    textareaHeight.value = textarea.scrollHeight;
-};
+// const adjustTextareaHeight = e => {
+//     const textarea = e.target;
+//     textarea.style.height = 'auto';
+//     textarea.style.height = textarea.scrollHeight + 'px';
+//     textareaHeight.value = textarea.scrollHeight;
+// };
 
 const toggleSidebar = () => {
     isSidebarOpen.value = !isSidebarOpen.value;
@@ -220,6 +279,10 @@ const toggleSidebar = () => {
     } else {
         document.body.style.overflow = '';
     }
+};
+
+const toggleSwitch = () => {
+    isSwitchOn.value = !isSwitchOn.value;
 };
 
 const closeSidebar = () => {
@@ -321,7 +384,7 @@ const sendMessage = async e => {
     const eventSource = new EventSource(
         `${VITE_STATIC_URL}ai/stream?prompt=${encodeURIComponent(prompt)}&conversationId=${encodeURIComponent(conversationId.value)}&model=${
             selectedModel.value
-        }&enableInternetSearch=1`,
+        }&enableInternetSearch=${isSwitchOn.value ? '1' : '0'}`,
     );
 
     // 初始化助手消息
@@ -347,6 +410,8 @@ const sendMessage = async e => {
 
             if (data.status === 'search_complete') {
                 // 联网搜索完成，这里可以更新 UI 或者显示提示
+                chatList.value[lastIndex].content = '';
+                chatList.value[lastIndex].content = '<i>联网搜索已完成！</i>';
                 console.log('联网搜索已完成！');
                 return;
             }
@@ -412,7 +477,7 @@ onMounted(async () => {
     //     console.log(res.data, '66667777');
     // });
 
-    adjustTextareaHeight({ target: document.querySelector('textarea') });
+    // adjustTextareaHeight({ target: document.querySelector('textarea') });
     checkWindowSize();
     window.addEventListener('resize', () => {
         checkWindowSize();
