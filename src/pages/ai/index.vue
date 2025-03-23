@@ -99,14 +99,37 @@
             </div>
 
             <!-- 可滚动的聊天区域 -->
-            <div @scroll="onScroll" class="flex-1 overflow-auto custom-scrollbar p-4" :class="[chatList.length > 0 ? 'h-16' : 'max-h-18']" ref="chatContainer">
+            <div @scroll="onScroll" class="flex-1 overflow-auto custom-scrollbar p-4 bor" :class="[chatList.length > 0 ? 'h-16' : 'max-h-18']" ref="chatContainer">
                 <!-- 聊天消息列表 -->
-                <div v-for="(message, index) in chatList" :key="index" class="w-full max-w-5xl mx-auto mb-5 overflow-auto">
-                    <div :class="['flex', message.role === 'user' ? 'justify-end' : 'justify-start']">
+                <div v-for="(message, index) in chatList" :key="index" class="w-full max-w-5xl mx-auto mb-5 overflow-auto rounded-lg">
+                    <div :class="['flex', 'relative', message.role === 'user' ? 'justify-end' : 'justify-start']">
                         <div
                             v-html="message.content"
-                            :class="['rounded-lg overflow-hidden p-3 text-sm py-0', message.role === 'user' ? 'bg-blue-500 text-white' : 'bg-gray-100 w-full pt-3 pb-3']"
+                            :class="['overflow-hidden p-3 text-sm py-0', message.role === 'user' ? 'bg-blue-500 text-white rounded-lg' : 'bg-gray-100 w-full pt-3 pb-3']"
                         ></div>
+                    </div>
+                    <!-- 如果是AI的消息，显示操作按钮 -->
+                    <div v-if="message.role === 'assistant' && message.isCompleted" class="top-2 right-2 flex gap-2 bg-gray-100 pl-2 pb-2">
+                        <!-- 复制按钮 -->
+                        <button @click="copyMessage(message.content)" class="text-gray-500 hover:text-gray-700 cursor-pointer" style="all: unset; cursor: pointer">
+                            <svg t="1742692441761" class="icon" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" p-id="6848" width="26" height="26">
+                                <path
+                                    d="M753.312 698.848 753.312 383.6736c0-62.048-50.3104-112.3264-112.288-112.3264L395.3024 271.3472 324.288 271.3472l-53.7344 0-29.536 0c-62.048 0-112.288 50.272-112.288 112.3264l0 400.0512c0 61.9776 50.24 112.2752 112.288 112.2752l400.0128 0c62.048 0 112.288-50.2976 112.288-112.2752l0-31.0656 0.8768 0 0-54.0352C753.888 698.624 753.6768 698.7776 753.312 698.848zM660.6016 681.728l0 42.5984c0 0.864-0.2368 1.792-0.2368 2.6688-1.4272 42.3552-36.064 76.3008-78.7328 76.3008L300.3392 803.296c-43.5968 0-78.9056-35.3664-78.9056-78.9696L221.4336 442.9888c0-42.2336 33.2608-76.4928 75.0144-78.5984 1.2928-0.064 2.5984-0.3712 3.8912-0.3712l41.4272 0L581.632 364.0192c43.6608 0 78.9696 35.4048 78.9696 78.9696L660.6016 681.728zM895.1232 555.5008 895.1232 240.3264c0-62.048-50.3104-112.3264-112.288-112.3264L537.1136 128 466.0992 128l-53.7344 0-29.536 0c-62.048 0-112.288 50.272-112.288 112.3264l0 4.4736 115.0784 0c13.4912-13.8112 32.0256-22.72 52.6464-23.7568 1.2864-0.064 2.592-0.3712 3.8848-0.3712l41.4272 0 239.8656 0c43.6608 0 78.9696 35.4048 78.9696 78.9696l0 238.7328 0 42.5984c0 0.864-0.2368 1.792-0.2368 2.6688-0.8768 25.9136-14.208 48.6336-34.176 62.4l0 106.6048 14.8352 0c62.048 0 112.288-50.2976 112.288-112.2752l0-31.0656L896 609.3056l0-54.0352C895.6992 555.2768 895.488 555.424 895.1232 555.5008z"
+                                    fill="#272636"
+                                    p-id="6849"
+                                ></path>
+                            </svg>
+                        </button>
+
+                        <!-- 重新生成按钮 -->
+                        <button @click="regenerateMessage(index)" class="text-gray-500 hover:text-gray-700 cursor-pointer" style="all: unset; cursor: pointer">
+                            <svg t="1742692388521" class="icon" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" p-id="5551" width="24" height="24">
+                                <path
+                                    d="M233.152 189.12a426.624 426.624 0 0 1 628.352 567.744L725.376 512h128a341.312 341.312 0 0 0-577.728-246.272l-42.496-76.608z m557.824 645.76A426.624 426.624 0 0 1 162.56 267.072l136.064 244.864h-128a341.312 341.312 0 0 0 577.728 246.272l42.56 76.544z"
+                                    p-id="5552"
+                                ></path>
+                            </svg>
+                        </button>
                     </div>
                 </div>
             </div>
@@ -348,6 +371,7 @@ const getHistory = conversationId => {
             return {
                 role: item.role,
                 content: renderedContent,
+                isCompleted: item.isCompleted,
             };
         });
         // 滚动到最底部
@@ -391,14 +415,15 @@ const sendMessage = async e => {
     chatList.value.push({
         role: 'assistant',
         content: '', // 初始为空
+        isCompleted: 0, //是否生成完毕
     });
 
     // 处理接收到的数据
     eventSource.onmessage = event => {
         requestAnimationFrame(() => {
-            const data = JSON.parse(event.data); // 解码数据
             // 如果是正常的 AI 回复内容
             const lastIndex = chatList.value.length - 1;
+            const data = JSON.parse(event.data); // 解码数据
             if (data.status === 'searching') {
                 // 正在联网搜索中，显示提示信息
                 chatList.value[lastIndex].content = '<i>正在联网搜索中，请稍候...</i>';
@@ -433,7 +458,6 @@ const sendMessage = async e => {
                 const renderedContent = md.render(data);
                 chatList.value[lastIndex].content = renderedContent;
             }
-            console.log(chatList.value, '.333');
             // 在 DOM 更新后检查是否需要滚动
             nextTick(() => {
                 const container = chatContainer.value;
@@ -452,6 +476,10 @@ const sendMessage = async e => {
     // 监听结束事件
     eventSource.addEventListener('end', async () => {
         console.log('数据流结束');
+        // 如果是正常的 AI 回复内容
+        const lastIndex = chatList.value.length - 1;
+        chatList.value[lastIndex].isCompleted = 1;
+
         eventSource.close();
         // 刷新左侧历史聊天记录
         sidebarList.value = await getAllConversations();
@@ -465,6 +493,27 @@ const sendMessage = async e => {
 const getAllConversations = async () => {
     let list = await proxy.$api.getAllConversations();
     return list.data;
+};
+
+// 复制消息内容到剪贴板
+const copyMessage = content => {
+    navigator.clipboard
+        .writeText(content)
+        .then(() => {
+            console.log('复制成功', err);
+        })
+        .catch(err => {
+            console.error('复制失败:', err);
+        });
+};
+
+const stripHtmlTags = html => {
+    return html.replace(/<[^>]+>/g, '').trim();
+};
+// 重新生成
+const regenerateMessage = index => {
+    inputText.value = stripHtmlTags(chatList.value[index - 1].content);
+    sendMessage(); // 调用发送消息方法
 };
 
 onMounted(async () => {
@@ -495,7 +544,6 @@ onMounted(async () => {
             if (sessionStorage.getItem('selectedModel')) {
                 selectedModel.value = sessionStorage.getItem('selectedModel');
             } else {
-                console.log('modelList.value', modelList.value);
                 selectedModel.value = modelList.value[0].model;
                 sessionStorage.setItem('selectedModel', selectedModel.value);
             }
