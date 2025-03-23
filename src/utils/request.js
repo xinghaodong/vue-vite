@@ -307,6 +307,10 @@ export default {
     getGoogleSearch(params) {
         return oGet(baseUrl + '/ai/google-search', params);
     },
+    // 停止当前AI回复
+    stopAi(params) {
+        return oGet(baseUrl + '/ai/stop-ai', params);
+    },
 };
 
 //封装post/get请求

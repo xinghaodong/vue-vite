@@ -208,6 +208,7 @@
                                 </svg>
                             </div>
                             <button @click="sendMessage" class="cursor-pointer h-8 px-4 bg-black text-white rounded-lg flex items-center justify-center">发送</button>
+                            <button @click="sttobFun" class="cursor-pointer h-8 px-4 bg-black text-white rounded-lg flex items-center justify-center">停止</button>
                         </div>
                     </div>
                 </div>
@@ -386,7 +387,7 @@ const getConversation = item => {
     conversationId.value = item.conversation_id;
     getHistory(conversationId.value);
 };
-
+// 发送消息
 const sendMessage = async e => {
     if (!inputText.value) return;
     let data = '';
@@ -487,6 +488,12 @@ const sendMessage = async e => {
 
     // 清空输入框
     inputText.value = '';
+};
+// 停止生成
+const sttobFun = () => {
+    proxy.$api.stopAi({ conversationId: conversationId.value }).then(res => {
+        console.log(res.data, '66667777');
+    });
 };
 
 // 获取父表
