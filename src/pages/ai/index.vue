@@ -207,8 +207,8 @@
                                     ></path>
                                 </svg>
                             </div>
-                            <button @click="sendMessage" class="cursor-pointer h-8 px-4 bg-black text-white rounded-lg flex items-center justify-center">发送</button>
-                            <button @click="sttobFun" class="cursor-pointer h-8 px-4 bg-black text-white rounded-lg flex items-center justify-center">停止</button>
+                            <button v-if="isBtn" @click="sendMessage" class="cursor-pointer h-8 px-4 bg-black text-white rounded-lg flex items-center justify-center">发送</button>
+                            <button v-if="!isBtn" @click="sttobFun" class="cursor-pointer h-8 px-4 bg-black text-white rounded-lg flex items-center justify-center">停止</button>
                         </div>
                     </div>
                 </div>
@@ -218,7 +218,7 @@
 </template>
 
 <script setup>
-import { getCurrentInstance, ref, onMounted, watch, nextTick, computed, watchEffect } from 'vue';
+import { getCurrentInstance, ref, onMounted, nextTick, computed, watchEffect } from 'vue';
 const { VITE_STATIC_URL } = import.meta.env;
 const { proxy } = getCurrentInstance();
 import MarkdownIt from 'markdown-it';
@@ -266,14 +266,11 @@ md.renderer.rules.fence = function (tokens, idx) {
             </pre>`;
 };
 
-const actions = [{ icon: '🖼️', text: '创建图片' }];
-
 const selectedModel = ref('');
 
 const modelList = ref([{ model: 'qwen-plus', name: 'qwen-plus' }]);
 
 const inputText = ref('');
-const textareaHeight = ref(84); // 初始高度
 const isSidebarOpen = ref(true);
 const conversationId = ref(''); // 当前回话id
 // 当前回话内容的list
@@ -287,12 +284,7 @@ const showScrollToBottomButton = ref(false);
 const isUserInteracting = ref(false);
 const isSwitchOn = ref(false);
 
-// const adjustTextareaHeight = e => {
-//     const textarea = e.target;
-//     textarea.style.height = 'auto';
-//     textarea.style.height = textarea.scrollHeight + 'px';
-//     textareaHeight.value = textarea.scrollHeight;
-// };
+const isBtn = ref(true);
 
 const toggleSidebar = () => {
     isSidebarOpen.value = !isSidebarOpen.value;
@@ -418,6 +410,8 @@ const sendMessage = async e => {
         content: '', // 初始为空
         isCompleted: 0, //是否生成完毕
     });
+    // 重置按钮显示
+    isBtn.value = false;
 
     // 处理接收到的数据
     eventSource.onmessage = event => {
@@ -492,7 +486,7 @@ const sendMessage = async e => {
 // 停止生成
 const sttobFun = () => {
     proxy.$api.stopAi({ conversationId: conversationId.value }).then(res => {
-        console.log(res.data, '66667777');
+        isBtn.value = true;
     });
 };
 
@@ -524,16 +518,6 @@ const regenerateMessage = index => {
 };
 
 onMounted(async () => {
-    // 查询天气
-    // proxy.$api.getWeather({ city: '' }).then(res => {
-    //     console.log(res.data, '66667777');
-    // });
-
-    // proxy.$api.getGoogleSearch({ query: '太原天气' }).then(res => {
-    //     console.log(res.data, '66667777');
-    // });
-
-    // adjustTextareaHeight({ target: document.querySelector('textarea') });
     checkWindowSize();
     window.addEventListener('resize', () => {
         checkWindowSize();
@@ -545,17 +529,23 @@ onMounted(async () => {
         getHistory(conversationId.value);
     }
     // 获取ollama列表
-    proxy.$api.getOllamaList().then(res => {
-        modelList.value.push(...res.data);
-        if (modelList.value.length > 0) {
-            if (sessionStorage.getItem('selectedModel')) {
-                selectedModel.value = sessionStorage.getItem('selectedModel');
-            } else {
-                selectedModel.value = modelList.value[0].model;
-                sessionStorage.setItem('selectedModel', selectedModel.value);
+    proxy.$api
+        .getOllamaList()
+        .then(res => {
+            if (res.data.length > 0) {
+                modelList.value.push(...res.data);
+                if (sessionStorage.getItem('selectedModel')) {
+                    selectedModel.value = sessionStorage.getItem('selectedModel');
+                } else {
+                    selectedModel.value = modelList.value[0].model;
+                    sessionStorage.setItem('selectedModel', selectedModel.value);
+                }
             }
-        }
-    });
+        })
+        .catch(err => {
+            selectedModel.value = 'qwen-plus';
+            sessionStorage.setItem('selectedModel', selectedModel.value);
+        });
 });
 watchEffect(() => {
     if (selectedModel.value) {
