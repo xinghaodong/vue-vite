@@ -14,6 +14,7 @@ import 'uno.css';
 // import 'highlight.js/styles/github.css';
 import 'element-plus/theme-chalk/dark/css-vars.css';
 import '@/assets/css/dark/css-vars.css';
+
 const app = createApp(App);
 app.config.globalProperties.$api = axios;
 app.config.globalProperties.$icon = ElementPlusIconsVue;
