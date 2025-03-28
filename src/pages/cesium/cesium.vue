@@ -1,7 +1,7 @@
 <script setup>
 import * as Cesium from 'cesium';
 import '../../../public/Cesium/Widgets/widgets.css';
-window.CESIUM_BASE_URL = '/Cesium';
+window.CESIUM_BASE_URL = './Cesium';
 import { ref, onMounted, onUnmounted } from 'vue';
 
 Cesium.Ion.defaultAccessToken =
