@@ -4,11 +4,12 @@
         <div class="mb-4">
             <el-button
                 type="primary"
+                plain
                 @click="
                     dialogVisible = true;
                     resetForm(ruleFormRef);
                 "
-                >新增组织</el-button
+                >新增</el-button
             >
         </div>
         <!-- 生成一个菜单树表格 -->
@@ -97,20 +98,23 @@ const rules = {
     orgcode: [{ required: true, message: '请输入编码', trigger: 'blur' }],
 };
 const visible = ref(false);
-const form = reactive({
-    organame: '',
-    parentId: 0,
-    orgcode: '',
-});
+
 const treeData = ref(null);
 const treeDatas = ref([]);
 const defaultProps = { children: 'children', label: 'organame', value: 'organid' };
+const formTemplate = {
+    organame: '',
+    parentId: 0,
+    orgcode: '',
+};
+let form = reactive({ ...formTemplate });
 const handleClose = done => {
     done();
 };
 const handleUnitChange = val => {};
 // 重置表单
 const resetForm = () => {
+    form = reactive(JSON.parse(JSON.stringify(formTemplate)));
     if (ruleFormRef.value) ruleFormRef.value.resetFields();
 };
 

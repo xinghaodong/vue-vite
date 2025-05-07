@@ -64,6 +64,11 @@ const router = createRouter({
             path: '/cesium',
             component: () => import('@/pages/cesium/cesium.vue'),
         },
+        {
+            name: 'cesium2d',
+            path: '/cesium2d',
+            component: () => import('@/pages/cesium/cesium2d.vue'),
+        },
     ],
 });
 
@@ -148,7 +153,7 @@ router.beforeEach(async (to, from, next) => {
         localStorage.clear();
     };
     // 如果是ai界面直接放行 无需登录
-    if (to.path === '/ai' || to.path === '/cesium') {
+    if (to.path === '/ai' || to.path === '/cesium' || to.path === '/cesium2d') {
         next();
         return;
     }

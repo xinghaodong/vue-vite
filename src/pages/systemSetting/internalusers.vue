@@ -5,6 +5,7 @@
             <el-button
                 v-has-permi="['add:user']"
                 type="primary"
+                plain
                 @click="
                     dialogVisible = true;
                     resetForm(ruleFormRef);

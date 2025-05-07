@@ -44,7 +44,7 @@ onMounted(async () => {
         timeline: false,
         navigationHelpButton: false,
         shouldAnimate: true,
-        terrainProvider: await Cesium.createWorldTerrainAsync(),
+        // terrainProvider: await Cesium.createWorldTerrainAsync(),
     });
     viewer.value.imageryLayers.addImageryProvider(
         new Cesium.UrlTemplateImageryProvider({
@@ -136,33 +136,33 @@ const handleMovement = () => {
 };
 
 const addFovLines = position => {
-    const fovWidth = 20; // 视野宽度（左右各 10 米）
-    const fovHeight = 20; // 视野高度（上下各 5 米）
-    const fovLength = 100; // 视野长度（米）
-    const localDirections = [
-        new Cesium.Cartesian3(fovLength, fovWidth / 2, fovHeight / 2), // 右上
-        new Cesium.Cartesian3(fovLength, fovWidth / 2, -fovHeight / 2), // 右下
-        new Cesium.Cartesian3(fovLength, -fovWidth / 2, fovHeight / 2), // 左上
-        new Cesium.Cartesian3(fovLength, -fovWidth / 2, -fovHeight / 2), // 左下
-    ];
-    fovLines.value.forEach(line => viewer.value.entities.remove(line));
-    fovLines.value = [];
-    localDirections.forEach(localDir => {
-        const line = viewer.value.entities.add({
-            polyline: {
-                positions: new Cesium.CallbackProperty((time, result) => {
-                    const wpPos = waypoints.value[currentWaypointIndex.value].position;
-                    const rotationMatrix = Cesium.Matrix3.fromQuaternion(currentOrientation.value);
-                    const worldDir = Cesium.Matrix3.multiplyByVector(rotationMatrix, localDir, new Cesium.Cartesian3());
-                    const endPos = Cesium.Cartesian3.add(wpPos, worldDir, new Cesium.Cartesian3());
-                    return [wpPos, endPos];
-                }, false),
-                width: 2,
-                material: Cesium.Color.GREEN.withAlpha(0.7),
-            },
-        });
-        fovLines.value.push(line);
-    });
+    // const fovWidth = 20; // 视野宽度（左右各 10 米）
+    // const fovHeight = 20; // 视野高度（上下各 5 米）
+    // const fovLength = 100; // 视野长度（米）
+    // const localDirections = [
+    //     new Cesium.Cartesian3(fovLength, fovWidth / 2, fovHeight / 2), // 右上
+    //     new Cesium.Cartesian3(fovLength, fovWidth / 2, -fovHeight / 2), // 右下
+    //     new Cesium.Cartesian3(fovLength, -fovWidth / 2, fovHeight / 2), // 左上
+    //     new Cesium.Cartesian3(fovLength, -fovWidth / 2, -fovHeight / 2), // 左下
+    // ];
+    // fovLines.value.forEach(line => viewer.value.entities.remove(line));
+    // fovLines.value = [];
+    // localDirections.forEach(localDir => {
+    //     const line = viewer.value.entities.add({
+    //         polyline: {
+    //             positions: new Cesium.CallbackProperty((time, result) => {
+    //                 const wpPos = waypoints.value[currentWaypointIndex.value].position;
+    //                 const rotationMatrix = Cesium.Matrix3.fromQuaternion(currentOrientation.value);
+    //                 const worldDir = Cesium.Matrix3.multiplyByVector(rotationMatrix, localDir, new Cesium.Cartesian3());
+    //                 const endPos = Cesium.Cartesian3.add(wpPos, worldDir, new Cesium.Cartesian3());
+    //                 return [wpPos, endPos];
+    //             }, false),
+    //             width: 2,
+    //             material: Cesium.Color.GREEN.withAlpha(0.7),
+    //         },
+    //     });
+    //     fovLines.value.push(line);
+    // });
 };
 // 创建航点
 const createWaypoint = position => {
@@ -185,9 +185,21 @@ const createWaypoint = position => {
 
     const heightPoint = viewer.value.entities.add({
         position: Cesium.Cartesian3.fromRadians(cartographic.longitude, cartographic.latitude, cartographic.height),
-        point: {
-            pixelSize: 16,
-            color: Cesium.Color.RED,
+        polygon: {
+            hierarchy: new Cesium.CallbackProperty(() => {
+                const size = 0.3;
+                const positions = [
+                    Cesium.Cartesian3.fromRadians(cartographic.longitude, cartographic.latitude + size * 0.00001, cartographic.height),
+                    Cesium.Cartesian3.fromRadians(cartographic.longitude - size * 0.000005, cartographic.latitude - size * 0.000005, cartographic.height),
+                    Cesium.Cartesian3.fromRadians(cartographic.longitude + size * 0.000005, cartographic.latitude - size * 0.000005, cartographic.height),
+                ];
+                return new Cesium.PolygonHierarchy(positions);
+            }, false),
+            material: Cesium.Color.RED,
+            outline: true,
+            outlineColor: Cesium.Color.WHITE,
+            outlineWidth: 2,
+            height: cartographic.height,
         },
     });
 
@@ -221,10 +233,59 @@ const createWaypoint = position => {
 };
 
 const updateWaypointData = (waypoint, newPosition) => {
+    console.log('updateWaypointData');
     const cartographic = Cesium.Cartographic.fromCartesian(newPosition);
     waypoint.cartographic = cartographic;
     waypoint.position = newPosition;
-    waypoint.heightPoint.position = Cesium.Cartesian3.fromRadians(cartographic.longitude, cartographic.latitude, cartographic.height);
+
+    // 同步更新高度点和高度线
+    waypoint.heightPoint.position = newPosition;
+    waypoint.heightLine.polyline.positions = new Cesium.CallbackProperty((time, result) => {
+        const wpPos = waypoint.position;
+        const carto = Cesium.Cartographic.fromCartesian(wpPos);
+        const groundPos = Cesium.Cartesian3.fromRadians(carto.longitude, carto.latitude, 0);
+        return [groundPos, wpPos];
+    }, false);
+
+    // 更新三角形位置，确保与高度线同步
+    const size = 0.3;
+    const rotationMatrix = Cesium.Matrix3.fromQuaternion(currentOrientation.value);
+    const positions = [
+        Cesium.Cartesian3.fromRadians(cartographic.longitude, cartographic.latitude + size * 0.00001, cartographic.height),
+        Cesium.Cartesian3.fromRadians(cartographic.longitude - size * 0.000005, cartographic.latitude - size * 0.000005, cartographic.height),
+        Cesium.Cartesian3.fromRadians(cartographic.longitude + size * 0.000005, cartographic.latitude - size * 0.000005, cartographic.height),
+    ].map(pos => {
+        const rotatedPos = new Cesium.Cartesian3();
+        Cesium.Matrix3.multiplyByVector(rotationMatrix, pos, rotatedPos);
+        return rotatedPos;
+    });
+
+    waypoint.heightPoint.polygon.hierarchy = new Cesium.CallbackProperty(() => {
+        return new Cesium.PolygonHierarchy(positions);
+    }, false);
+
+    // 强制更新高度点实体
+    viewer.value.entities.remove(waypoint.heightPoint);
+    waypoint.heightPoint = viewer.value.entities.add({
+        position: newPosition,
+        polygon: {
+            hierarchy: new Cesium.CallbackProperty(() => {
+                const size = 0.3;
+                const positions = [
+                    Cesium.Cartesian3.fromRadians(cartographic.longitude, cartographic.latitude + size * 0.00001, cartographic.height),
+                    Cesium.Cartesian3.fromRadians(cartographic.longitude - size * 0.000005, cartographic.latitude - size * 0.000005, cartographic.height),
+                    Cesium.Cartesian3.fromRadians(cartographic.longitude + size * 0.000005, cartographic.latitude - size * 0.000005, cartographic.height),
+                ];
+                return new Cesium.PolygonHierarchy(positions);
+            }, false),
+            material: Cesium.Color.RED,
+            outline: true,
+            outlineColor: Cesium.Color.WHITE,
+            outlineWidth: 2,
+            height: cartographic.height,
+        },
+    });
+
     currentHeight.value = cartographic.height;
     addFovLines(newPosition); // 更新视野线位置
 };
@@ -235,6 +296,36 @@ const rotateFov = degrees => {
     hpr.pitch = 0; // 强制保持水平
     hpr.roll = 0; // 防止侧倾
     currentOrientation.value = Cesium.Quaternion.fromHeadingPitchRoll(hpr);
+
+    // 更新三角形实体的朝向
+    if (waypoints.value.length > 0 && currentWaypointIndex.value >= 0) {
+        const waypoint = waypoints.value[currentWaypointIndex.value];
+        const cartographic = waypoint.cartographic;
+        const size = 0.3;
+
+        // 计算相对于航点中心的三角形顶点位置
+        const center = Cesium.Cartesian3.fromRadians(cartographic.longitude, cartographic.latitude, cartographic.height);
+        const positions = [
+            new Cesium.Cartesian3(0, size * 0.00001, 0), // 顶部顶点
+            new Cesium.Cartesian3(-size * 0.000005, -size * 0.000005, 0), // 左下顶点
+            new Cesium.Cartesian3(size * 0.000005, -size * 0.000005, 0), // 右下顶点
+        ];
+
+        // 应用旋转矩阵
+        const rotationMatrix = Cesium.Matrix3.fromQuaternion(currentOrientation.value);
+        const rotatedPositions = positions.map(pos => {
+            const rotatedPos = new Cesium.Cartesian3();
+            Cesium.Matrix3.multiplyByVector(rotationMatrix, pos, rotatedPos);
+            // 将旋转后的位置加回到中心点
+            return Cesium.Cartesian3.add(center, rotatedPos, new Cesium.Cartesian3());
+        });
+
+        // 更新三角形实体的位置
+        waypoint.heightPoint.polygon.hierarchy = new Cesium.CallbackProperty(() => {
+            return new Cesium.PolygonHierarchy(rotatedPositions);
+        }, false);
+    }
+
     addFovLines(waypoints.value[currentWaypointIndex.value].position); // 重新生成视野线
 };
 

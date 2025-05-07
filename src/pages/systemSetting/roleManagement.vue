@@ -3,7 +3,7 @@
         <!-- <table-search :searchList="searchList" @search="search" @reset="reset"></table-search> -->
         <div class="table-box page-main">
             <div class="table-btn" style="margin-bottom: 20px">
-                <el-button type="primary" plain @click="add">新增角色</el-button>
+                <el-button type="primary" plain @click="add">新增</el-button>
                 <!-- <el-button style="width: 100px" plain type="primary" @click="getOrganPostCustMsg">角色人员全览</el-button> -->
             </div>
             <el-table :data="tableData" style="width: 100%; margin-bottom: 20px" border>

@@ -2,7 +2,7 @@
     <div>
         <!--首页 -->
         <div class="mb-4">
-            <el-button v-has-permi="['menu:add']" type="primary" @click="add">新增</el-button>
+            <el-button v-has-permi="['menu:add']" type="primary" plain @click="add">新增</el-button>
             <div>{{ aimessage }}</div>
         </div>
         <!-- 生成一个菜单树表格 -->
@@ -222,7 +222,7 @@ Object.keys(proxy.$icon).map(item => {
     });
 });
 const formTemplate = { name: '', parentId: 0, url: '', component: '', sorts: 1, keepalive: 1, icon: '', menutype: 1, perms: '', code: '', roleIds: [] };
-const form = reactive({ ...formTemplate });
+let form = reactive({ ...formTemplate });
 const treeData = ref(null);
 const roleList = ref([]);
 const handleClose = done => {
@@ -230,7 +230,7 @@ const handleClose = done => {
 };
 const add = () => {
     dialogVisible.value = true;
-    Object.assign(form, formTemplate);
+    form = reactive(JSON.parse(JSON.stringify(formTemplate)));
     resetForm(ruleFormRef);
 };
 const handleUnitChange = val => {};
@@ -339,7 +339,6 @@ onMounted(async () => {
         proxy.$api.getRolsList().then(res => {
             roleList.value = res.data;
         });
-
     } catch (error) {
         console.error('失败信息:', error);
     }
