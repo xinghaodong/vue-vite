@@ -36,7 +36,7 @@
             ></el-pagination> -->
 
             <el-dialog :title="title" width="700px" v-model="dialogVisible" :before-close="handleClose">
-                <el-form :model="ruleForm" :rules="rules" label-width="100px" class="demo-ruleForm">
+                <el-form :model="ruleForm" :rules="rules" label-width="100px" class="demo-ruleForm" ref="ruleFormRef">
                     <el-row>
                         <el-col :xs="24" :sm="24" :md="24" :lg="24" :xl="24">
                             <el-form-item label="角色名称" prop="name">
@@ -53,7 +53,7 @@
                 </el-form>
                 <template #footer>
                     <el-button @click="handleClose">取消</el-button>
-                    <el-button type="primary" @click="submitForm">保存</el-button>
+                    <el-button type="primary" @click="submitForm(ruleFormRef)">保存</el-button>
                 </template>
             </el-dialog>
             <el-dialog title="分配资源" width="700px" v-model="dialogVisibleResource">
@@ -78,7 +78,7 @@
 
                 <template #footer>
                     <el-button @click="dialogVisibleResource = false">取消</el-button>
-                    <el-button type="primary" @click="submitResource">保存</el-button>
+                    <el-button type="primary" @click="submitResource(ruleFormRef)">保存</el-button>
                 </template>
             </el-dialog>
         </div>
@@ -98,6 +98,7 @@ const loading = ref(false);
 const dialogVisibleResource = ref(false);
 const resourceList = ref([]);
 const ruleData = reactive({ menucheckstrictly: 0 });
+const ruleFormRef = ref();
 const rules = {
     name: [{ required: true, message: '请输入角色名称', trigger: 'blur' }],
 };
@@ -120,33 +121,44 @@ const selectResource = async id => {
         tree.value.setCheckedKeys(res.data);
     });
 };
-const submitResource = () => {
-    let treeArray = tree.value.getCheckedKeys();
-    let treeArray1 = tree.value.getHalfCheckedKeys();
-    if (!treeArray.length) {
-        treeArray = [];
-    } else {
-        treeArray = treeArray.concat(treeArray1);
-    }
-    console.log(ruleForm, treeArray, '333');
-    proxy.$api.assignMenusToRole({ id: ruleForm.id, menuIds: treeArray || [] }).then(res => {
-        proxy.$message.success(res.message);
-        dialogVisibleResource.value = false;
+const submitResource = formEl => {
+    formEl.validate(async valid => {
+        if (valid) {
+            let treeArray = tree.value.getCheckedKeys();
+            let treeArray1 = tree.value.getHalfCheckedKeys();
+            if (!treeArray.length) {
+                treeArray = [];
+            } else {
+                treeArray = treeArray.concat(treeArray1);
+            }
+            proxy.$api.assignMenusToRole({ id: ruleForm.id, menuIds: treeArray || [] }).then(res => {
+                proxy.$message.success(res.message);
+                dialogVisibleResource.value = false;
+            });
+        } else {
+            return false;
+        }
     });
 };
 
-const submitForm = () => {
-    if (title.value === '修改角色') {
-        proxy.$api.updateRoles(ruleForm).then(() => {
-            dialogVisible.value = false;
-            getTableData();
-        });
-    } else {
-        proxy.$api.addRoles(ruleForm).then(() => {
-            dialogVisible.value = false;
-            getTableData();
-        });
-    }
+const submitForm = formEl => {
+    formEl.validate(async valid => {
+        if (valid) {
+            if (title.value === '修改角色') {
+                proxy.$api.updateRoles(ruleForm).then(() => {
+                    dialogVisible.value = false;
+                    getTableData();
+                });
+            } else {
+                proxy.$api.addRoles(ruleForm).then(() => {
+                    dialogVisible.value = false;
+                    getTableData();
+                });
+            }
+        } else {
+            return false;
+        }
+    });
 };
 
 const editItem = async id => {
