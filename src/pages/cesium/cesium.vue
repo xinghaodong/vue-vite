@@ -1,3 +1,25 @@
+<template>
+    <div id="cesiumContainer">
+        <div class="control-panel">
+            <button @click="startDrawing">开始规划</button>
+            <button @click="simulateFlight">模拟飞行</button>
+            <button @click="clearAll">清除所有</button>
+            <div class="status-bar">当前高度：{{ currentHeight.toFixed(1) }}米 | 航点数量：{{ waypoints.length }}</div>
+        </div>
+        <div class="virtual-keyboard">
+            <div class="keyboard-row">
+                <div v-for="key in ['Q', 'W', 'E']" :key="key" class="key" :class="{ active: keyStates[key.toLowerCase()] }">{{ key }}</div>
+            </div>
+            <div class="keyboard-row">
+                <div v-for="key in ['A', 'S', 'D']" :key="key" class="key" :class="{ active: keyStates[key.toLowerCase()] }">{{ key }}</div>
+            </div>
+            <div class="keyboard-row">
+                <div v-for="key in ['Z', 'C']" :key="key" class="key" :class="{ active: keyStates[key.toLowerCase()] }">{{ key }}</div>
+            </div>
+        </div>
+    </div>
+</template>
+
 <script setup>
 import * as Cesium from 'cesium';
 import '../../../public/Cesium/Widgets/widgets.css';
@@ -25,11 +47,115 @@ const keyStates = ref({
     space: false,
 });
 const fovLines = ref([]);
-const currentOrientation = ref(Cesium.Quaternion.fromHeadingPitchRoll(Cesium.HeadingPitchRoll.fromDegrees(0, 90, 0)));
+const currentOrientation = ref(Cesium.Quaternion.IDENTITY);
+const MOVE_STEP = 0.000001;
+const ALTITUDE_STEP = 1;
+const ROTATE_STEP = 10;
 
-const MOVE_STEP = 0.000001; // 经纬度步长（约0.1米）
-const ALTITUDE_STEP = 1; // 高度步长
-const ROTATE_STEP = 10; // 旋转角度步长
+class FrustumManager {
+    constructor(viewer, position, orientation) {
+        this.viewer = viewer;
+        this.position = position;
+        this.orientation = orientation;
+        this.frustumPrimitive = null;
+        this.outlinePrimitive = null;
+        this.fov = 30;
+        this.near = 5;
+        this.far = 100;
+        this.aspectRatio = 1.0;
+    }
+
+    addFrustum() {
+        const frustum = new Cesium.PerspectiveFrustum({
+            fov: Cesium.Math.toRadians(this.fov),
+            aspectRatio: this.aspectRatio,
+            near: this.near,
+            far: this.far,
+        });
+
+        const geometry = new Cesium.FrustumGeometry({
+            frustum: frustum,
+            origin: this.position,
+            orientation: this.orientation,
+            vertexFormat: Cesium.VertexFormat.POSITION_ONLY,
+        });
+
+        const instance = new Cesium.GeometryInstance({
+            geometry: geometry,
+            attributes: {
+                color: Cesium.ColorGeometryInstanceAttribute.fromColor(new Cesium.Color(0.0, 1.0, 0.0, 0.2)),
+            },
+        });
+
+        this.frustumPrimitive = this.viewer.scene.primitives.add(
+            new Cesium.Primitive({
+                geometryInstances: instance,
+                appearance: new Cesium.PerInstanceColorAppearance({
+                    closed: true,
+                    flat: true,
+                }),
+                asynchronous: false,
+            }),
+        );
+    }
+
+    addOutline() {
+        const frustum = new Cesium.PerspectiveFrustum({
+            fov: Cesium.Math.toRadians(this.fov),
+            aspectRatio: this.aspectRatio,
+            near: this.near,
+            far: this.far,
+        });
+
+        const geometry = new Cesium.FrustumOutlineGeometry({
+            frustum: frustum,
+            origin: this.position,
+            orientation: this.orientation,
+            vertexFormat: Cesium.VertexFormat.POSITION_ONLY,
+        });
+
+        const instance = new Cesium.GeometryInstance({
+            geometry: geometry,
+            attributes: {
+                color: Cesium.ColorGeometryInstanceAttribute.fromColor(new Cesium.Color(0.0, 1.0, 0.0, 1.0)),
+            },
+        });
+
+        this.outlinePrimitive = this.viewer.scene.primitives.add(
+            new Cesium.Primitive({
+                geometryInstances: instance,
+                appearance: new Cesium.PerInstanceColorAppearance({
+                    closed: true,
+                    flat: true,
+                }),
+                asynchronous: false,
+            }),
+        );
+    }
+
+    update(position, orientation) {
+        this.position = position;
+        this.orientation = orientation;
+        this.clear();
+        this.add();
+    }
+
+    add() {
+        this.addFrustum();
+        this.addOutline();
+    }
+
+    clear() {
+        if (this.frustumPrimitive) {
+            this.viewer.scene.primitives.remove(this.frustumPrimitive);
+        }
+        if (this.outlinePrimitive) {
+            this.viewer.scene.primitives.remove(this.outlinePrimitive);
+        }
+    }
+}
+
+const frustumManager = ref(null);
 
 onMounted(async () => {
     viewer.value = new Cesium.Viewer('cesiumContainer', {
@@ -46,6 +172,7 @@ onMounted(async () => {
         shouldAnimate: true,
         // terrainProvider: await Cesium.createWorldTerrainAsync(),
     });
+
     viewer.value.imageryLayers.addImageryProvider(
         new Cesium.UrlTemplateImageryProvider({
             url: 'https://webst01.is.autonavi.com/appmaptile?lang=zh_cn&style=6&x={x}&y={y}&z={z}',
@@ -90,7 +217,7 @@ const handleKeyUp = e => {
         keyStates.value[key] = false;
     }
 };
-// 键盘移除
+
 const handleMovement = () => {
     if (!isDrawing.value || waypoints.value.length === 0) return;
     const waypoint = waypoints.value[currentWaypointIndex.value];
@@ -168,7 +295,7 @@ const addFovLines = position => {
 const createWaypoint = position => {
     const cartographic = Cesium.Cartographic.fromCartesian(position);
     const waypoint = viewer.value.entities.add({
-        position,
+        position: position,
         label: {
             text: `航点 ${waypoints.value.length + 1}`,
             font: '14px sans-serif',
@@ -179,9 +306,6 @@ const createWaypoint = position => {
             pixelOffset: new Cesium.Cartesian2(0, -20),
         },
     });
-
-    // 设置航点的初始朝向为正北方向
-    currentOrientation.value = Cesium.Quaternion.fromHeadingPitchRoll(Cesium.HeadingPitchRoll.fromDegrees(0, 90, 0));
 
     const heightPoint = viewer.value.entities.add({
         position: Cesium.Cartesian3.fromRadians(cartographic.longitude, cartographic.latitude, cartographic.height),
@@ -203,10 +327,9 @@ const createWaypoint = position => {
         },
     });
 
-    // 高度线
     const heightLine = viewer.value.entities.add({
         polyline: {
-            positions: new Cesium.CallbackProperty((time, result) => {
+            positions: new Cesium.CallbackProperty(time => {
                 const wpPos = waypoint.position.getValue(time);
                 const carto = Cesium.Cartographic.fromCartesian(wpPos);
                 const groundPos = Cesium.Cartesian3.fromRadians(carto.longitude, carto.latitude, 0);
@@ -224,11 +347,21 @@ const createWaypoint = position => {
         position,
         cartographic: Cesium.Cartographic.clone(cartographic),
     });
+
     currentWaypointIndex.value = waypoints.value.length - 1;
     currentHeight.value = cartographic.height;
     updatePath();
+
     if (waypoints.value.length === 1) {
-        addFovLines(position);
+        // 初始方向设置为正北（Y轴方向）
+        currentOrientation.value = Cesium.Quaternion.fromHeadingPitchRoll({
+            heading: Cesium.Math.toRadians(90),
+            pitch: 0,
+            roll: 0,
+        });
+
+        frustumManager.value = new FrustumManager(viewer.value, position, currentOrientation.value);
+        frustumManager.value.add();
     }
 };
 
@@ -345,16 +478,6 @@ const updatePath = () => {
             },
         });
     }
-    // 获取所有航点数据，排除最后一条航点
-    const data = waypoints.value.slice(0, -1).map(wp => {
-        const cartographic = wp.cartographic; // 获取航点的 Cartographic 对象
-        return {
-            longitude: Cesium.Math.toDegrees(cartographic.longitude), // 经度
-            latitude: Cesium.Math.toDegrees(cartographic.latitude), // 纬度
-            height: cartographic.height, // 高度
-        };
-    });
-    console.log('航点数据：', data);
 };
 
 const startDrawing = () => {
@@ -362,21 +485,17 @@ const startDrawing = () => {
     if (waypoints.value.length === 0) {
         const position = Cesium.Cartesian3.fromDegrees(116.397477, 39.908692, 100);
         createWaypoint(position);
-        // 正确初始化朝向 - 正北方向，水平视野(pitch=0)
-        currentOrientation.value = Cesium.Quaternion.IDENTITY; // 初始化为无旋转状态
-        // 强制重新计算视野锥体
-        addFovLines(position);
-        // 设置相机视角
         viewer.value.camera.setView({
             destination: Cesium.Cartesian3.fromDegrees(116.397477, 39.908692, 500),
             orientation: {
                 heading: Cesium.Math.toRadians(0),
-                pitch: Cesium.Math.toRadians(-30), // 更平缓的视角
+                pitch: Cesium.Math.toRadians(-30),
                 roll: 0,
             },
         });
     }
 };
+
 const simulateFlight = () => {
     if (waypoints.value.length < 2) return;
     const property = new Cesium.SampledPositionProperty();
@@ -386,7 +505,7 @@ const simulateFlight = () => {
     });
     viewer.value.clock.multiplier = 10;
     viewer.value.clock.shouldAnimate = true;
-    viewer.value.trackedEntity = waypoints.value[0].entity; // 跟踪第一个航点
+    viewer.value.trackedEntity = waypoints.value[0].entity;
 };
 
 const clearAll = () => {
@@ -401,34 +520,12 @@ const clearAll = () => {
     viewer.value.entities.removeById('flightPath');
     currentWaypointIndex.value = -1;
     currentHeight.value = 0;
-    currentOrientation.value = Cesium.Quaternion.fromHeadingPitchRoll(Cesium.HeadingPitchRoll.fromDegrees(0, 90, 0));
+    currentOrientation.value = Cesium.Quaternion.IDENTITY;
+    frustumManager.value?.clear();
 };
 </script>
 
-<template>
-    <div id="cesiumContainer">
-        <div class="control-panel">
-            <button @click="startDrawing">开始规划</button>
-            <button @click="simulateFlight">模拟飞行</button>
-            <button @click="clearAll">清除所有</button>
-            <div class="status-bar">当前高度：{{ currentHeight.toFixed(1) }}米 | 航点数量：{{ waypoints.length }}</div>
-        </div>
-        <div class="virtual-keyboard">
-            <div class="keyboard-row">
-                <div v-for="key in ['Q', 'W', 'E']" :key="key" class="key" :class="{ active: keyStates[key.toLowerCase()] }">{{ key }}</div>
-            </div>
-            <div class="keyboard-row">
-                <div v-for="key in ['A', 'S', 'D']" :key="key" class="key" :class="{ active: keyStates[key.toLowerCase()] }">{{ key }}</div>
-            </div>
-            <div class="keyboard-row">
-                <div v-for="key in ['Z', 'C']" :key="key" class="key" :class="{ active: keyStates[key.toLowerCase()] }">{{ key }}</div>
-            </div>
-        </div>
-    </div>
-</template>
-
 <style>
-/* 样式保持不变 */
 #cesiumContainer {
     position: relative;
     width: 100vw;
