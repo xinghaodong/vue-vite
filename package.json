@@ -30,7 +30,8 @@
     "pinia-plugin-persistedstate": "^3.2.1",
     "qs": "^6.12.1",
     "vue": "^3.4.21",
-    "vue-router": "^4.3.2"
+    "vue-router": "^4.3.2",
+    "vuedraggable": "^4.1.0"
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "^5.0.4",

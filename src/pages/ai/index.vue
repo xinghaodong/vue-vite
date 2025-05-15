@@ -467,6 +467,7 @@ const sendMessage = async e => {
     eventSource.onerror = error => {
         console.error('EventSource 发生错误', error);
         eventSource.close();
+        isBtn.value = true;
     };
     // 监听结束事件
     eventSource.addEventListener('end', async () => {
@@ -474,7 +475,7 @@ const sendMessage = async e => {
         // 如果是正常的 AI 回复内容
         const lastIndex = chatList.value.length - 1;
         chatList.value[lastIndex].isCompleted = 1;
-
+        isBtn.value = true;
         eventSource.close();
         // 刷新左侧历史聊天记录
         sidebarList.value = await getAllConversations();
