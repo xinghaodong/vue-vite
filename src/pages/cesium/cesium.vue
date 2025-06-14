@@ -28,7 +28,7 @@ import { ref, onMounted, onUnmounted } from 'vue';
 
 Cesium.Ion.defaultAccessToken =
     'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI5NWEyM2E2Ni1mNDdmLTQ2NjYtYWQ0Mi0xYmE5OWVkYjIxNTUiLCJpZCI6Mjg3NzA3LCJpYXQiOjE3NDI5NTQ1ODR9.iyxiNumkb8sc6jM8EFk72wtwKmLOPAKqsxgeLqs1Nio';
-Cesium.Camera.DEFAULT_VIEW_RECTANGLE = Cesium.Rectangle.fromDegrees(73.5, 3.9, 135.0, 55.0);
+// Cesium.Camera.DEFAULT_VIEW_RECTANGLE = Cesium.Rectangle.fromDegrees(73.5, 3.9, 135.0, 55.0);
 
 const viewer = ref(null);
 const waypoints = ref([]);
@@ -178,7 +178,19 @@ onMounted(async () => {
             url: 'https://webst01.is.autonavi.com/appmaptile?lang=zh_cn&style=6&x={x}&y={y}&z={z}',
         }),
     );
+    // 飞向中国 Cesium.Camera.DEFAULT_VIEW_RECTANGLE = Cesium.Rectangle.fromDegrees(73.5, 3.9, 135.0, 55.0);
+    var target = Cesium.Cartesian3.fromDegrees(116.4074, 39.9042,16500000);
 
+    // 使用flyTo方法飞向目标点
+    viewer.value.camera.flyTo({
+        destination: target,
+        orientation: {
+            heading: Cesium.Math.toRadians(0), // 方向角，例如向东为0度
+            pitch: Cesium.Math.toRadians(-90), // 俯仰角，例如垂直向下为-90度
+            roll: 0.0, // 翻滚角
+        },
+        duration: 3, // 飞行持续时间，单位为秒
+    });
     document.addEventListener('keydown', handleKeyDown);
     document.addEventListener('keyup', handleKeyUp);
 });

@@ -57,11 +57,24 @@
                             <el-radio v-model="form.menutype" label="2" border>按钮</el-radio>
                         </el-form-item>
                     </el-col>
+                    <el-col :xs="12" :sm="12" :md="12" :lg="12" :xl="24">
+                        <el-form-item label="是否全屏" prop="isscreen">
+                            <template #label>
+                                <el-tooltip content="选择是打开次页面会去掉左侧菜单和头部，只展示该菜单内容" placement="top">
+                                    <el-icon class="iconsStyle"><InfoFilled /></el-icon>
+                                </el-tooltip>
+                                是否全屏
+                            </template>
+                            <el-radio v-model="form.isscreen" label="2" border>是</el-radio>
+                            <el-radio v-model="form.isscreen" label="1" border>否</el-radio>
+                        </el-form-item>
+                    </el-col>
                     <el-col :xs="12" :sm="12" :md="12" :lg="12" :xl="12">
                         <el-form-item label="资源序号" prop="sorts">
                             <el-input-number v-model="form.sorts" placeholder="请输入"></el-input-number>
                         </el-form-item>
                     </el-col>
+
                     <el-col :xs="24" :sm="24" :md="24" :lg="24" :xl="24">
                         <el-form-item prop="code">
                             <template #label>
@@ -221,7 +234,7 @@ Object.keys(proxy.$icon).map(item => {
         value: item,
     });
 });
-const formTemplate = { name: '', parentId: 0, url: '', component: '', sorts: 1, keepalive: 1, icon: '', menutype: 1, perms: '', code: '', roleIds: [] };
+const formTemplate = { name: '', parentId: 0, url: '', component: '', sorts: 1, keepalive: 1, icon: '', menutype: 1, perms: '', code: '', roleIds: [], isscreen: '1' };
 let form = reactive({ ...formTemplate });
 const treeData = ref(null);
 const roleList = ref([]);

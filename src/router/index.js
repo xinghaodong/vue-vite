@@ -59,11 +59,11 @@ const router = createRouter({
             component: () => import('@/pages/ai/index.vue'),
         },
         // cesium
-        {
-            name: 'cesium',
-            path: '/cesium',
-            component: () => import('@/pages/cesium/cesium.vue'),
-        },
+        // {
+        //     name: 'cesium',
+        //     path: '/cesium',
+        //     component: () => import('@/pages/cesium/cesium.vue'),
+        // },
         {
             name: 'cesium2d',
             path: '/cesium2d',
@@ -81,10 +81,10 @@ const router = createRouter({
 function transformRoute(route) {
     // 对于menutype为2的路由，我们直接使用`/${route.url}`作为path；
     // 否则，我们仅使用`${route.url}`来避免嵌套。
-    const pathPrefix = route.menutype == 2 ? '/' : '';
+    const pathPrefix = route.isscreen == 2 ? '/' : '';
 
     const transformed = {
-        path: `${route.url}`, // 确保路径是相对于根路径的
+        path: `${pathPrefix}${route.url}`, // 确保路径是相对于根路径的
         name: route.code,
         meta: {
             icon: route.icon,
@@ -95,6 +95,7 @@ function transformRoute(route) {
         keepalive: route.keepalive === '1',
         menutype: route.menutype,
         sorts: route.sorts,
+        isscreen: route.isscreen,
         // 移除了children递归调用，因为我们现在生成的是平级路由
     };
     if (route.component) {
@@ -112,7 +113,6 @@ function transformRoute(route) {
 let backendRoutes = [];
 // 异步加载路由并添加到路由器
 const setupDynamicRoutes = async () => {
-    console.log('开始加载动态路由...');
     try {
         const res = await api.menus();
         backendRoutes = res.data;
@@ -132,7 +132,13 @@ const setupDynamicRoutes = async () => {
         const transformedRoutes = backendRoutes.map(route => transformRoute(route)).filter(Boolean); // 过滤掉无效路由
         // 添加动态路由到 `/home`
         transformedRoutes.forEach(route => {
-            router.addRoute('home', route);
+            // 1的话不是全屏嵌套在home下 2的话全屏
+            if (route.isscreen === '1') {
+                router.addRoute('home', route);
+            }else{
+
+                 router.addRoute(route);
+            }
         });
         // 添加一个catch-all路由，确保无效路由会重定向到 404
         router.addRoute({
@@ -148,6 +154,7 @@ const setupDynamicRoutes = async () => {
 // 路由守卫
 let dynamicRoutesLoaded = false; // 防止重复加载动态路由
 router.beforeEach(async (to, from, next) => {
+
     NProgress.start(); // 开启进度条
     const useMenuStores = useMenuStore();
     const funcAll = () => {
@@ -214,8 +221,10 @@ function filterMenuTree(menuTree) {
 // 递归处理树形数据，拼接 url
 function generateUrls(tree) {
     return tree.map(item => {
-        if (item.url) {
+        if (item.url && item.isscreen === '1') {
             item.url = `/home/${item.url}`; // 如果url存在，则拼接'/home'
+        }else{
+            item.url = `/${item.url}`;
         }
 
         // 如果有子节点，则递归处理子节点
