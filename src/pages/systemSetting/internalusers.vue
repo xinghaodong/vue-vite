@@ -296,7 +296,7 @@ const handleRelieve = row => {
         });
 };
 </script>
-<style>
+<style scoped>
 th.el-table__cell,
 td.el-table__cell {
     position: static !important;

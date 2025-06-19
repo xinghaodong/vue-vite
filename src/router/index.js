@@ -162,7 +162,7 @@ router.beforeEach(async (to, from, next) => {
         useMenuStores.changeRemoveAll();
         useMenuStores.clearAll();
         sessionStorage.clear(); // 清除所有 sessionStorage 数据
-        localStorage.clear();
+        // localStorage.clear();
     };
     // 如果是ai界面直接放行 无需登录
     if ((to.path === '/ai' || to.path === '/cesium' || to.path === '/cesium2d', to.path === '/formDesign')) {

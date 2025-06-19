@@ -100,7 +100,7 @@ function updateNode(updatedNode) {
     console.log('nodes', nodes.value);
 }
 </script>
-<style>
+<style scoped>
 @import 'https://cdn.jsdelivr.net/npm/@vue-flow/core@1.42.0/dist/style.css';
 @import 'https://cdn.jsdelivr.net/npm/@vue-flow/core@1.42.0/dist/theme-default.css';
 @import 'https://cdn.jsdelivr.net/npm/@vue-flow/controls@latest/dist/style.css';

@@ -537,7 +537,7 @@ const clearAll = () => {
 };
 </script>
 
-<style>
+<style scoped>
 #cesiumContainer {
     position: relative;
     width: 100vw;

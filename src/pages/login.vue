@@ -95,17 +95,25 @@ const onSubmit = formEl => {
         if (valid) {
             const data = await proxy.$api.login(ruleForm);
 
+            console.log(localStorage.getItem('theme'), 'data');
+
             if (data.code == 200) {
                 console.log(userInfoStore, 'userInfoStoreuserInfoStore');
                 menuInfoStore.getPerms(data.data.perms);
                 userInfoStore.changeUserInfo(data.data.informationObject);
 
-                localStorage.setItem('theme', data.data.informationObject.theme);
-                if (data.data.informationObject.theme) {
+                if (localStorage.getItem('theme')) {
+                    document.documentElement.classList.add(`${localStorage.getItem('theme')}`);
+                } else if (data.data.informationObject.theme) {
                     document.documentElement.classList.add('dark');
-                } else {
-                    document.documentElement.classList.remove('dark');
                 }
+
+                // localStorage.setItem('theme', data.data.informationObject.theme);
+                // if (data.data.informationObject.theme) {
+                //     document.documentElement.classList.add('dark');
+                // } else {
+                //     document.documentElement.classList.remove('dark');
+                // }
                 // userInfoStore.changeUserInfo(data.data);
                 sessionStorage.setItem('token', data.data.token);
                 sessionStorage.setItem('refreshToken', data.data.refreshToken);
@@ -119,7 +127,7 @@ const onSubmit = formEl => {
 };
 </script>
 
-<style>
+<style scoped>
 .el-input__wrapper {
     padding-left: 2px;
 }
@@ -139,10 +147,6 @@ const onSubmit = formEl => {
 .bg-4 {
     background-image: url('@/assets/bg4.png');
     background-repeat: no-repeat;
-}
-* {
-    margin: 0;
-    padding: 0;
 }
 
 .box {
@@ -217,30 +221,7 @@ const onSubmit = formEl => {
 .box .content .login-wrapper .login-content .login-form {
     margin-top: 40px;
 }
-.box .content .login-wrapper .login-content .login-form input {
-    width: 100%;
-    border-radius: 5px;
-    border: 0;
-    padding: 10px;
-    box-sizing: border-box;
-    font-weight: 100;
-    font-size: 20px;
-}
-.box .content .login-wrapper .login-content .login-form input:focus {
-    outline: none;
-}
-.box .content .login-wrapper .login-content .login-form input::-moz-placeholder {
-    font-weight: 600;
-    color: black;
-}
-.box .content .login-wrapper .login-content .login-form input:-ms-input-placeholder {
-    font-weight: 600;
-    color: black;
-}
-.box .content .login-wrapper .login-content .login-form input::placeholder {
-    font-weight: 600;
-    color: black;
-}
+
 .box .content .login-wrapper .login-content .login-btn {
     width: 100%;
     height: 45px;
@@ -260,5 +241,9 @@ const onSubmit = formEl => {
 .box .content .login-wrapper .login-content .tips span:nth-child(2) {
     color: rgb(54, 59, 197);
     font-weight: 600;
-} /*# sourceMappingURL=style.css.map */
+}
+
+.box .el-form-item__label {
+    color: #606266 !important;
+}
 </style>

@@ -60,7 +60,7 @@
                     <el-col :xs="12" :sm="12" :md="12" :lg="12" :xl="24">
                         <el-form-item label="是否全屏" prop="isscreen">
                             <template #label>
-                                <el-tooltip content="选择是打开次页面会去掉左侧菜单和头部，只展示该菜单内容" placement="top">
+                                <el-tooltip content="选择是的话打开此页面会去掉左侧菜单和头部，只展示该菜单内容" placement="top">
                                     <el-icon class="iconsStyle"><InfoFilled /></el-icon>
                                 </el-tooltip>
                                 是否全屏
@@ -362,7 +362,7 @@ onBeforeUnmount(() => {
     // proxy.$websocket.close();
 });
 </script>
-<style>
+<style scoped>
 .iconsStyle {
     top: 9px;
     right: 3px;

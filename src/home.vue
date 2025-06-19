@@ -331,7 +331,7 @@ onBeforeUnmount(() => {
     // proxy.$websocket.close();
 });
 </script>
-<style>
+<style scoped>
 .el-aside {
     height: 100vh;
     transition: width 0.3s ease;
@@ -462,9 +462,5 @@ onBeforeUnmount(() => {
 .el-dropdown-link {
     display: flex;
     align-items: center;
-
-    > p {
-        margin: 0 10px;
-    }
 }
 </style>

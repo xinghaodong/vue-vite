@@ -202,7 +202,7 @@ onMounted(async () => {
     }
 });
 </script>
-<style>
+<style scoped>
 .iconsStyle {
     top: 9px;
     right: 3px;
