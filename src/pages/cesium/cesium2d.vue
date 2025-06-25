@@ -43,7 +43,7 @@ import droneImage from '@/assets/WRJ.png';
 const { proxy } = getCurrentInstance();
 
 // 配置Cesium基础URL
-window.CESIUM_BASE_URL = '/Cesium';
+window.CESIUM_BASE_URL = './Cesium';
 
 // Cesium Ion访问令牌
 Cesium.Ion.defaultAccessToken =
