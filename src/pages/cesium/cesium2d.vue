@@ -2,12 +2,13 @@
     <div id="cesiumContainer" class="cesium-drone-simulator">
         <div class="control-panel">
             <button @click="startDrawing" :disabled="isDrawing">开始规划</button>
-            <button @click="simulateFlight" :disabled="waypoints.length < 2">模拟飞行</button>
+            <!-- <button @click="simulateFlight" :disabled="waypoints.length < 2">模拟飞行</button> -->
             <button @click="clearAll">清除所有</button>
             <div class="status-info">
-                <span>当前高度：{{ currentHeight.toFixed(1) }}米</span>
-                <span>航点数量：{{ waypoints.length }}</span>
-                <span>朝向：{{ currentHeading.toFixed(1) }}°</span>
+                <span>当前相机高度：{{ currentHeight.toFixed(1) }}米</span>
+                <span>当前无人机高度：{{ airRoute.globalheight.toFixed(1) }}米</span>
+                <span>航点数量：{{ airRoute.waypoints.length }}</span>
+                <span>朝向：{{ frustumcurrentHeading }}°</span>
             </div>
         </div>
 
@@ -56,7 +57,6 @@ const ROTATE_STEP = 2; // 旋转步长 (度)
 // 响应式状态
 const viewer = ref(null);
 const isDrawing = ref(false);
-const waypoints = ref([]);
 const currentWaypointIndex = ref(-1);
 const currentHeight = ref(800);
 const currentHeading = ref(0);
@@ -81,6 +81,7 @@ const dronePosition = ref(null);
 const droneFrustum = ref(null);
 const airRoute = ref({
     waypoints: [],
+    globalheight: 100,
 });
 const moveSpeed = ref(0.0000005); // 移动速度
 const heightSpeed = ref(1); // 高度变化速度
@@ -91,8 +92,6 @@ const cameraZoom = ref(2); // 相机变焦
 const gimbalPitch = ref(0); //云台俯仰角
 const frustumcurrentHeading = ref(null); // 存储当前视椎体航向角
 const frustumcurrentGimbalPitch = ref(null); // 存储当前视椎体俯仰角
-
-// 创建航点
 
 /**
  * 创建航点
@@ -200,7 +199,6 @@ const updatePath = () => {
                 }),
                 clampToGround: false,
                 heightReference: Cesium.HeightReference.NONE,
-                zIndex: -10,
                 classificationType: Cesium.ClassificationType.BOTH,
                 pickable: false,
             },
@@ -212,45 +210,6 @@ const createDroneWaypoint = () => {
     if (dronePosition.value) {
         // 调用已有的createWaypoint函数，传入当前无人机位置
         createWaypoint(dronePosition.value, null, 'JP');
-    }
-};
-
-// 更新相机位置函数
-const updateCameraPosition = (dronePosition, droneHeading) => {
-    // 第三人称视角（后方45度上方）
-    const distance = 100; // 跟随距离
-    const height = 50; // 相机高度偏移
-
-    const offset = new Cesium.Cartesian3(-distance * Math.cos(Cesium.Math.toRadians(droneHeading)), -distance * Math.sin(Cesium.Math.toRadians(droneHeading)), height);
-
-    const cameraPosition = Cesium.Cartesian3.add(dronePosition, offset, new Cesium.Cartesian3());
-
-    viewer.value.camera.setView({
-        destination: cameraPosition,
-        orientation: {
-            heading: Cesium.Math.toRadians(droneHeading),
-            pitch: Cesium.Math.toRadians(-25), // 轻微俯视
-            roll: 0.0,
-        },
-    });
-};
-// 更新飞行路径
-const updateFlightPath = () => {
-    viewer.value.entities.removeById('flightPath');
-
-    if (waypoints.value.length > 1) {
-        const positions = waypoints.value.map(wp => wp.position);
-        viewer.value.entities.add({
-            id: 'flightPath',
-            polyline: {
-                positions,
-                width: 5,
-                material: new Cesium.PolylineGlowMaterialProperty({
-                    glowPower: 0.2,
-                    color: Cesium.Color.GREEN,
-                }),
-            },
-        });
     }
 };
 
@@ -303,6 +262,7 @@ const startDrawing = () => {
             // this.updateScaleBar();
             // 初始化键盘控制
             initKeyboardControl();
+            // airRoute.value.globalheight = 100
             // // 标记机场点 位置
             // addAirportMarker(obj);
         },
@@ -426,7 +386,7 @@ const focusOnDrone = val => {
     // 获取相机当前的方向信息
     const heading = viewer.value.scene.camera.heading;
     const pitch = viewer.value.scene.camera.pitch;
-
+    console.log(currentHeight.value);
     // 只更新相机的位置，使其始终对准无人机，但保留当前视角
     viewer.value.scene.camera.lookAt(dronePos, new Cesium.HeadingPitchRange(heading, pitch, currentHeight.value));
 };
@@ -591,7 +551,7 @@ const updateDronePosition = up => {
         cartographic.latitude += deltaLat;
         cartographic.longitude += deltaLon;
     }
-    const maxHeight = 1000;
+    const maxHeight = 10000;
     const minHeight = 0;
 
     if (keyStates.value.c) {
@@ -665,29 +625,42 @@ const updateFrustumOrientation = up => {
     droneFrustum.value.update(dronePosition.value, orientation, cameraZoom.value, frustumcurrentGimbalPitch.value == null ? gimbalPitch.value : frustumcurrentGimbalPitch.value);
 };
 
-// 模拟飞行
-const simulateFlight = () => {
-    if (waypoints.value.length < 2) return;
-
-    const property = new Cesium.SampledPositionProperty();
-    waypoints.value.forEach((wp, index) => {
-        const time = Cesium.JulianDate.addSeconds(viewer.value.clock.startTime, index * 5, new Cesium.JulianDate());
-        property.addSample(time, wp.position);
-    });
-
-    viewer.value.clock.multiplier = 5;
-    viewer.value.clock.shouldAnimate = true;
-    viewer.value.trackedEntity = waypoints.value[0].entity;
+const handleMouseWheel = e => {
+    e.preventDefault();
+    if (viewer.value) {
+        const camera = viewer.value.camera;
+        currentHeight.value = camera.positionCartographic.height;
+        // 根据滚轮方向决定放大还是缩小
+        if (e.deltaY < 0) {
+            // 向上滚动，放大
+            camera.zoomIn(currentHeight.value * 0.05);
+        } else {
+            // 向下滚动，缩小
+            camera.zoomOut(currentHeight.value * 0.05);
+        }
+    }
 };
+
+// const zoomIn = () => {
+//     if (viewer.value) {
+//         const camera = viewer.value.camera;
+//         currentHeight.value = camera.positionCartographic.height;
+//         camera.zoomIn(camera.positionCartographic.height * 0.3); // 缩放30%
+//     }
+// };
+// const zoomOut = () => {
+//     if (viewer.value) {
+//         const camera = viewer.value.camera;
+//         currentHeight.value = camera.positionCartographic.height;
+//         camera.zoomOut(camera.positionCartographic.height * 0.3); // 缩放30%
+//     }
+// };
+
+// 模拟飞行
+const simulateFlight = () => {};
 
 // 清除所有
 const clearAll = () => {
-    waypoints.value.forEach(wp => {
-        viewer.value.entities.remove(wp.entity);
-        viewer.value.entities.remove(wp.heightLine);
-    });
-
-    waypoints.value = [];
     currentWaypointIndex.value = -1;
     currentHeight.value = 0;
     currentHeading.value = 0;
@@ -712,6 +685,7 @@ onMounted(async () => {
         navigationHelpButton: false,
         shouldAnimate: true,
         // terrainProvider: await Cesium.createWorldTerrainAsync(),
+        // terrainProvider: await Cesium.createWorldTerrainAsync(), // 添加地形
     });
     // 飞向中国 Cesium.Camera.DEFAULT_VIEW_RECTANGLE = Cesium.Rectangle.fromDegrees(73.5, 3.9, 135.0, 55.0);
     var target = Cesium.Cartesian3.fromDegrees(116.4074, 39.9042, 16500000);
@@ -726,6 +700,7 @@ onMounted(async () => {
         },
         duration: 3, // 飞行持续时间，单位为秒
     });
+    viewer.value.canvas.addEventListener('wheel', handleMouseWheel);
 });
 
 onUnmounted(() => {
