@@ -771,7 +771,6 @@ button:disabled {
     bottom: 20px;
     right: 20px;
     z-index: 999;
-    background: rgba(0, 0, 0, 0.7);
     padding: 15px;
     border-radius: 8px;
     display: flex;

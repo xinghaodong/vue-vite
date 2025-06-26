@@ -135,9 +135,8 @@ const setupDynamicRoutes = async () => {
             // 1的话不是全屏嵌套在home下 2的话全屏
             if (route.isscreen === '1') {
                 router.addRoute('home', route);
-            }else{
-
-                 router.addRoute(route);
+            } else {
+                router.addRoute(route);
             }
         });
         // 添加一个catch-all路由，确保无效路由会重定向到 404
@@ -154,7 +153,6 @@ const setupDynamicRoutes = async () => {
 // 路由守卫
 let dynamicRoutesLoaded = false; // 防止重复加载动态路由
 router.beforeEach(async (to, from, next) => {
-
     NProgress.start(); // 开启进度条
     const useMenuStores = useMenuStore();
     const funcAll = () => {
@@ -164,8 +162,9 @@ router.beforeEach(async (to, from, next) => {
         sessionStorage.clear(); // 清除所有 sessionStorage 数据
         // localStorage.clear();
     };
+
     // 如果是ai界面直接放行 无需登录
-    if ((to.path === '/ai' || to.path === '/cesium' || to.path === '/cesium2d', to.path === '/formDesign')) {
+    if (to.path === '/ai' || to.path === '/cesium' || to.path === '/cesium2d' || to.path === '/formDesign') {
         next();
         return;
     }
@@ -223,7 +222,7 @@ function generateUrls(tree) {
     return tree.map(item => {
         if (item.url && item.isscreen === '1') {
             item.url = `/home/${item.url}`; // 如果url存在，则拼接'/home'
-        }else{
+        } else {
             item.url = `/${item.url}`;
         }
 
