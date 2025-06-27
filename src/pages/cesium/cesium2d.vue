@@ -94,7 +94,9 @@ const frustumcurrentHeading = ref(0); // 存储当前视椎体航向角
 const frustumcurrentGimbalPitch = ref(null); // 存储当前视椎体俯仰角
 
 const flightPathPrimitive = ref(null);
-const shaderTime = ref(0);
+
+const lastUpdateTime = ref(Date.now());
+const updateFlightPathTimeRef = ref(null); // 用于存储当前的事件处理函数
 
 /**
  * 创建航点
@@ -185,69 +187,91 @@ const createWaypoint = (position, point, jp, event) => {
     updatePath();
 };
 
-// 使用 s
-
 const updatePath = () => {
-    const waypoints = airRoute.value.waypoints;
-
-    if (waypoints.length >= 2) {
-        const positions = waypoints.map(wp => wp.position);
-
-        // 移除旧的Primitive
-        if (flightPathPrimitive.value) {
-            viewer.value.scene.primitives.remove(flightPathPrimitive.value);
-            viewer.value.scene.postRender.removeEventListener(updateFlightPathTime);
-        }
-
-        // 创建新的Primitive
-        flightPathPrimitive.value = new Cesium.Primitive({
-            geometryInstances: new Cesium.GeometryInstance({
-                geometry: new Cesium.PolylineGeometry({
-                    positions: positions,
-                    width: 8,
-                    vertexFormat: Cesium.PolylineMaterialAppearance.VERTEX_FORMAT
-                })
-            }),
-            appearance: new Cesium.PolylineMaterialAppearance({
-                material: new Cesium.Material({
-                    fabric: {
-                        type: 'FlowLine',
-                        uniforms: {
-                            color: new Cesium.Color(0.0, 1.0, 1.0, 0.9),
-                            arrowColor: new Cesium.Color(1.0, 1.0, 1.0, 0.8),
-                            speed: 0.5,
-                            time: 0,
-                            glowPower: 0.3
-                        }
-                    }
-                }),
-                translucent: true
-            }),
-            asynchronous: false
-        });
-
-        viewer.value.scene.primitives.add(flightPathPrimitive.value);
-        
-        // 添加时间更新监听器
-        viewer.value.scene.postRender.addEventListener(updateFlightPathTime);
-    } else {
-        if (flightPathPrimitive.value) {
-            viewer.value.scene.primitives.remove(flightPathPrimitive.value);
-            viewer.value.scene.postRender.removeEventListener(updateFlightPathTime);
-            flightPathPrimitive.value = null;
-        }
+    if (!airRoute.value?.waypoints || airRoute.value.waypoints.length < 2) {
+        cleanupPath();
+        return;
     }
+
+    const positions = airRoute.value.waypoints.map(wp => wp.position);
+    
+    // 计算路径总长度（单位：米）
+    let totalLength = 0;
+    for (let i = 1; i < positions.length; i++) {
+        totalLength += Cesium.Cartesian3.distance(positions[i-1], positions[i]);
+    }
+
+    cleanupPath();
+
+    flightPathPrimitive.value = new Cesium.Primitive({
+        geometryInstances: new Cesium.GeometryInstance({
+            geometry: new Cesium.PolylineGeometry({
+                positions: positions,
+                width: 10.0,  // 增加线宽
+                vertexFormat: Cesium.PolylineMaterialAppearance.VERTEX_FORMAT,
+            }),
+        }),
+        appearance: new Cesium.PolylineMaterialAppearance({
+            material: new Cesium.Material({
+                fabric: {
+                    type: 'FlowLine',
+                    uniforms: {
+                        color: new Cesium.Color(0.0, 0.5, 1.0, 0.9),  // 加深基础色
+                        arrowColor: new Cesium.Color(1.0, 1.0, 1.0, 1.0),
+                        speed: 1.5,
+                        time: 0,
+                        glowPower: 0.15,  // 减弱发光
+                        arrowSpacing: 30.0,  // 更密集的箭头
+                        arrowWidth: 0.3,     // 更宽的箭头
+                        totalLength: totalLength
+                    },
+                },
+            }),
+            translucent: true,
+        }),
+        asynchronous: false,
+    });
+    viewer.value.scene.primitives.add(flightPathPrimitive.value);
+
+    // 时间更新函数
+    updateFlightPathTimeRef.value = () => {
+        const currentTime = Date.now();
+        const deltaTime = (currentTime - lastUpdateTime.value) / 1000.0;
+        lastUpdateTime.value = currentTime;
+
+        if (flightPathPrimitive.value?.appearance?.material) {
+            const material = flightPathPrimitive.value.appearance.material;
+            material.uniforms.time += deltaTime * material.uniforms.speed;
+        }
+    };
+
+    lastUpdateTime.value = Date.now();
+    viewer.value.scene.postRender.addEventListener(updateFlightPathTimeRef.value);
 };
 
+// 清理路径函数
+const cleanupPath = () => {
+    if (flightPathPrimitive.value) {
+        viewer.value?.scene?.primitives?.remove(flightPathPrimitive.value);
+
+        // 移除当前的事件监听器
+        if (updateFlightPathTimeRef.value) {
+            viewer.value?.scene?.postRender?.removeEventListener(updateFlightPathTimeRef.value);
+        }
+
+        flightPathPrimitive.value = null;
+    }
+};
 /**
  * 更新流动箭头的时间uniform
  */
-const updateFlightPathTime = () => {
-    if (flightPathPrimitive.value && flightPathPrimitive.value.appearance.material) {
-        shaderTime.value += 0.01;
-        flightPathPrimitive.value.appearance.material.uniforms.time = shaderTime.value;
-    }
-};
+// 先定义 updateFlightPathTime
+// const updateFlightPathTime = () => {
+//     if (flightPathPrimitive.value && flightPathPrimitive.value.appearance.material) {
+//         shaderTime.value += 0.01;
+//         flightPathPrimitive.value.appearance.material.uniforms.time = shaderTime.value;
+//     }
+// };
 // 创建无人机当前位置的航点
 const createDroneWaypoint = () => {
     if (dronePosition.value) {
@@ -755,35 +779,52 @@ onMounted(async () => {
         fabric: {
             type: 'FlowLine',
             uniforms: {
-                color: new Cesium.Color(0.0, 1.0, 1.0, 0.9), // 直接使用RGBA值
-                arrowColor: new Cesium.Color(1.0, 1.0, 1.0, 0.8),
-                speed: 0.5,
+                color: new Cesium.Color(0.0, 0.7, 1.0, 0.8),
+                arrowColor: new Cesium.Color(1.0, 1.0, 1.0, 1.0),
+                speed: 1,
                 time: 0,
-                glowPower: 0.3
+                glowPower: 0.3,
+                arrowSpacing: 50.0, // 使用实际距离单位（米）
+                arrowWidth: 0.2,
+                totalLength: 100.0, // 必须与着色器中的变量名一致
             },
             source: `
-                czm_material czm_getMaterial(czm_materialInput materialInput)
-                {
-                    czm_material material = czm_getDefaultMaterial(materialInput);
-                    
-                    // 获取UV坐标（沿路径方向）
-                    float uv = materialInput.st.t;
-                    
-                    // 计算流动效果
-                    float flow = fract(uv - time * speed);
-                    float arrow = smoothstep(0.0, 0.3, flow) * (1.0 - smoothstep(0.3, 0.6, flow));
-                    
-                    // 基础颜色（带发光效果）
-                    vec3 baseColor = color.rgb * (1.0 + glowPower * sin(uv * 10.0 - time * 2.0));
-                    
-                    // 混合箭头颜色
-                    material.diffuse = mix(baseColor, arrowColor.rgb, arrow);
-                    material.alpha = mix(color.a, arrowColor.a, arrow);
-                    
-                    return material;
-                }
-            `
-        }
+            czm_material czm_getMaterial(czm_materialInput materialInput)
+            {
+                czm_material material = czm_getDefaultMaterial(materialInput);
+                
+                vec2 st = materialInput.st;
+                float time = time;
+                
+                // 基础颜色和发光效果（减弱发光效果）
+                vec4 baseColor = color;
+                float glow = glowPower * 0.3 * (1.0 + cos(time * 3.0 - st.s * 8.0));
+                baseColor.rgb += glow;
+                
+                // 标准化位置计算（确保箭头均匀分布）
+                float normalizedPos = st.s * (totalLength / arrowSpacing);
+                float arrowPos = fract(normalizedPos - time * speed);
+                
+                // 箭头头部（更明显的三角形）
+                float arrowHead = smoothstep(0.0, 0.05, arrowPos) * 
+                                (1.0 - smoothstep(0.05, 0.15, arrowPos));
+                
+                // 箭头尾部（更细的线条）
+                float arrowTail = smoothstep(0.15, 0.2, arrowPos) * 
+                                 (1.0 - smoothstep(0.2, 0.3, arrowPos)) * 0.7;
+                
+                // 组合箭头形状（增强对比度）
+                float arrowShape = min(1.0, max(arrowHead * 1.5, arrowTail));
+                
+                // 最终颜色混合（增强白色箭头效果）
+                material.diffuse = mix(baseColor.rgb, arrowColor.rgb, pow(arrowHead, 2.0));
+                material.alpha = mix(baseColor.a, 1.0, arrowHead);
+                
+                return material;
+            }
+        `,
+        },
+        translucent: true,
     });
 });
 
