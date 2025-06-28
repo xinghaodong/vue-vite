@@ -83,14 +83,14 @@ const airRoute = ref({
     waypoints: [],
     globalheight: 100,
 });
-const moveSpeed = ref(0.0000005); // 移动速度
+const moveSpeed = ref(0.0000001); // 移动速度
 const heightSpeed = ref(1); // 高度变化速度
 const droneGroundPoint = ref(null); // 无人机地面投影点实体
 const droneHeightLine = ref(null); // 无人机高度连接线实体
 const droneOrientation = ref(new Cesium.HeadingPitchRoll(0, 0, 0));
 const cameraZoom = ref(2); // 相机变焦
 const gimbalPitch = ref(0); //云台俯仰角
-const frustumcurrentHeading = ref(null); // 存储当前视椎体航向角
+const frustumcurrentHeading = ref(0); // 存储当前视椎体航向角
 const frustumcurrentGimbalPitch = ref(null); // 存储当前视椎体俯仰角
 // 模型
 const modelList = ref([{ url: 'http://192.168.8.109:5588/download/Tiles/tileset.json' }]);
@@ -179,6 +179,11 @@ const load3DTilesModels = async () => {
     }
 };
 
+const flightPathPrimitive = ref(null);
+
+const lastUpdateTime = ref(Date.now());
+const updateFlightPathTimeRef = ref(null); // 用于存储当前的事件处理函数
+
 /**
  * 创建航点
  * @param {*} position 位置
@@ -218,7 +223,7 @@ const createWaypoint = (position, point, jp, event) => {
         position,
         point: {
             pixelSize: 18,
-            color: airRoute.value.waypoints.length === 1 ? Cesium.Color.fromCssColorString('rgba(255, 165, 0, 0.8)') : Cesium.Color.BLUE,
+            color: airRoute.value.waypoints.length === 1 ? Cesium.Color.fromCssColorString('rgba(255, 165, 0, 0.8)') : Cesium.Color.YELLOW,
             outlineColor: Cesium.Color.WHITE,
             outlineWidth: 1,
             pixelOffset: new Cesium.Cartesian2(0, -20),
@@ -269,28 +274,90 @@ const createWaypoint = (position, point, jp, event) => {
 };
 
 const updatePath = () => {
-    viewer.value.entities.removeById('flightPath');
+    if (!airRoute.value?.waypoints || airRoute.value.waypoints.length < 2) {
+        cleanupPath();
+        return;
+    }
+
     const positions = airRoute.value.waypoints.map(wp => wp.position);
 
-    if (positions.length > 0) {
-        viewer.value.entities.add({
-            id: 'flightPath',
-            polyline: {
+    // 计算路径总长度（单位：米）
+    let totalLength = 0;
+    for (let i = 1; i < positions.length; i++) {
+        totalLength += Cesium.Cartesian3.distance(positions[i - 1], positions[i]);
+    }
+
+    cleanupPath();
+
+    flightPathPrimitive.value = new Cesium.Primitive({
+        geometryInstances: new Cesium.GeometryInstance({
+            geometry: new Cesium.PolylineGeometry({
                 positions: positions,
-                width: 5,
-                material: new Cesium.PolylineOutlineMaterialProperty({
-                    color: Cesium.Color.YELLOW.withAlpha(0.9),
-                    outlineWidth: 1,
-                    outlineColor: Cesium.Color.YELLOW.withAlpha(0.9),
-                }),
-                clampToGround: false,
-                heightReference: Cesium.HeightReference.NONE,
-                classificationType: Cesium.ClassificationType.BOTH,
-                pickable: false,
-            },
-        });
+                width: 10.0, // 增加线宽
+                vertexFormat: Cesium.PolylineMaterialAppearance.VERTEX_FORMAT,
+            }),
+        }),
+        appearance: new Cesium.PolylineMaterialAppearance({
+            material: new Cesium.Material({
+                fabric: {
+                    type: 'FlowLine',
+                    uniforms: {
+                        color: new Cesium.Color(0.0, 0.5, 1.0, 0.9), // 加深基础色
+                        arrowColor: new Cesium.Color(1.0, 1.0, 1.0, 1.0),
+                        speed: 1.5,
+                        time: 0,
+                        glowPower: 0.15, // 减弱发光
+                        arrowSpacing: 30.0, // 更密集的箭头
+                        arrowWidth: 0.3, // 更宽的箭头
+                        totalLength: totalLength,
+                    },
+                },
+            }),
+            translucent: true,
+        }),
+        asynchronous: false,
+    });
+    viewer.value.scene.primitives.add(flightPathPrimitive.value);
+
+    // 时间更新函数
+    updateFlightPathTimeRef.value = () => {
+        const currentTime = Date.now();
+        const deltaTime = (currentTime - lastUpdateTime.value) / 1000.0;
+        lastUpdateTime.value = currentTime;
+
+        if (flightPathPrimitive.value?.appearance?.material) {
+            const material = flightPathPrimitive.value.appearance.material;
+            material.uniforms.time += deltaTime * material.uniforms.speed;
+        }
+    };
+
+    lastUpdateTime.value = Date.now();
+    viewer.value.scene.postRender.addEventListener(updateFlightPathTimeRef.value);
+};
+
+// 清理路径函数
+const cleanupPath = () => {
+    if (flightPathPrimitive.value) {
+        viewer.value?.scene?.primitives?.remove(flightPathPrimitive.value);
+
+        // 移除当前的事件监听器
+        if (updateFlightPathTimeRef.value) {
+            viewer.value?.scene?.postRender?.removeEventListener(updateFlightPathTimeRef.value);
+        }
+
+        flightPathPrimitive.value = null;
     }
 };
+/**
+ * 更新流动箭头的时间uniform
+ */
+// 先定义 updateFlightPathTime
+// const updateFlightPathTime = () => {
+//     if (flightPathPrimitive.value && flightPathPrimitive.value.appearance.material) {
+//         shaderTime.value += 0.01;
+//         flightPathPrimitive.value.appearance.material.uniforms.time = shaderTime.value;
+//     }
+// };
 // 创建无人机当前位置的航点
 const createDroneWaypoint = () => {
     if (dronePosition.value) {
@@ -358,7 +425,6 @@ const startDrawing = () => {
 
 // 初始化飞行器
 const initDrone = () => {
-    console.log('initDrone');
     if (droneEntity.value) {
         viewer.value.entities.remove(droneEntity.value);
     }
@@ -373,7 +439,6 @@ const initDrone = () => {
         dronePosition.value = Cesium.Cartesian3.fromDegrees(lastPoint.longitude, lastPoint.latitude, lastPoint.height || airRoute.value.globalheight);
         cartographic = Cesium.Cartographic.fromCartesian(dronePosition.value);
     } else {
-        console.log('没有航点，使用相机位置');
         cartographic = viewer.value.camera.positionCartographic;
         dronePosition.value = Cesium.Cartesian3.fromRadians(cartographic.longitude, cartographic.latitude, airRoute.value.globalheight);
     }
@@ -473,7 +538,6 @@ const focusOnDrone = val => {
     // 获取相机当前的方向信息
     const heading = viewer.value.scene.camera.heading;
     const pitch = viewer.value.scene.camera.pitch;
-    console.log(currentHeight.value);
     // 只更新相机的位置，使其始终对准无人机，但保留当前视角
     viewer.value.scene.camera.lookAt(dronePos, new Cesium.HeadingPitchRange(heading, pitch, currentHeight.value));
 };
@@ -551,7 +615,6 @@ const handleKeyDown = e => {
         // 空格键创建航点
         if (e.code === 'Space') {
             createDroneWaypoint();
-            console.log('创建航点');
             e.preventDefault();
         }
         switch (e.key.toLowerCase()) {
@@ -585,13 +648,12 @@ const handleKeyUp = e => {
         if (!['w', 'a', 's', 'd', 'c', 'z'].some(k => keyStates.value[k])) {
             if (animationFrameId.value) {
                 cancelAnimationFrame(animationFrameId.value);
-                console.log('停止动画循环');
+
                 animationFrameId.value = null;
             }
             followDrone.value = false;
             // 恢复默认相机控制器行为
             viewer.value.scene.camera.lookAtTransform(Cesium.Matrix4.IDENTITY);
-            console.log('停止动画循环，相机已解锁');
         }
     }
 };
@@ -791,6 +853,69 @@ onMounted(async () => {
     setTimeout(() => {
         load3DTilesModels();
     }, 5000);
+
+    // 大气颜色
+    // viewer.value.scene.atmosphere.dynamicLighting = Cesium.DynamicAtmosphereLightingType.SUNLIGHT;
+    // viewer.value.scene.atmosphere.atmosphereLightingIntensity = 1.2;
+    // viewer.value.scene.atmosphere.groundAtmosphereIntensity = 0.8;
+
+    // // 设置黄昏色调
+    // viewer.value.scene.skyAtmosphere.hueShift = -0.8;
+    // viewer.value.scene.skyAtmosphere.saturationShift = -0.3;
+
+    // 注册自定义材质
+    Cesium.Material.FlowLineType = 'FlowLine';
+    Cesium.Material._materialCache.addMaterial(Cesium.Material.FlowLineType, {
+        fabric: {
+            type: 'FlowLine',
+            uniforms: {
+                color: new Cesium.Color(0.0, 0.7, 1.0, 0.8),
+                arrowColor: new Cesium.Color(1.0, 1.0, 1.0, 1.0),
+                speed: 1,
+                time: 0,
+                glowPower: 0.3,
+                arrowSpacing: 50.0, // 使用实际距离单位（米）
+                arrowWidth: 0.2,
+                totalLength: 100.0, // 必须与着色器中的变量名一致
+            },
+            source: `
+            czm_material czm_getMaterial(czm_materialInput materialInput)
+            {
+                czm_material material = czm_getDefaultMaterial(materialInput);
+                
+                vec2 st = materialInput.st;
+                float time = time;
+                
+                // 基础颜色和发光效果（减弱发光效果）
+                vec4 baseColor = color;
+                float glow = glowPower * 0.3 * (1.0 + cos(time * 3.0 - st.s * 8.0));
+                baseColor.rgb += glow;
+                
+                // 标准化位置计算（确保箭头均匀分布）
+                float normalizedPos = st.s * (totalLength / arrowSpacing);
+                float arrowPos = fract(normalizedPos - time * speed);
+                
+                // 箭头头部（更明显的三角形）
+                float arrowHead = smoothstep(0.0, 0.05, arrowPos) * 
+                                (1.0 - smoothstep(0.05, 0.15, arrowPos));
+                
+                // 箭头尾部（更细的线条）
+                float arrowTail = smoothstep(0.15, 0.2, arrowPos) * 
+                                 (1.0 - smoothstep(0.2, 0.3, arrowPos)) * 0.7;
+                
+                // 组合箭头形状（增强对比度）
+                float arrowShape = min(1.0, max(arrowHead * 1.5, arrowTail));
+                
+                // 最终颜色混合（增强白色箭头效果）
+                material.diffuse = mix(baseColor.rgb, arrowColor.rgb, pow(arrowHead, 2.0));
+                material.alpha = mix(baseColor.a, 1.0, arrowHead);
+                
+                return material;
+            }
+        `,
+        },
+        translucent: true,
+    });
 });
 
 onUnmounted(() => {
