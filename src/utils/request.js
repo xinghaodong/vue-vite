@@ -311,6 +311,10 @@ export default {
     stopAi(params) {
         return oGet(baseUrl + '/ai/stop-ai', params);
     },
+    // 航线列表
+    getRouteList(params) {
+        return oGet(baseUrl + '/cesium/list', params);
+    },
 };
 
 //封装post/get请求

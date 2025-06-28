@@ -1,6 +1,7 @@
 <template>
     <div id="cesiumContainer" class="cesium-drone-simulator">
         <div class="control-panel">
+            <el-button type="primary" @click="save">保存</el-button>
             <button @click="startDrawing" :disabled="isDrawing">开始规划</button>
             <!-- <button @click="simulateFlight" :disabled="waypoints.length < 2">模拟飞行</button> -->
             <button @click="clearAll">清除所有</button>
@@ -94,6 +95,15 @@ const frustumcurrentHeading = ref(0); // 存储当前视椎体航向角
 const frustumcurrentGimbalPitch = ref(null); // 存储当前视椎体俯仰角
 // 模型
 const modelList = ref([{ url: 'http://192.168.8.109:5588/download/Tiles/tileset.json' }]);
+
+const save = () => {
+    if (window.opener && !window.opener.closed) {
+        console.log('父窗口已调用');
+        window.opener.handleSaveSuccess(); // 调用父窗口的方法
+    }
+    // 关闭当前窗口
+    window.close();
+};
 
 // 创建加载3D Tiles的实例
 const create3DTileset = async modelConfig => {
@@ -790,21 +800,6 @@ const handleMouseWheel = e => {
     }
 };
 
-// const zoomIn = () => {
-//     if (viewer.value) {
-//         const camera = viewer.value.camera;
-//         currentHeight.value = camera.positionCartographic.height;
-//         camera.zoomIn(camera.positionCartographic.height * 0.3); // 缩放30%
-//     }
-// };
-// const zoomOut = () => {
-//     if (viewer.value) {
-//         const camera = viewer.value.camera;
-//         currentHeight.value = camera.positionCartographic.height;
-//         camera.zoomOut(camera.positionCartographic.height * 0.3); // 缩放30%
-//     }
-// };
-
 // 模拟飞行
 const simulateFlight = () => {};
 
@@ -852,7 +847,7 @@ onMounted(async () => {
     viewer.value.canvas.addEventListener('wheel', handleMouseWheel);
     setTimeout(() => {
         load3DTilesModels();
-    }, 5000);
+    }, 6000);
 
     // 大气颜色
     // viewer.value.scene.atmosphere.dynamicLighting = Cesium.DynamicAtmosphereLightingType.SUNLIGHT;
@@ -891,11 +886,11 @@ onMounted(async () => {
                 float glow = glowPower * 0.3 * (1.0 + cos(time * 3.0 - st.s * 8.0));
                 baseColor.rgb += glow;
                 
-                // 标准化位置计算（确保箭头均匀分布）
+                // 标准化位置计算
                 float normalizedPos = st.s * (totalLength / arrowSpacing);
                 float arrowPos = fract(normalizedPos - time * speed);
                 
-                // 箭头头部（更明显的三角形）
+                // 尝试模拟三角形
                 float arrowHead = smoothstep(0.0, 0.05, arrowPos) * 
                                 (1.0 - smoothstep(0.05, 0.15, arrowPos));
                 
