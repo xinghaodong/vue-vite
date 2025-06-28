@@ -92,6 +92,92 @@ const cameraZoom = ref(2); // 相机变焦
 const gimbalPitch = ref(0); //云台俯仰角
 const frustumcurrentHeading = ref(null); // 存储当前视椎体航向角
 const frustumcurrentGimbalPitch = ref(null); // 存储当前视椎体俯仰角
+// 模型
+const modelList = ref([{ url: 'http://192.168.8.109:5588/download/Tiles/tileset.json' }]);
+
+// 创建加载3D Tiles的实例
+const create3DTileset = async modelConfig => {
+    return await Cesium.Cesium3DTileset.fromUrl(modelConfig.url, {
+        maximumScreenSpaceError: 4,
+        skipLevelOfDetail: false,
+        preferLeaves: true,
+        immediatelyLoadDesiredLevelOfDetail: true,
+
+        maximumMemoryUsage: 2048,
+        preloadWhenHidden: true,
+
+        dynamicScreenSpaceError: true,
+        dynamicScreenSpaceErrorFactor: 4.0,
+        dynamicScreenSpaceErrorDensity: 0.002,
+        dynamicScreenSpaceErrorHeightFalloff: 0.25,
+
+        cullWithChildrenBounds: false,
+        cullRequestsWhileMoving: false,
+        cullRequestsWhileMovingMultiplier: 1,
+    });
+};
+
+// 应用高度偏移
+const applyHeightOffset = tileset => {
+    const findLowestHeight = tile => {
+        const boundingSphere = tile.boundingVolume?.boundingSphere;
+        if (!boundingSphere) return Infinity;
+        const cartographic = Cesium.Cartographic.fromCartesian(boundingSphere.center);
+        return cartographic.height;
+    };
+
+    const height = findLowestHeight(tileset.root);
+    const heightOffset = -height;
+    const boundingSphere = tileset.boundingSphere;
+    const cartographic = Cesium.Cartographic.fromCartesian(boundingSphere.center);
+    const surface = Cesium.Cartesian3.fromRadians(cartographic.longitude, cartographic.latitude, 0);
+    const offset = Cesium.Cartesian3.fromRadians(cartographic.longitude, cartographic.latitude, heightOffset);
+    const translation = Cesium.Cartesian3.subtract(offset, surface, new Cesium.Cartesian3());
+    const modelMatrix = Cesium.Matrix4.fromTranslation(translation);
+    tileset.modelMatrix = modelMatrix;
+};
+
+// 飞向组合包围球
+const flyToCombinedBoundingSphere = (viewerInstance, tilesets) => {
+    const boundingSpheres = tilesets.filter(t => t && t.boundingSphere).map(t => t.boundingSphere);
+
+    if (boundingSpheres.length === 0) return;
+
+    const compositeBoundingSphere = Cesium.BoundingSphere.fromBoundingSpheres(boundingSpheres);
+    if (compositeBoundingSphere && compositeBoundingSphere.radius > 0) {
+        viewerInstance.camera.flyToBoundingSphere(compositeBoundingSphere, {
+            offset: new Cesium.HeadingPitchRange(0, -0.5, compositeBoundingSphere.radius * 3.0),
+        });
+    }
+};
+
+// 加载建筑模型
+const load3DTilesModels = async () => {
+    try {
+        const hasTerrain = !(viewer.value.terrainProvider instanceof Cesium.EllipsoidTerrainProvider);
+        const loadedTilesets = [];
+        for (const model of modelList.value) {
+            if (!model.url) continue;
+            try {
+                const tileset = await create3DTileset({ url: model.url });
+                viewer.value.scene.primitives.add(tileset);
+                loadedTilesets.push(tileset);
+
+                if (!hasTerrain) {
+                    applyHeightOffset(tileset);
+                }
+            } catch (error) {
+                console.error(`加载模型 ${model.url} 失败:`, error);
+                continue;
+            }
+        }
+        if (loadedTilesets.length > 0) {
+            flyToCombinedBoundingSphere(viewer.value, loadedTilesets);
+        }
+    } catch (error) {
+        console.error('3D Tiles加载失败:', error);
+    }
+};
 
 /**
  * 创建航点
@@ -248,6 +334,7 @@ const startDrawing = () => {
     isDrawing.value = true;
 
     viewer.value.camera.flyTo({
+        // destination: Cesium.Cartesian3.fromDegrees(116.39135, 39.9065, currentHeight.value),
         destination: Cesium.Cartesian3.fromDegrees(112.85616784, 37.91565036, currentHeight.value),
         duration: 2, // 飞行动画时长（秒）
         maximumHeight: 5000, // 飞行时的最大高度
@@ -701,6 +788,9 @@ onMounted(async () => {
         duration: 3, // 飞行持续时间，单位为秒
     });
     viewer.value.canvas.addEventListener('wheel', handleMouseWheel);
+    setTimeout(() => {
+        load3DTilesModels();
+    }, 5000);
 });
 
 onUnmounted(() => {
