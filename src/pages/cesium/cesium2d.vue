@@ -1,16 +1,30 @@
 <template>
     <div id="cesiumContainer" class="cesium-drone-simulator">
         <div class="control-panel">
-            <el-button type="primary" @click="save">保存</el-button>
-            <button @click="startDrawing" :disabled="isDrawing">开始规划</button>
+            <el-button @click="startDrawing" :disabled="isDrawing">开始规划</el-button>
             <!-- <button @click="simulateFlight" :disabled="waypoints.length < 2">模拟飞行</button> -->
-            <button @click="clearAll">清除所有</button>
+            <el-button style="margin-left: 0px" @click="clearAll">清除所有</el-button>
             <div class="status-info">
                 <span>当前相机高度：{{ currentHeight.toFixed(1) }}米</span>
                 <span>当前无人机高度：{{ airRoute.globalheight.toFixed(1) }}米</span>
                 <span>航点数量：{{ airRoute.waypoints.length }}</span>
                 <span>朝向：{{ frustumcurrentHeading }}°</span>
             </div>
+            <el-form ref="ruleFormRef" :rules="rules" :model="airRoute" label-width="100px" style="max-width: 260px">
+                <el-form-item label="航线名称">
+                    <el-input v-model="airRoute.name" maxlength="20" prop="name" />
+                </el-form-item>
+                <el-form-item label="航线预估时间">
+                    <el-input v-model="airRoute.time" disabled prop="time" />
+                </el-form-item>
+                <el-button type="primary" @click="onSubmit(ruleFormRef)" style="width: 100%">保存</el-button>
+                <div class="status-info">
+                    <span>当前相机高度：{{ currentHeight.toFixed(1) }}米</span>
+                    <span>当前无人机高度：{{ airRoute.globalheight.toFixed(1) }}米</span>
+                    <span>航点数量：{{ airRoute.waypoints.length }}</span>
+                    <span>朝向：{{ frustumcurrentHeading }}°</span>
+                </div>
+            </el-form>
         </div>
 
         <div class="virtual-keyboard">
@@ -36,12 +50,13 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted, watch, getCurrentInstance } from 'vue';
+import { ref, onMounted, onUnmounted, watch, getCurrentInstance, reactive } from 'vue';
 import * as Cesium from 'cesium';
 import 'cesium/Build/Cesium/Widgets/widgets.css';
 import { createDroneFrustum } from '@/assets/js/common';
 import droneImage from '@/assets/WRJ.png';
 const { proxy } = getCurrentInstance();
+import { useRouter, useRoute } from 'vue-router';
 
 // 配置Cesium基础URL
 window.CESIUM_BASE_URL = './Cesium';
@@ -55,6 +70,26 @@ const MOVE_SPEED = 0.000001; // 移动速度 (经纬度变化量)
 const ALTITUDE_STEP = 1; // 高度变化步长 (米)
 const ROTATE_STEP = 2; // 旋转步长 (度)
 
+const ruleFormRef = ref(null);
+const rules = {
+    name: [
+        {
+            required: true,
+            message: '请输入航线名称',
+            trigger: 'blur',
+        },
+    ],
+    status: [
+        {
+            required: true,
+            message: '请选择航线状态',
+            trigger: 'change',
+        },
+    ],
+};
+// 编辑回显获取 vue 路由参数
+const route = useRoute();
+const { idkey } = route.query;
 // 响应式状态
 const viewer = ref(null);
 const isDrawing = ref(false);
@@ -81,6 +116,12 @@ const dronePosition = ref(null);
 // 当前视椎体位置和方向
 const droneFrustum = ref(null);
 const airRoute = ref({
+    name: '',
+    time: 180,
+    waypoints: [],
+    status: 1,
+    pointNum: 0,
+
     waypoints: [],
     globalheight: 100,
 });
@@ -96,13 +137,50 @@ const frustumcurrentGimbalPitch = ref(null); // 存储当前视椎体俯仰角
 // 模型
 const modelList = ref([{ url: 'http://192.168.8.109:5588/download/Tiles/tileset.json' }]);
 
-const save = () => {
-    if (window.opener && !window.opener.closed) {
-        console.log('父窗口已调用');
-        window.opener.handleSaveSuccess(); // 调用父窗口的方法
-    }
-    // 关闭当前窗口
-    window.close();
+// 详情
+
+const getDetail = async idkey => {
+    const { data } = await proxy.$api.routeDetail({ id: idkey });
+    console.log('详情', data);
+};
+
+const onSubmit = formEl => {
+    console.log('保存', airRoute.value);
+
+    formEl.validate(async valid => {
+        if (valid) {
+            if (airRoute.value.waypoints.length < 1) {
+                proxy.$message.warning('请至少添加一个航点');
+                return;
+            }
+            // 准备要提交的数据
+            const submitData = {
+                name: airRoute.value.name,
+                time: airRoute.value.time,
+                pointNum: airRoute.value.waypoints.length,
+                status: airRoute.value.status,
+                tempWaypoints: airRoute.value.waypoints.map(wp => ({
+                    latitude: wp.latitude,
+                    longitude: wp.longitude,
+                    height: wp.height,
+                })),
+            };
+
+            console.log(submitData, 'airForm');
+            const data = await proxy.$api.addRoute(submitData);
+            if (data.code == 200) {
+                if (window.opener && !window.opener.closed) {
+                    console.log('父窗口已调用');
+                    window.opener.handleSaveSuccess(); // 调用父窗口的方法
+                }
+                window.close();
+            }
+        } else {
+            return false;
+        }
+    });
+
+    return;
 };
 
 // 创建加载3D Tiles的实例
@@ -844,10 +922,23 @@ onMounted(async () => {
         },
         duration: 3, // 飞行持续时间，单位为秒
     });
+
+    // setTimeout(() => {
+    //     viewer.value.clock.onTick.addEventListener(function () {
+    //         viewer.value.camera.rotate(Cesium.Cartesian3.UNIT_Z, -0.001); // 调整速度
+    //     });
+    // }, 4000);
+
     viewer.value.canvas.addEventListener('wheel', handleMouseWheel);
     setTimeout(() => {
         load3DTilesModels();
     }, 6000);
+
+    // 编辑回显
+    if (idkey) {
+        // 调用详情接口
+        getDetail(idkey);
+    }
 
     // 大气颜色
     // viewer.value.scene.atmosphere.dynamicLighting = Cesium.DynamicAtmosphereLightingType.SUNLIGHT;
@@ -877,34 +968,34 @@ onMounted(async () => {
             czm_material czm_getMaterial(czm_materialInput materialInput)
             {
                 czm_material material = czm_getDefaultMaterial(materialInput);
-                
+
                 vec2 st = materialInput.st;
                 float time = time;
-                
+
                 // 基础颜色和发光效果（减弱发光效果）
                 vec4 baseColor = color;
                 float glow = glowPower * 0.3 * (1.0 + cos(time * 3.0 - st.s * 8.0));
                 baseColor.rgb += glow;
-                
+
                 // 标准化位置计算
                 float normalizedPos = st.s * (totalLength / arrowSpacing);
                 float arrowPos = fract(normalizedPos - time * speed);
-                
+
                 // 尝试模拟三角形
-                float arrowHead = smoothstep(0.0, 0.05, arrowPos) * 
+                float arrowHead = smoothstep(0.0, 0.05, arrowPos) *
                                 (1.0 - smoothstep(0.05, 0.15, arrowPos));
-                
+
                 // 箭头尾部（更细的线条）
-                float arrowTail = smoothstep(0.15, 0.2, arrowPos) * 
+                float arrowTail = smoothstep(0.15, 0.2, arrowPos) *
                                  (1.0 - smoothstep(0.2, 0.3, arrowPos)) * 0.7;
-                
+
                 // 组合箭头形状（增强对比度）
                 float arrowShape = min(1.0, max(arrowHead * 1.5, arrowTail));
-                
+
                 // 最终颜色混合（增强白色箭头效果）
                 material.diffuse = mix(baseColor.rgb, arrowColor.rgb, pow(arrowHead, 2.0));
                 material.alpha = mix(baseColor.a, 1.0, arrowHead);
-                
+
                 return material;
             }
         `,

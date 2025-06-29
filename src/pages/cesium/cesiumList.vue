@@ -9,8 +9,8 @@
             <el-table-column prop="time" label="航线预估时间" min-width="180"> </el-table-column>
             <el-table-column prop="status" label="状态" width="180">
                 <template #default="scope">
-                    <span v-if="scope.row.is_active == 1">可用</span>
-                    <span v-if="scope.row.is_active == 0">禁用</span>
+                    <span v-if="scope.row.status == 1">启用</span>
+                    <span v-if="scope.row.status == 0">禁用</span>
                 </template>
             </el-table-column>
             <el-table-column prop="created_at" label="创建时间" width="180"> </el-table-column>
@@ -58,6 +58,7 @@ const addList = () => {
 };
 window.handleSaveSuccess = () => {
     console.log('接收到保存成功的消息');
+    proxy.$message.success('创建航线成功');
     // 这里可以刷新列表
     getCesiumList();
 };
@@ -82,7 +83,7 @@ const handleCurrentChange = val => {
 const handleEdit = row => {
     proxy.$router.push({
         path: '/cesium2d',
-        query: { id: row ? row.id : '' },
+        query: { idkey: row ? row.id : '' },
     });
 };
 // 删除
@@ -92,7 +93,11 @@ const handleDelete = row => {
             type: '提示',
         })
         .then(async () => {
-            const data = await proxy.$api.delete({ id: row.id });
+            const data = await proxy.$api.routeDelete({ id: row.id });
+            if (data.code == 200) {
+                proxy.$message.success(data.message);
+                getCesiumList();
+            }
         })
         .catch(() => {
             proxy.$message.info('已取消');
