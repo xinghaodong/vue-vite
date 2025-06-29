@@ -141,7 +141,51 @@ const modelList = ref([{ url: 'http://192.168.8.109:5588/download/Tiles/tileset.
 
 const getDetail = async idkey => {
     const { data } = await proxy.$api.routeDetail({ id: idkey });
-    console.log('详情', data);
+    Object.assign(airRoute.value, data);
+    // 创建航点
+    airRoute.value.tempWaypoints.forEach((point, index) => {
+        point.longitude = parseFloat(point.longitude);
+        point.latitude = parseFloat(point.latitude);
+        console.log('航点', point);
+        const cartesian = Cesium.Cartesian3.fromDegrees(point.longitude, point.latitude, point.height);
+        createWaypoint(cartesian, point);
+        setTimeout(() => {
+            // 飞往实体
+            flytoentity();
+        }, 2000);
+    });
+};
+
+const flytoentity = () => {
+    const entities = viewer.value.entities.values;
+    if (entities.length > 0) {
+        const positions = [];
+        entities.forEach(entity => {
+            if (entity.position && (entity.point || entity.billboard)) {
+                const pos = entity.position.getValue(Cesium.JulianDate.now());
+                if (pos) positions.push(pos);
+            }
+        });
+        if (positions.length > 0) {
+            // 创建包围球
+            const boundingSphere = Cesium.BoundingSphere.fromPoints(positions);
+            // 扩大包围球半径，使相机飞得更高
+            boundingSphere.radius *= 3; // 调整这个系数可以控制高度
+            // 定义目标视角：正北朝向，垂直向下俯视
+            const heading = Cesium.Math.toRadians(0.0);
+            const pitch = Cesium.Math.toRadians(-45.0);
+            // 设置一个基础高度（可选）
+            const range = boundingSphere.radius * 1.5; // 额外的距离系数
+
+            const offset = new Cesium.HeadingPitchRange(heading, pitch, range);
+            viewer.value.camera.flyToBoundingSphere(boundingSphere, {
+                duration: 2,
+                offset: offset,
+                easingFunction: Cesium.EasingFunction.CUBIC_IN_OUT,
+                complete: () => {},
+            });
+        }
+    }
 };
 
 const onSubmit = formEl => {
@@ -279,7 +323,7 @@ const updateFlightPathTimeRef = ref(null); // 用于存储当前的事件处理�
  */
 const createWaypoint = (position, point, jp, event) => {
     const cartographic = Cesium.Cartographic.fromCartesian(position);
-    const height = point ? point.height : jp ? Math.ceil(cartographic.height) : parseFloat(airRoute.value.globalheight);
+    const height = point ? point.height : jp ? Math.ceil(cartographic.height) : 50;
 
     // 检查是否已存在相同位置的航点
     const existingWaypoint = airRoute.value.waypoints.find(waypoint => {
@@ -436,16 +480,6 @@ const cleanupPath = () => {
         flightPathPrimitive.value = null;
     }
 };
-/**
- * 更新流动箭头的时间uniform
- */
-// 先定义 updateFlightPathTime
-// const updateFlightPathTime = () => {
-//     if (flightPathPrimitive.value && flightPathPrimitive.value.appearance.material) {
-//         shaderTime.value += 0.01;
-//         flightPathPrimitive.value.appearance.material.uniforms.time = shaderTime.value;
-//     }
-// };
 // 创建无人机当前位置的航点
 const createDroneWaypoint = () => {
     if (dronePosition.value) {
