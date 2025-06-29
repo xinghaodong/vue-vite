@@ -323,7 +323,7 @@ const updateFlightPathTimeRef = ref(null); // 用于存储当前的事件处理�
  */
 const createWaypoint = (position, point, jp, event) => {
     const cartographic = Cesium.Cartographic.fromCartesian(position);
-    const height = point ? point.height : jp ? Math.ceil(cartographic.height) : 50;
+    const height = point ? point.height : jp ? Math.ceil(cartographic.height) : parseFloat(airRoute.value.globalheight);
 
     // 检查是否已存在相同位置的航点
     const existingWaypoint = airRoute.value.waypoints.find(waypoint => {
