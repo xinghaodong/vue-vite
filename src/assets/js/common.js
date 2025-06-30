@@ -16,15 +16,15 @@ export const iconLists = Object.keys(Icons).map(key => ({
  * @param {Number} gimbalPitch 云台俯仰角，范围+45到-120度
  * @returns {Object} 包含update和destroy方法的控制器对象
  */
-export function createDroneFrustum(viewer, position, orientation, cameraZoom = 2, gimbalPitch = 45) {
+export function createDroneFrustum(viewer, position, orientation, cameraZoom = 3, gimbalPitch = 45) {
     // 创建一个虚拟相机，用于生成视锥体
     const camera = new Cesium.Camera(viewer.scene);
     // 设置相机的视锥体参数
-    const baseFov = 60; // 基础视场角
+    const baseFov = 80; // 基础视场角
     // 设置相机的视锥体参数
     camera.frustum = new Cesium.PerspectiveFrustum({
-        fov: Cesium.Math.toRadians(baseFov / cameraZoom),
-        aspectRatio: viewer.scene.canvas.clientWidth / viewer.scene.canvas.clientHeight - 0.5,
+        fov: Cesium.Math.toRadians(baseFov / cameraZoom), // 垂直视场角，通过baseFov除以cameraZoom实现缩放效果
+        aspectRatio: viewer.scene.canvas.clientWidth / viewer.scene.canvas.clientHeight - 0.5, // 宽高比，基于画布尺寸计算并减去0.5调整
         near: 1.0,
         far: 90.0,
     });
@@ -69,7 +69,8 @@ export function createDroneFrustum(viewer, position, orientation, cameraZoom = 2
             }),
         },
     });
-    console.log(viewer.scene,55);
+
+
     // 添加到场景
     viewer.scene.primitives.add(frustumOutline);
 
@@ -90,8 +91,8 @@ export function createDroneFrustum(viewer, position, orientation, cameraZoom = 2
             camera.frustum = new Cesium.PerspectiveFrustum({
                 fov: Cesium.Math.toRadians(baseFov / newCameraZoom),
                 aspectRatio: viewer.scene.canvas.clientWidth / viewer.scene.canvas.clientHeight - 0.5,
-                near: 1.0,
-                far: 80.0,
+                near: 1,
+                far: 90.0,
             });
             // 将云台俯仰角限制在-120到45度之间
             camera.setView({

@@ -18,12 +18,12 @@
                     <el-input v-model="airRoute.time" disabled prop="time" />
                 </el-form-item>
                 <el-button type="primary" @click="onSubmit(ruleFormRef)" style="width: 100%">保存</el-button>
-                <div class="status-info">
+                <!-- <div class="status-info">
                     <span>当前相机高度：{{ currentHeight.toFixed(1) }}米</span>
                     <span>当前无人机高度：{{ airRoute.globalheight.toFixed(1) }}米</span>
                     <span>航点数量：{{ airRoute.waypoints.length }}</span>
                     <span>朝向：{{ frustumcurrentHeading }}°</span>
-                </div>
+                </div> -->
             </el-form>
         </div>
 
@@ -126,11 +126,11 @@ const airRoute = ref({
     globalheight: 100,
 });
 const moveSpeed = ref(0.0000001); // 移动速度
-const heightSpeed = ref(1); // 高度变化速度
+const heightSpeed = ref(0.3); // 高度变化速度
 const droneGroundPoint = ref(null); // 无人机地面投影点实体
 const droneHeightLine = ref(null); // 无人机高度连接线实体
 const droneOrientation = ref(new Cesium.HeadingPitchRoll(0, 0, 0));
-const cameraZoom = ref(2); // 相机变焦
+const cameraZoom = ref(3); // 相机变焦
 const gimbalPitch = ref(0); //云台俯仰角
 const frustumcurrentHeading = ref(0); // 存储当前视椎体航向角
 const frustumcurrentGimbalPitch = ref(null); // 存储当前视椎体俯仰角
@@ -182,7 +182,9 @@ const flytoentity = () => {
                 duration: 2,
                 offset: offset,
                 easingFunction: Cesium.EasingFunction.CUBIC_IN_OUT,
-                complete: () => {},
+                complete: () => {
+                    initKeyboardControl();
+                },
             });
         }
     }
@@ -355,7 +357,7 @@ const createWaypoint = (position, point, jp, event) => {
         position,
         point: {
             pixelSize: 18,
-            color: airRoute.value.waypoints.length === 1 ? Cesium.Color.fromCssColorString('rgba(255, 165, 0, 0.8)') : Cesium.Color.YELLOW,
+            color: Cesium.Color.YELLOW,
             outlineColor: Cesium.Color.WHITE,
             outlineWidth: 1,
             pixelOffset: new Cesium.Cartesian2(0, -20),
@@ -500,24 +502,86 @@ const initKeyboardControl = () => {
     // 启动动画循环
     startAnimationLoop();
 };
-
-const startAnimationLoop = () => {
-    let animate = () => {
-        // 仅在有移动键按下时更新
-        if (['w', 'a', 's', 'd', 'c', 'z'].some(k => keyStates.value[k])) {
-            updateDronePosition();
-            animationFrameId.value = requestAnimationFrame(animate);
-            if (followDrone.value) {
-                focusOnDrone();
-            }
-        } else {
-            // 停止动画循环
-            cancelAnimationFrame(animationFrameId.value);
-            animationFrameId.value = null;
+// 处理键盘按下事件
+const handleKeyDown = e => {
+    if (
+        e.code == 'KeyW' ||
+        e.code == 'KeyS' ||
+        e.code == 'KeyA' ||
+        e.code == 'KeyD' ||
+        e.code == 'KeyE' ||
+        e.code == 'KeyQ' ||
+        e.code == 'KeyZ' ||
+        e.code == 'KeyC' ||
+        e.code == 'Space'
+    ) {
+        const key = e.key.toLowerCase();
+        
+        // 更新键状态
+        if (key in keyStates.value) {
+            keyStates.value[key] = true;
+            e.preventDefault();
         }
-    };
-    animationFrameId.value = requestAnimationFrame(animate);
+
+        // 空格键创建航点（只执行一次）
+        if (key === ' ' && !e.repeat) {
+            createDroneWaypoint();
+            return;
+        }
+
+        // 控制键按下时启用跟随并启动动画循环
+        if (['w', 'a', 's', 'd', 'q', 'e', 'z', 'c'].includes(key)) {
+            followDrone.value = true;
+            focusOnDrone(); // 按键按下时立即更新相机位置
+            
+            if (!animationFrameId.value) {
+                startAnimationLoop();
+            }
+        }
+    }
 };
+
+// 动画循环函数
+const animationLoop = () => {
+    let needsCameraUpdate = false;
+
+    // 处理旋转
+    const rotationStep = 0.3; // 旋转步长(度/帧)
+
+    // 处理旋转 - 使用更小的旋转步长
+    if (keyStates.value['q']) {
+        droneOrientation.value.heading = normalizeHeading(droneOrientation.value.heading - rotationStep);
+        frustumcurrentHeading.value = (droneOrientation.value.heading).toFixed(1);
+        updateDroneOrientation();
+    }
+    if (keyStates.value['e']) {
+        droneOrientation.value.heading = normalizeHeading(droneOrientation.value.heading + rotationStep);
+        frustumcurrentHeading.value = (droneOrientation.value.heading).toFixed(1);
+        updateDroneOrientation();
+    }
+    
+    // 处理移动
+    if (['w', 'a', 's', 'd', 'z', 'c'].some(k => keyStates.value[k])) {
+        updateDronePosition();
+        needsCameraUpdate = true;
+    }
+
+    // 只有按键按下时才更新相机
+    if (needsCameraUpdate && followDrone.value) {
+        focusOnDrone();
+    }
+
+    animationFrameId.value = requestAnimationFrame(animationLoop);
+};
+
+// 启动动画循环
+const startAnimationLoop = () => {
+    if (!animationFrameId.value) {
+        animationLoop();
+    }
+};
+
+
 // 开始规划
 const startDrawing = () => {
     isDrawing.value = true;
@@ -685,101 +749,25 @@ const updateDroneOrientation = up => {
     }
 };
 
-// 处理键盘按下事件
-const handleKeyDown = e => {
-    if (
-        e.code == 'KeyW' ||
-        e.code == 'KeyS' ||
-        e.code == 'KeyA' ||
-        e.code == 'KeyD' ||
-        e.code == 'KeyE' ||
-        e.code == 'KeyQ' ||
-        e.code == 'KeyZ' ||
-        e.code == 'KeyC' ||
-        e.code == 'Space'
-    ) {
-        // 触发 Cesium 的行为
-        switch (e.key.toLowerCase()) {
-            case 'q':
-                // 逆时针旋转（减小航向角）
-                droneOrientation.value.heading = normalizeHeading(droneOrientation.value.heading - 3);
-                // airRoute.value.actioncommontext.forEach(item => {
-                //     if (item.actiontype == 'rotateYaw') {
-                //         item.paramvalue = droneOrientation.value.heading;
-                //     }
-                //     if (item.actiontype == 'gimbalRotateYaw') {
-                //         item.paramvalue = droneOrientation.value.heading;
-                //     }
-                // });
-                frustumcurrentHeading.value = droneOrientation.value.heading;
-                updateDroneOrientation();
-                break;
-            case 'e':
-                // 顺时针旋转（增加航向角）
-                droneOrientation.value.heading = normalizeHeading(droneOrientation.value.heading + 3);
-                // airRoute.value.actioncommontext.forEach(item => {
-                //     if (item.actiontype == 'rotateYaw') {
-                //         item.paramvalue = droneOrientation.value.heading;
-                //     }
-                //     if (item.actiontype == 'gimbalRotateYaw') {
-                //         item.paramvalue = droneOrientation.value.heading;
-                //     }
-                // });
-                frustumcurrentHeading.value = droneOrientation.value.heading;
-                updateDroneOrientation();
-                break;
-        }
-        const key = e.key.toLowerCase();
-        if (key in keyStates.value) {
-            keyStates.value[key] = true;
-            e.preventDefault(); // 防止页面滚动
-        }
-        // 空格键创建航点
-        if (e.code === 'Space') {
-            createDroneWaypoint();
-            e.preventDefault();
-        }
-        switch (e.key.toLowerCase()) {
-            case 'w':
-            case 'a':
-            case 's':
-            case 'd':
-            case 'z':
-            case 'c':
-                // 控制键按下时重新锁定飞行器
-                // viewer.trackedEntity = droneEntity;
-                // 用户操作无人机时，启用跟随
-                followDrone.value = true;
-                // focusOnDrone();
-                keyStates.value[e.key.toLowerCase()] = true;
-                // 启动动画循环
-                if (!animationFrameId.value) {
-                    startAnimationLoop();
-                }
-                break;
-        }
-    }
-};
 
 // 处理键盘释放事件
 const handleKeyUp = e => {
     const key = e.key.toLowerCase();
     if (key in keyStates.value) {
         keyStates.value[key] = false;
-        // 如果所有移动键都释放，停止动画循环
-        if (!['w', 'a', 's', 'd', 'c', 'z'].some(k => keyStates.value[k])) {
+        
+        // 如果所有控制键都释放，停止动画循环（包含Q/E键）
+        const controlKeys = ['w', 'a', 's', 'd', 'q', 'e', 'z', 'c'];
+        if (!controlKeys.some(k => keyStates.value[k])) {
             if (animationFrameId.value) {
                 cancelAnimationFrame(animationFrameId.value);
-
                 animationFrameId.value = null;
             }
             followDrone.value = false;
-            // 恢复默认相机控制器行为
             viewer.value.scene.camera.lookAtTransform(Cesium.Matrix4.IDENTITY);
         }
     }
 };
-
 // 添加航向角归一化方法
 const normalizeHeading = heading => {
     // 确保航向角在-180到180度范围内
