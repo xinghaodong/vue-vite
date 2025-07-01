@@ -214,20 +214,27 @@ const onSubmit = formEl => {
             };
 
             console.log(submitData, 'airForm');
-            const data = await proxy.$api.addRoute(submitData);
-            if (data.code == 200) {
-                if (window.opener && !window.opener.closed) {
-                    console.log('父窗口已调用');
-                    window.opener.handleSaveSuccess(); // 调用父窗口的方法
-                }
-                window.close();
+            if (idkey) {
+                const  data  = await proxy.$api.updateRoute({ id: idkey, ...submitData });
+                iscall(data);
+                return;
             }
+            const data = await proxy.$api.addRoute(submitData);
+            iscall(data);
         } else {
-            return false;
+            return;
         }
     });
-
     return;
+};
+const iscall = data => {
+    if (data.code == 200) {
+        if (window.opener && !window.opener.closed) {
+            console.log('父窗口已调用');
+            window.opener.handleSaveSuccess(); // 调用父窗口的方法
+        }
+        window.close();
+    }
 };
 
 // 创建加载3D Tiles的实例

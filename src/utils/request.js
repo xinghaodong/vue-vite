@@ -324,9 +324,13 @@ export default {
         return oPost(baseUrl + '/cesium/delete', params);
     },
     // 获取航线详情
-    routeDetail(params){
+    routeDetail(params) {
         return oGet(baseUrl + '/cesium/detail', params);
-    }
+    },
+    // 修改航线
+    updateRoute(params) {
+        return oPost(baseUrl + '/cesium/update', params);
+    },
 };
 
 //封装post/get请求
