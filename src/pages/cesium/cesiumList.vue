@@ -58,7 +58,7 @@ const addList = () => {
 };
 window.handleSaveSuccess = () => {
     console.log('接收到保存成功的消息');
-    proxy.$message.success('创建航线成功');
+    proxy.$message.success('成功');
     // 这里可以刷新列表
     getCesiumList();
 };
