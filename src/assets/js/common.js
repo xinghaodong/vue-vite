@@ -120,3 +120,58 @@ export function createDroneFrustum(viewer, position, orientation, cameraZoom = 3
         },
     };
 }
+
+/**
+ * 计算航线距离和时间
+ * @param {*} waypoints 
+ * @param {*} globalspeed 
+ * @returns 
+ */
+export function calculateRouteInfo(waypoints, globalspeed) {
+    let totalDistance = 0;
+    let totalDuration = 0; // 单位：秒
+    const positions = waypoints.map(wp => wp.position);
+    for (let i = 0; i < positions.length - 1; i++) {
+        const start = positions[i];
+        const end = positions[i + 1];
+        const distance = Cesium.Cartesian3.distance(start, end);
+        totalDistance += distance;
+        // let speed = i === 0 ? globalspeed : waypoints[i].speed || globalspeed;
+        let speed = globalspeed;
+        const duration = distance / speed;
+        totalDuration += duration;
+        if (i >= 0) {
+            const waypoint = waypoints[i];
+            if (waypoint.actionstext && Array.isArray(waypoint.actionstext)) {
+                const waypointActionsDuration = waypoint.actionstext.reduce((sum, action) => {
+                    if (action.actiontype == 'hover') {
+                        return sum + (Number(action.paramvalue) || 0);
+                    }
+                    return sum;
+                }, 0);
+                totalDuration += waypointActionsDuration;
+            }
+        }
+    }
+
+    const lastWaypoint = waypoints[waypoints.length - 1];
+    if (lastWaypoint && lastWaypoint.actionstext && Array.isArray(lastWaypoint.actionstext)) {
+        const lastHoverDuration = lastWaypoint.actionstext.reduce((sum, action) => {
+            if (action.actiontype == 'hover') {
+                return sum + (Number(action.paramvalue) || 0);
+            }
+            return sum;
+        }, 0);
+        totalDuration += lastHoverDuration;
+    }
+    // 将总时长转换为 分钟 + 秒
+    const minutes = Math.floor(totalDuration / 60);
+    const seconds = Math.round(totalDuration % 60); // 可选：使用 Math.floor 或者四舍五入
+
+    return {
+        trackmileage: totalDistance.toFixed(1), // 米
+        totalDuration: Math.round(totalDuration),
+        trackduration_minutes: minutes,
+        trackduration_seconds: seconds,
+    };
+}

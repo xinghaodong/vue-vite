@@ -1,9 +1,9 @@
 <template>
     <div id="cesiumContainer" class="cesium-drone-simulator">
         <div class="control-panel">
-            <el-button @click="startDrawing" :disabled="isDrawing">开始规划</el-button>
+            <el-button @click="startDrawing" :disabled="isDrawing || idkey ? true : false">开始规划</el-button>
             <!-- <button @click="simulateFlight" :disabled="waypoints.length < 2">模拟飞行</button> -->
-            <el-button style="margin-left: 0px" @click="clearAll">清除所有</el-button>
+            <!-- <el-button style="margin-left: 0px" @click="clearAll">清除所有</el-button> -->
             <div class="status-info">
                 <span>当前相机高度：{{ currentHeight.toFixed(1) }}米</span>
                 <span>当前无人机高度：{{ airRoute.globalheight.toFixed(1) }}米</span>
@@ -14,8 +14,20 @@
                 <el-form-item label="航线名称">
                     <el-input v-model="airRoute.name" maxlength="20" prop="name" />
                 </el-form-item>
+                <el-form-item label="航线速度">
+                    <el-space>
+                        <el-input-number style="width: 100%" v-model="airRoute.speed" :min="1" :max="15" @change="handleChange">
+                            <template #suffix>km/h</template>
+                        </el-input-number>
+                    </el-space>
+                </el-form-item>
                 <el-form-item label="航线预估时间">
-                    <el-input v-model="airRoute.time" disabled prop="time" />
+                    <el-input v-model="airRoute.trackduration_ms" disabled />
+                </el-form-item>
+                <el-form-item label="航线长">
+                    <el-input v-model="airRoute.trackmileage" disabled prop="trackmileage">
+                        <template #append>米</template>
+                    </el-input>
                 </el-form-item>
                 <el-button type="primary" @click="onSubmit(ruleFormRef)" style="width: 100%">保存</el-button>
                 <!-- <div class="status-info">
@@ -53,7 +65,7 @@
 import { ref, onMounted, onUnmounted, watch, getCurrentInstance, reactive } from 'vue';
 import * as Cesium from 'cesium';
 import 'cesium/Build/Cesium/Widgets/widgets.css';
-import { createDroneFrustum } from '@/assets/js/common';
+import { createDroneFrustum, calculateRouteInfo } from '@/assets/js/common';
 import droneImage from '@/assets/WRJ.png';
 const { proxy } = getCurrentInstance();
 import { useRouter, useRoute } from 'vue-router';
@@ -117,13 +129,16 @@ const dronePosition = ref(null);
 const droneFrustum = ref(null);
 const airRoute = ref({
     name: '',
-    time: 180,
+    time: 0,
+    trackduration_ms: 0,
     waypoints: [],
     status: 1,
     pointNum: 0,
+    speed: 10,
 
     waypoints: [],
     globalheight: 100,
+    trackmileage: 0,
 });
 const moveSpeed = ref(0.0000005); // 移动速度
 const heightSpeed = ref(0.3); // 高度变化速度
@@ -138,8 +153,18 @@ const frustumcurrentGimbalPitch = ref(null); // 存储当前视椎体俯仰角
 // 模型
 const modelList = ref([{ url: 'http://192.168.8.109:5588/download/Tiles/tileset.json' }]);
 
-// 详情
+const handleChange = value => {
+    getCalculateRouteInfo();
+};
+const getCalculateRouteInfo = () => {
+    const { totalDuration, trackduration_minutes, trackduration_seconds, trackmileage } = calculateRouteInfo(airRoute.value.waypoints, airRoute.value.speed);
+    console.log(totalDuration, trackduration_minutes, trackduration_seconds, trackmileage);
+    airRoute.value.time = totalDuration;
+    airRoute.value.trackduration_ms = `${trackduration_minutes}分${trackduration_seconds}秒`;
+    airRoute.value.trackmileage = trackmileage;
+};
 
+// 详情
 const getDetail = async idkey => {
     const { data } = await proxy.$api.routeDetail({ id: idkey });
     Object.assign(airRoute.value, data);
@@ -206,6 +231,8 @@ const onSubmit = formEl => {
                 time: airRoute.value.time,
                 pointNum: airRoute.value.waypoints.length,
                 status: airRoute.value.status,
+                speed: airRoute.value.speed,
+                trackmileage: airRoute.value.trackmileage,
                 tempWaypoints: airRoute.value.waypoints.map(wp => ({
                     latitude: wp.latitude,
                     longitude: wp.longitude,
@@ -215,7 +242,7 @@ const onSubmit = formEl => {
 
             console.log(submitData, 'airForm');
             if (idkey) {
-                const  data  = await proxy.$api.updateRoute({ id: idkey, ...submitData });
+                const data = await proxy.$api.updateRoute({ id: idkey, ...submitData });
                 iscall(data);
                 return;
             }
@@ -398,7 +425,7 @@ const createWaypoint = (position, point, jp, event) => {
         longitude,
         latitude,
         height: height,
-        speed: point ? point.speed : parseFloat(airRoute.value.globalspeed),
+        speed: point ? point.speed : parseFloat(airRoute.value.speed),
         heading: 0,
         flightMode: 'straight',
         operations: [],
@@ -475,6 +502,8 @@ const updatePath = () => {
 
     lastUpdateTime.value = Date.now();
     viewer.value.scene.postRender.addEventListener(updateFlightPathTimeRef.value);
+
+    getCalculateRouteInfo();
 };
 
 // 清理路径函数
