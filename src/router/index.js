@@ -176,10 +176,10 @@ router.beforeEach(async (to, from, next) => {
         return;
     }
     // 如果没有 refToken 则跳转回登录页
-    if (!sessionStorage.getItem('refreshToken')) {
-        funcAll();
-        return next('/login');
-    }
+    // if (!sessionStorage.getItem('refreshToken')) {
+    //     funcAll();
+    //     return next('/login');
+    // }
 
     if (!dynamicRoutesLoaded) {
         try {

@@ -8,7 +8,9 @@
     "build:debug": "node --inspect-brk node_modules/vite/bin/vite.js build",
     "serve": "vite",
     "dev": "vite",
+    "devspring": "vite --mode development.spring",
     "pro": "vite --mode production",
+    "tesc": "vite --mode test",
     "test": "jest --passWithNoTests",
     "build": "vite build",
     "preview": "vite preview"
