@@ -49,8 +49,9 @@
             <!-- 操作 -->
             <el-table-column label="操作" width="130" fixed="right">
                 <template #default="scope">
-                    <el-button v-has-permi="['add:user']" link type="primary" @click="handleEdit(scope.row)">编辑</el-button>
-                    <el-button v-has-permi="['add:user']" link type="primary" @click="handleDelete(scope.row)">删除</el-button>
+                    <!-- v-has-permi="['add:user']" -->
+                    <el-button link type="primary" @click="handleEdit(scope.row)">编辑</el-button>
+                    <el-button link type="primary" @click="handleDelete(scope.row)">删除</el-button>
                     <!-- <el-button link type="primary" @click="handleRelieve(scope.row)" v-text="scope.row.is_active == 0 ? '解除' : '禁用'"></el-button> -->
                 </template>
             </el-table-column>
@@ -158,7 +159,7 @@ const rules = {
     ],
     email: [
         {
-            required: false,
+            required: true,
             message: '请输入邮箱',
         },
         {
