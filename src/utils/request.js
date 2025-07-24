@@ -138,7 +138,7 @@ export const oGet = (url, params) => {
 export const oPost = (url, params) => {
     return new Promise((resolve, reject) => {
         axios
-            .post(url, QS.stringify(params))
+            .post(url, params)
             .then(res => {
                 resolve(res.data);
             })
