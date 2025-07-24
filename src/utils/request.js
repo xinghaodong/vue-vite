@@ -8,7 +8,7 @@ const baseUrl = VITE_PROXY_DOMAIN;
 const img_url = VITE_STATIC_URL;
 axios.defaults.baseURL = baseUrl;
 console.log('当前环境：', VITE_PROXY_DOMAIN_REAL, '当前附件资源：', VITE_STATIC_URL);
-// axios.defaults.headers['Content-Type'] = 'application/json';
+axios.defaults.headers['Content-Type'] = 'application/json';
 /**
  * 控制当前是否处于刷新状态的标志变量。
  */
@@ -138,7 +138,7 @@ export const oGet = (url, params) => {
 export const oPost = (url, params) => {
     return new Promise((resolve, reject) => {
         axios
-            .post(url, QS.stringify(params))
+            .post(url, params)
             .then(res => {
                 resolve(res.data);
             })
