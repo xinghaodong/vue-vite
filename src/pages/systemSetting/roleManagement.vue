@@ -121,23 +121,17 @@ const selectResource = async id => {
         tree.value.setCheckedKeys(res.data);
     });
 };
-const submitResource = formEl => {
-    formEl.validate(async valid => {
-        if (valid) {
-            let treeArray = tree.value.getCheckedKeys();
-            let treeArray1 = tree.value.getHalfCheckedKeys();
-            if (!treeArray.length) {
-                treeArray = [];
-            } else {
-                treeArray = treeArray.concat(treeArray1);
-            }
-            proxy.$api.assignMenusToRole({ id: ruleForm.id, menuIds: treeArray || [] }).then(res => {
-                proxy.$message.success(res.message);
-                dialogVisibleResource.value = false;
-            });
-        } else {
-            return false;
-        }
+const submitResource = () => {
+    let treeArray = tree.value.getCheckedKeys();
+    let treeArray1 = tree.value.getHalfCheckedKeys();
+    if (!treeArray.length) {
+        treeArray = [];
+    } else {
+        treeArray = treeArray.concat(treeArray1);
+    }
+    proxy.$api.assignMenusToRole({ id: ruleForm.id, menuIds: treeArray || [] }).then(res => {
+        proxy.$message.success(res.message);
+        dialogVisibleResource.value = false;
     });
 };
 
