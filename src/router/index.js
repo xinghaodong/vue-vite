@@ -69,11 +69,11 @@ const router = createRouter({
             path: '/cesium2d',
             component: () => import('@/pages/cesium/cesium2d.vue'),
         },
-        {
-            name: 'formDesign',
-            path: '/formDesign',
-            component: () => import('@/pages/formDesign/formDesign.vue'),
-        },
+        // {
+        //     name: 'formDesign',
+        //     path: '/formDesign',
+        //     component: () => import('@/pages/formDesign/formDesign.vue'),
+        // },
     ],
 });
 

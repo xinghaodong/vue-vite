@@ -9,10 +9,12 @@
     "serve": "vite",
     "dev": "vite",
     "testh": "vite --mode test",
+    "springboot": "vite --mode springboot",
     "pro": "vite --mode production",
     "tesc": "vite --mode test",
     "test": "jest --passWithNoTests",
     "build": "vite build",
+    "springboot-build": "vite build --mode springboot",
     "preview": "vite preview"
   },
   "dependencies": {
