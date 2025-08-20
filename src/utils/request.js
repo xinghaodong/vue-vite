@@ -176,6 +176,14 @@ export default {
     detail(params) {
         return oGet(baseUrl + '/menus/detail', params);
     },
+    // 根据pid获取菜单列表
+    getMenusByPid(params) {
+        return oGet(baseUrl + '/menus/getMenusByPid', params);
+    },
+    // 排序保存
+    saveMenuSort(params) {
+        return oPost(baseUrl + '/menus/saveMenuSort', params);
+    },
     //用户管理查询
     find(params) {
         return oGet(baseUrl + '/internalusers/find', params);

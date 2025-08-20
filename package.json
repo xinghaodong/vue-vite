@@ -33,6 +33,7 @@
     "pinia": "^2.0.0",
     "pinia-plugin-persistedstate": "^3.2.1",
     "qs": "^6.12.1",
+    "sortablejs": "^1.15.6",
     "vue": "^3.4.21",
     "vue-router": "^4.3.2",
     "vuedraggable": "^4.1.0"

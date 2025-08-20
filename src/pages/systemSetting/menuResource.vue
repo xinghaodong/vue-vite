@@ -3,6 +3,7 @@
         <!--首页 -->
         <div class="mb-4">
             <el-button v-has-permi="['menu:add']" type="primary" plain @click="add">新增</el-button>
+            <el-button style="width: 100px" plain type="primary" @click="handleSort()">一级资源排序 </el-button>
             <div>{{ aimessage }}</div>
         </div>
         <!-- 生成一个菜单树表格 -->
@@ -15,10 +16,11 @@
                     <el-tag v-if="row.menutype == 2">按钮</el-tag>
                 </template>
             </el-table-column>
-            <el-table-column label="操作" width="140" align="left">
+            <el-table-column label="操作" width="200" align="left">
                 <template #default="scope">
                     <el-button v-has-permi="['menu:add']" v-if="scope.row.id" type="primary" link @click="handleEdit(scope.row)">编辑</el-button>
                     <el-button v-has-permi="['menu:add']" v-if="scope.row.id" type="primary" link @click="handleDelete(scope.row.id)">删除</el-button>
+                    <el-button link type="primary" v-show="scope.row.children && scope.row.id != 0" @click.stop="handleSort(scope.row.id)">子资源排序</el-button>
                 </template>
             </el-table-column>
         </el-table>
@@ -197,19 +199,38 @@
                 </div>
             </template>
         </el-dialog>
+
+        <el-dialog title="资源排序" width="800px" v-model="dialogSortTree">
+            <el-table :data="tableData" ref="sortTableRef" border style="width: 100%" row-key="id">
+                <el-table-column prop="name" width="200px" label="名称"></el-table-column>
+                <el-table-column prop="url" label="地址"></el-table-column>
+                <el-table-column prop="code" label="code"></el-table-column>
+                <el-table-column label="资源类型">
+                    <template #default="{ row }">
+                        <el-tag v-if="row.menutype == 1" type="success">菜单</el-tag>
+                        <el-tag v-if="row.menutype == 2">按钮</el-tag>
+                    </template>
+                </el-table-column>
+            </el-table>
+            <template #footer>
+                <el-button @click="dialogSortTree = false">取消</el-button>
+                <el-button type="primary" @click="submitSort()">保存</el-button>
+            </template>
+        </el-dialog>
     </div>
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, getCurrentInstance, onBeforeUnmount } from 'vue';
+import { ref, reactive, onMounted, getCurrentInstance, onBeforeUnmount, nextTick } from 'vue';
 import useUserInfoStore from '@/stortes/user'; //引入仓库
 import { storeToRefs } from 'pinia'; //引入pinia转换
+import Sortable from 'sortablejs';
 const { proxy } = getCurrentInstance();
 const dialogVisible = ref(false);
 const userInfoStore = useUserInfoStore();
 
 const { userInfo } = storeToRefs(userInfoStore); // 响应式
-
+const sortTableRef = ref(null);
 const aimessage = ref('');
 const formLabelWidth = '100px';
 const ruleFormRef = ref();
@@ -226,6 +247,8 @@ const rules = {
     menutype: [{ required: true, message: '请选择菜单类型', trigger: 'blur' }],
 };
 const visible = ref(false);
+const dialogSortTree = ref(false);
+const tableData = ref([]);
 // 示例的图标列表
 const iconList = ref([]);
 
@@ -241,6 +264,24 @@ const roleList = ref([]);
 const handleClose = done => {
     done();
 };
+
+const dragSort = () => {
+    console.log(sortTableRef.value.$el);
+    const tableEl = sortTableRef.value.$el;
+    const tbody = tableEl.querySelector('.el-table__body tbody');
+    Sortable.create(tbody, {
+        ghostClass: 'sortable-ghost',
+        animation: 150,
+        onEnd: event => {
+            const { oldIndex, newIndex } = event;
+            if (oldIndex === newIndex) return;
+            // 移动数据
+            const targetRow = tableData.value.splice(oldIndex, 1)[0];
+            tableData.value.splice(newIndex, 0, targetRow);
+        },
+    });
+};
+
 const add = () => {
     dialogVisible.value = true;
     form = reactive(JSON.parse(JSON.stringify(formTemplate)));
@@ -268,6 +309,40 @@ const handleClickOutside = event => {
     const popoverEl = document.querySelector('.mod-menu__icon-popover');
     if (popoverEl && !popoverEl.contains(event.target)) {
         visible.value = false; // 点击外部区域时关闭弹出框
+    }
+};
+
+// 菜单排序保存
+const submitSort = async () => {
+    let arr = [];
+    tableData.value.forEach(elem => {
+        arr.push(elem.id);
+    });
+    let ids = arr
+    console.log(arr);
+    const data = await proxy.$api.saveMenuSort(ids);
+    if (data.code == 200) {
+        proxy.$message.success(data.message);
+        dialogSortTree.value = false;
+        getTreeData();
+    }
+};
+
+const handleSort = pid => {
+    dialogSortTree.value = true;
+    tableData.value = [];
+    getSortData(pid);
+};
+const getSortData = async pid => {
+    console.log(pid);
+    const data = await proxy.$api.getMenusByPid({ pid });
+    if (data.code == 200) {
+        tableData.value = data.data;
+        await nextTick(() => {
+            setTimeout(() => {
+                dragSort();
+            }, 100);
+        });
     }
 };
 
