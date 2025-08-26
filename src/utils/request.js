@@ -38,6 +38,14 @@ axios.interceptors.request.use(
         if (config.url.includes('/api/ai/stream')) {
             config.responseType = 'stream';
         }
+
+        // 动态判断是否是 FormData（文件上传）
+        if (config.data instanceof FormData) {
+            // 让 axios 自动设置 boundary，所以不要手动写 'multipart/form-data'
+            // axios 会自动设置：Content-Type: multipart/form-data; boundary=----xxxx
+            // 我们只需要确保不要覆盖它
+            delete config.headers['Content-Type']; // 让 axios 自动识别
+        }
         console.log('请求config：', config.responseType);
         return config;
     },
@@ -338,6 +346,18 @@ export default {
     // 修改航线
     updateRoute(params) {
         return oPost(baseUrl + '/cesium/update', params);
+    },
+    // 获取视频列表
+    getVideoList(params) {
+        return oGet(baseUrl + '/video/findAll', params);
+    },
+    // 新增视频
+    addVideo(params) {
+        return oPost(baseUrl + '/video/create', params);
+    },
+    // 删除视频
+    deleteVideo(params) {
+        return oPost(baseUrl + '/video/delete', params);
     },
 };
 
