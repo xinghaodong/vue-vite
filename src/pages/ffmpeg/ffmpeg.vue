@@ -18,17 +18,44 @@
                     <video :src="`${proxy.$api.baseUrl}/${scope.row.filepath}`" controls style="width: 100%; max-width: 200px; height: auto"></video>
                 </template>
             </el-table-column>
+            <!-- fps -->
+            <el-table-column label="fps" width="180">
+                <!-- 自定义表头：文字 + tooltip -->
+                <template #header>
+                    <el-tooltip effect="dark" content="FPS 表示当前视频每秒拆裁的帧数（比如默认是1代表1秒拆裁1张图片），数值越高需要的时间越久" placement="top">
+                        <span>
+                            FPS
+                            <el-icon><question-filled /></el-icon>
+                        </span>
+                    </el-tooltip>
+                </template>
+
+                <!-- 表格内容 -->
+                <template #default="scope">
+                    {{ scope.row.fps }}
+                </template>
+            </el-table-column>
+            <el-table-column label="时长(秒)" width="180">
+                <template #default="scope">
+                    {{ formatDuration(scope.row.duration) }}
+                </template>
+            </el-table-column>
             <!-- 视频大小 -->
             <el-table-column label="视频大小" width="180">
                 <template #default="scope">
                     {{ formatFileSize(scope.row.metadata?.size) }}
                 </template>
             </el-table-column>
-
             <!-- 码率 -->
-            <el-table-column label="码率">
-                <template #default="scope" width="180">
+            <el-table-column label="码率" width="180">
+                <template #default="scope">
                     {{ formatBitrate(scope.row.metadata?.bitrate) }}
+                </template>
+            </el-table-column>
+            <!-- 时长 -->
+            <el-table-column label="时长(秒)" width="180">
+                <template #default="scope">
+                    {{ formatDuration(scope.row.duration) }}
                 </template>
             </el-table-column>
             <el-table-column label="操作" width="130" fixed="right">
@@ -44,13 +71,37 @@
                 <el-form-item label="名称" prop="name">
                     <el-input v-model="ruleForm.name" maxlength="20"></el-input>
                 </el-form-item>
+                <el-form-item label="fps" prop="fps">
+                    <el-input-number v-model="ruleForm.fps" :min="1" :max="10" />
+                </el-form-item>
                 <el-form-item label="视频上传">
-                    <el-upload class="upload-demo" :http-request="uploadVideo" ref="uploadRef" drag :auto-upload="false" :limit="1">
-                        <el-icon class="el-icon--upload"><upload-filled /></el-icon>
-                        <div class="el-upload__text">把文件拖到这里<em>或者点击这里</em></div>
-                        <template #tip>
-                            <div class="el-upload__tip">请上传mp4文件</div>
-                        </template>
+                    <!-- 上传区域 -->
+                    <el-upload
+                        class="upload-demo"
+                        :http-request="uploadVideo"
+                        ref="uploadRef"
+                        drag
+                        :auto-upload="false"
+                        :limit="1"
+                        :on-change="handleChange"
+                        :show-file-list="false"
+                        :file-list="fileList"
+                    >
+                        <!-- 预览区域：如果已有文件，则显示视频 -->
+                        <div v-if="previewVideoUrl" class="video-preview-wrapper">
+                            <video :src="previewVideoUrl" class="preview-video" controls :style="{ width: '100%', height: '200px', objectFit: 'contain' }"></video>
+                            <div class="preview-overlay">
+                                <el-button size="small" type="danger" @click.stop="removeFile">重新上传</el-button>
+                            </div>
+                        </div>
+                        <!-- 没有文件时显示上传提示 -->
+                        <div v-else>
+                            <el-icon class="el-icon--upload"><upload-filled /></el-icon>
+                            <div class="el-upload__text">把文件拖到这里<em>或者点击这里</em></div>
+                            <template>
+                                <div class="el-upload__tip">请上传 mp4 文件</div>
+                            </template>
+                        </div>
                     </el-upload>
                 </el-form-item>
             </el-form>
@@ -65,25 +116,31 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, getCurrentInstance } from 'vue';
+import { ref, reactive, onMounted, getCurrentInstance, nextTick } from 'vue';
 const { proxy } = getCurrentInstance();
 const tableData = ref([]);
 const ruleFormRef = ref(null);
 const uploadRef = ref(null);
-const uploadUrl = `${proxy.$api.baseUrl}/upload/uploadFile`;
 // 初始模板对象
 const formTemplate = {
     name: '',
+    videoFile: null,
+    fps: 1,
 };
 let ruleForm = reactive({ ...formTemplate });
 // 重置ruleForm数据函数
 const rules = {
     name: [{ required: true, message: '请输入名称', trigger: 'blur' }],
 };
+const previewVideoUrl = ref('');
+const fileList = ref([]);
 // 重置表单sF
 const resetForm = () => {
     ruleForm = reactive({ ...formTemplate });
     if (ruleFormRef.value) ruleFormRef.value.resetFields();
+    fileList.value = [];
+    previewVideoUrl.value = '';
+    ruleForm.videoFile = null;
 };
 const dialogVisible = ref(false);
 
@@ -93,14 +150,73 @@ const getDataList = async () => {
     tableData.value = res.data;
 };
 
+// 重新上传
+const removeFile = () => {
+    uploadRef.value?.handleRemove(fileList.value[0]);
+    handleRemove();
+};
+// 移除文件
+const handleRemove = () => {
+    if (previewVideoUrl.value) {
+        URL.revokeObjectURL(previewVideoUrl.value);
+        previewVideoUrl.value = '';
+    }
+    ruleForm.videoFile = null;
+};
+
+// 处理文件变化
+const handleChange = (file, uploadFileList) => {
+    console.log(' handleChange 触发', file);
+    console.log('文件状态:', file.status); // 应该是 'ready'
+
+    const { raw } = file;
+    if (!raw) return;
+
+    if (!raw.type.includes('video/mp4')) {
+        ElMessage.error('只支持 mp4');
+        uploadRef.value?.handleRemove(file);
+        return;
+    }
+
+    // 释放旧预览
+    if (previewVideoUrl.value) {
+        URL.revokeObjectURL(previewVideoUrl.value);
+    }
+    previewVideoUrl.value = URL.createObjectURL(raw);
+
+    fileList.value = [file];
+};
+
+// 编辑回显
+const handleEdit = async row => {
+    ruleForm = reactive({ ...row });
+    // fileList.value.push({ raw: ruleForm.videoFile });
+    previewVideoUrl.value = `${proxy.$api.baseUrl}/${row.filepath}`;
+    dialogVisible.value = true;
+};
+
 // 自定义上传方法
 const uploadVideo = async ({ file, onSuccess, onError }) => {
+    console.log(112211666666);
     const formData = new FormData();
     formData.append('file', file);
     formData.append('name', ruleForm.name);
-    formData.append('fps', 1);
+    formData.append('fps', ruleForm.fps);
+    formData.append('id', ruleForm.id);
     try {
-        console.log(file);
+        if (ruleForm.id) {
+            const res = await proxy.$api.updateVideo(formData);
+            if (res.code == 200) {
+                proxy.$message.success('上传成功');
+                dialogVisible.value = false;
+                getDataList();
+                onSuccess(res);
+                fileList.value = [];
+                previewVideoUrl.value = '';
+                ruleForm.videoFile = null;
+            }
+            return;
+        }
         const res = await proxy.$api.addVideo(formData);
         console.log(res);
         if (res.code == 200) {
@@ -108,6 +224,9 @@ const uploadVideo = async ({ file, onSuccess, onError }) => {
             dialogVisible.value = false;
             getDataList();
             onSuccess(res);
+            fileList.value = [];
+            previewVideoUrl.value = '';
+            ruleForm.videoFile = null;
         }
     } catch (err) {
         onError(err);
@@ -115,18 +234,20 @@ const uploadVideo = async ({ file, onSuccess, onError }) => {
 };
 
 const onSubmit = async formEl => {
+    console.log('uploadRef:', uploadRef.value);
+    console.log('uploadFiles:', uploadRef.value?.uploadFiles);
+    console.log('fileList:', fileList.value);
     if (!formEl) return;
+
     await formEl.validate(async valid => {
         if (!valid) {
-            proxy.$message.error('请检查表单填写');
+            proxy.$message.error('验证失败');
             return;
         }
-        // if (!ruleForm.videoFile) {
-        //     proxy.$message.error('请上传视频文件');
-        //     return;
-        // }
-        // 手动触发上传
-        uploadRef.value?.submit();
+        // 🔁 等待 uploadRef 初始化
+        await nextTick();
+
+        uploadRef.value?.submit(); // 这会触发 http-request
     });
 };
 
@@ -162,6 +283,12 @@ const formatFileSize = bytesStr => {
     }
 
     return `${size.toFixed(2)} ${units[unitIndex]}`;
+};
+
+const formatDuration = secondsStr => {
+    const seconds = parseInt(secondsStr, 10);
+    if (isNaN(seconds)) return '-';
+    return new Date(seconds * 1000).toISOString().substr(11, 8);
 };
 
 // 格式化码率：bps → kbps 或 Mbps

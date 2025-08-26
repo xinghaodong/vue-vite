@@ -359,6 +359,11 @@ export default {
     deleteVideo(params) {
         return oPost(baseUrl + '/video/delete', params);
     },
+    // 修改视频
+    updateVideo(params) {
+        return oPost(baseUrl + '/video/update', params);
+    },
+
 };
 
 //封装post/get请求
