@@ -192,6 +192,14 @@ const handleEdit = async row => {
     ruleForm = reactive({ ...row });
     // fileList.value.push({ raw: ruleForm.videoFile });
     previewVideoUrl.value = `${proxy.$api.baseUrl}/${row.filepath}`;
+    // 模拟文件对象添加到 fileList
+    // fileList.value = [
+    //     {
+    //         name: row.filepath.split('/').pop(), // 提取文件名
+    //         url: previewVideoUrl.value,
+    //         status: 'success', // 设置为已上传状态
+    //     },
+    // ];
     dialogVisible.value = true;
 };
 
@@ -234,9 +242,6 @@ const uploadVideo = async ({ file, onSuccess, onError }) => {
 };
 
 const onSubmit = async formEl => {
-    console.log('uploadRef:', uploadRef.value);
-    console.log('uploadFiles:', uploadRef.value?.uploadFiles);
-    console.log('fileList:', fileList.value);
     if (!formEl) return;
 
     await formEl.validate(async valid => {
@@ -244,10 +249,39 @@ const onSubmit = async formEl => {
             proxy.$message.error('验证失败');
             return;
         }
-        // 🔁 等待 uploadRef 初始化
+
         await nextTick();
 
-        uploadRef.value?.submit(); // 这会触发 http-request
+        // 检查是否有新上传的文件
+        const hasNewFile = fileList.value.some(file => file.status === 'ready');
+
+        if (hasNewFile) {
+            // 有新文件，触发上传
+            uploadRef.value?.submit();
+        } else if (ruleForm.id && previewVideoUrl.value) {
+            // 编辑模式且没有新文件，直接调用更新接口
+            try {
+                const formData = new FormData();
+                formData.append('name', ruleForm.name);
+                formData.append('fps', ruleForm.fps);
+                formData.append('id', ruleForm.id);
+                // 如果有现有文件路径，可以传递给后端
+                formData.append('filepath', ruleForm.filepath || '');
+
+                const res = await proxy.$api.updateVideo(formData);
+                if (res.code === 200) {
+                    proxy.$message.success('更新成功');
+                    dialogVisible.value = false;
+                    getDataList();
+                    fileList.value = [];
+                    previewVideoUrl.value = '';
+                }
+            } catch (err) {
+                proxy.$message.error('更新失败');
+            }
+        } else {
+            proxy.$message.error('请上传视频文件');
+        }
     });
 };
 

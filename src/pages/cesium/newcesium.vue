@@ -571,7 +571,6 @@ const handleKeyDown = e => {
 // 动画循环函数
 const animationLoop = () => {
     let needsCameraUpdate = false;
-    viewer.value.scene.globe.depthTestAgainstTerrain = true;
     // 处理旋转 - 使用更小的旋转步长
     if (keyStates.value['q']) {
         droneOrientation.value.heading = normalizeHeading(droneOrientation.value.heading - rotationStep.value);
@@ -800,7 +799,6 @@ const handleKeyUp = e => {
             viewer.value.scene.camera.lookAtTransform(Cesium.Matrix4.IDENTITY);
         }
     }
-    viewer.value.scene.globe.depthTestAgainstTerrain = false;
 };
 // 添加航向角归一化方法
 const normalizeHeading = heading => {
@@ -964,7 +962,7 @@ onMounted(async () => {
         },
         duration: 3, // 飞行持续时间，单位为秒
     });
-    viewer.value.scene.globe.depthTestAgainstTerrain = false;
+    viewer.value.scene.globe.depthTestAgainstTerrain = true;
     viewer.value.canvas.addEventListener('wheel', handleMouseWheel);
     setTimeout(() => {
         load3DTilesModels();
