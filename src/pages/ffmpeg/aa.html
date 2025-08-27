@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>苹果风格帧动画</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/ScrollTrigger.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #000;
+            color: #fff;
+            overflow-x: hidden;
+        }
+
+        .hero-section {
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
+        }
+
+        .hero-content {
+            text-align: center;
+            z-index: 10;
+        }
+
+        .hero-title {
+            font-size: 4rem;
+            font-weight: 700;
+            margin-bottom: 1rem;
+            background: linear-gradient(45deg, #fff, #ccc);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .hero-subtitle {
+            font-size: 1.5rem;
+            opacity: 0.8;
+            margin-bottom: 2rem;
+        }
+
+        .scroll-hint {
+            position: absolute;
+            bottom: 2rem;
+            left: 50%;
+            transform: translateX(-50%);
+            opacity: 0.6;
+            animation: bounce 2s infinite;
+        }
+
+        @keyframes bounce {
+            0%, 20%, 50%, 80%, 100% { transform: translateX(-50%) translateY(0); }
+            40% { transform: translateX(-50%) translateY(-10px); }
+            60% { transform: translateX(-50%) translateY(-5px); }
+        }
+
+        .frame-container {
+            height: 500vh;
+            position: relative;
+        }
+
+        .frame-sticky {
+            position: sticky;
+            top: 0;
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #000;
+        }
+
+        .frame-canvas-wrapper {
+            position: relative;
+            width: 90vw;
+
+            height: 80vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .frame-canvas {
+            max-width: 100%;
+            max-height: 100%;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(255, 255, 255, 0.1);
+            transition: transform 0.3s ease;
+        }
+
+        .progress-bar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            height: 4px;
+            background: linear-gradient(90deg, #007AFF, #00D4FF);
+            z-index: 100;
+            transform-origin: left;
+            transform: scaleX(0);
+        }
+
+        .frame-counter {
+            position: fixed;
+            top: 2rem;
+            right: 2rem;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            padding: 1rem 1.5rem;
+            border-radius: 50px;
+            font-weight: 600;
+            z-index: 100;
+        }
+
+        .loading-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #000;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            transition: opacity 0.5s ease;
+        }
+
+        .loading-text {
+            font-size: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .loading-progress {
+            width: 300px;
+            height: 4px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 2px;
+            overflow: hidden;
+        }
+
+        .loading-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #007AFF, #00D4FF);
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+
+        .end-section {
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, #2d2d2d 0%, #1a1a1a 100%);
+        }
+
+        .end-content {
+            text-align: center;
+        }
+
+        .end-title {
+            font-size: 3rem;
+            font-weight: 700;
+            margin-bottom: 1rem;
+            animation: bounce 2s infinite;
+        }
+
+        @media (max-width: 768px) {
+            .hero-title { font-size: 2.5rem; }
+            .hero-subtitle { font-size: 1.2rem; }
+            .frame-canvas-wrapper { width: 95vw; height: 70vh; }
+            .frame-counter { top: 1rem; right: 1rem; padding: 0.8rem 1.2rem; }
+        }
+    </style>
+</head>
+<body>
+    <!-- 加载屏幕 -->
+    <div class="loading-screen" id="loadingScreen">
+        <div class="loading-text">正在加载帧动画...</div>
+        <div class="loading-progress">
+            <div class="loading-fill" id="loadingFill"></div>
+        </div>
+    </div>
+
+    <!-- 进度条 -->
+    <div class="progress-bar" id="progressBar"></div>
+
+    <!-- 帧计数器 -->
+    <div class="frame-counter" id="frameCounter">帧 1 / 15</div>
+
+    <!-- 第一屏幕 -->
+    <section class="hero-section">
+        <div class="hero-content">
+            <h1 class="hero-title">苹果风格动画</h1>
+            <p class="hero-subtitle">滚动帧动画</p>
+        </div>
+        <div class="scroll-hint">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+            </svg>
+        </div>
+    </section>
+
+    <!-- 帧动画容器 -->
+    <div class="frame-container">
+        <div class="frame-sticky">
+            <div class="frame-canvas-wrapper">
+                <canvas class="frame-canvas" id="frameCanvas"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- 结束区域 -->
+    <section class="end-section">
+        <div class="end-content">
+            <h2 class="end-title">动画完成</h2>
+        </div>
+    </section>
+
+    <script>
+        // 注册 GSAP 插件
+        gsap.registerPlugin(ScrollTrigger);
+
+        // 你的真实图片帧
+        const frames = [
+            "http://127.0.0.1:3000/api/uploads/66312fc6-8f13-4861-be84-e840cecedb75/frames/frame-001.png",
+            "http://127.0.0.1:3000/api/uploads/66312fc6-8f13-4861-be84-e840cecedb75/frames/frame-002.png",
+            "http://127.0.0.1:3000/api/uploads/66312fc6-8f13-4861-be84-e840cecedb75/frames/frame-003.png",
+            "http://127.0.0.1:3000/api/uploads/66312fc6-8f13-4861-be84-e840cecedb75/frames/frame-004.png",
+            "http://127.0.0.1:3000/api/uploads/66312fc6-8f13-4861-be84-e840cecedb75/frames/frame-005.png",
+            "http://127.0.0.1:3000/api/uploads/66312fc6-8f13-4861-be84-e840cecedb75/frames/frame-006.png",
+            "http://127.0.0.1:3000/api/uploads/66312fc6-8f13-4861-be84-e840cecedb75/frames/frame-007.png",
+            "http://127.0.0.1:3000/api/uploads/66312fc6-8f13-4861-be84-e840cecedb75/frames/frame-008.png",
+            "http://127.0.0.1:3000/api/uploads/66312fc6-8f13-4861-be84-e840cecedb75/frames/frame-009.png",
+            "http://127.0.0.1:3000/api/uploads/66312fc6-8f13-4861-be84-e840cecedb75/frames/frame-010.png",
+            "http://127.0.0.1:3000/api/uploads/66312fc6-8f13-4861-be84-e840cecedb75/frames/frame-011.png",
+            "http://127.0.0.1:3000/api/uploads/66312fc6-8f13-4861-be84-e840cecedb75/frames/frame-012.png",
+            "http://127.0.0.1:3000/api/uploads/66312fc6-8f13-4861-be84-e840cecedb75/frames/frame-013.png",
+            "http://127.0.0.1:3000/api/uploads/66312fc6-8f13-4861-be84-e840cecedb75/frames/frame-014.png",
+            "http://127.0.0.1:3000/api/uploads/66312fc6-8f13-4861-be84-e840cecedb75/frames/frame-015.png"
+        ];
+
+        const canvas = document.getElementById('frameCanvas');
+        const ctx = canvas.getContext('2d');
+        const loadingScreen = document.getElementById('loadingScreen');
+        const loadingFill = document.getElementById('loadingFill');
+        const progressBar = document.getElementById('progressBar');
+        const frameCounter = document.getElementById('frameCounter');
+
+        let images = [];
+        let currentFrame = 0;
+        let imagesLoaded = 0;
+
+        // 设置 canvas 尺寸
+        function resizeCanvas() {
+            const wrapper = document.querySelector('.frame-canvas-wrapper');
+            const rect = wrapper.getBoundingClientRect();
+            canvas.width = rect.width;
+            canvas.height = rect.height;
+            
+            if (images[currentFrame]) {
+                drawFrame(currentFrame);
+            }
+        }
+
+        // 绘制帧
+        function drawFrame(frameIndex) {
+            if (!images[frameIndex]) return;
+            
+            const img = images[frameIndex];
+            const canvasAspect = canvas.width / canvas.height;
+            const imgAspect = img.width / img.height;
+            
+            let drawWidth, drawHeight, drawX, drawY;
+            
+            if (imgAspect > canvasAspect) {
+                drawHeight = canvas.height;
+                drawWidth = drawHeight * imgAspect;
+                drawX = (canvas.width - drawWidth) / 2;
+                drawY = 0;
+            } else {
+                drawWidth = canvas.width;
+                drawHeight = drawWidth / imgAspect;
+                drawX = 0;
+                drawY = (canvas.height - drawHeight) / 2;
+            }
+            
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.drawImage(img, drawX, drawY, drawWidth, drawHeight);
+        }
+
+        // 预加载图片
+        function preloadImages() {
+            frames.forEach((src, index) => {
+                const img = new Image();
+                img.crossOrigin = 'anonymous';
+                
+                img.onload = () => {
+                    images[index] = img;
+                    imagesLoaded++;
+                    
+                    const progress = (imagesLoaded / frames.length) * 100;
+                    loadingFill.style.width = progress + '%';
+                    
+                    if (index === 0) {
+                        resizeCanvas();
+                        drawFrame(0);
+                    }
+                    
+                    if (imagesLoaded === frames.length) {
+                        setTimeout(() => {
+                            loadingScreen.style.opacity = '0';
+                            setTimeout(() => {
+                                loadingScreen.style.display = 'none';
+                                initScrollAnimation();
+                            }, 500);
+                        }, 500);
+                    }
+                };
+                
+                img.onerror = () => {
+                    console.error(`无法加载图片: ${src}`);
+                    imagesLoaded++;
+                    
+                    if (imagesLoaded === frames.length) {
+                        setTimeout(() => {
+                            loadingScreen.style.opacity = '0';
+                            setTimeout(() => {
+                                loadingScreen.style.display = 'none';
+                                initScrollAnimation();
+                            }, 500);
+                        }, 500);
+                    }
+                };
+                
+                img.src = src;
+            });
+        }
+
+        // 初始化滚动动画
+        function initScrollAnimation() {
+            const frameAnimation = { frame: 0 };
+            
+            gsap.to(frameAnimation, {
+                frame: frames.length - 1,
+                snap: "frame",
+                ease: "none",
+                scrollTrigger: {
+                    trigger: ".frame-container",
+                    start: "top top",
+                    end: "bottom bottom",
+                    scrub: 1,
+                    pin: ".frame-sticky",
+                    onUpdate: (self) => {
+                        const frameIndex = Math.round(frameAnimation.frame);
+                        if (frameIndex !== currentFrame && images[frameIndex]) {
+                            currentFrame = frameIndex;
+                            drawFrame(currentFrame);
+                            frameCounter.textContent = `帧 ${currentFrame + 1} / ${frames.length}`;
+                        }
+                        
+                        // 更新进度条
+                        progressBar.style.transform = `scaleX(${self.progress})`;
+                    }
+                }
+            });
+
+            // 添加视差效果
+            gsap.to(".frame-canvas", {
+                scale: 1.1,
+                ease: "none",
+                scrollTrigger: {
+                    trigger: ".frame-container",
+                    start: "top bottom",
+                    end: "bottom top",
+                    scrub: 1
+                }
+            });
+        }
+
+        // 窗口大小改变时重新调整 canvas
+        window.addEventListener('resize', resizeCanvas);
+
+        // 开始预加载
+        preloadImages();
+    </script>
+</body>
+</html>

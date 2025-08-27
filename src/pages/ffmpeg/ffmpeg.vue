@@ -13,13 +13,13 @@
         </div>
         <el-table :data="tableData" border style="width: 100%">
             <el-table-column prop="name" label="名称" width="180"> </el-table-column>
-            <el-table-column prop="name" label="视频预览">
+            <el-table-column prop="name" label="视频预览" min-width="300">
                 <template #default="scope">
                     <video :src="`${proxy.$api.baseUrl}/${scope.row.filepath}`" controls style="width: 100%; max-width: 200px; height: auto"></video>
                 </template>
             </el-table-column>
             <!-- fps -->
-            <el-table-column label="fps" width="180">
+            <el-table-column label="fps" width="120">
                 <!-- 自定义表头：文字 + tooltip -->
                 <template #header>
                     <el-tooltip effect="dark" content="FPS 表示当前视频每秒拆裁的帧数（比如默认是1代表1秒拆裁1张图片），数值越高需要的时间越久" placement="top">
@@ -58,8 +58,9 @@
                     {{ formatDuration(scope.row.duration) }}
                 </template>
             </el-table-column>
-            <el-table-column label="操作" width="130" fixed="right">
+            <el-table-column label="操作" width="150" fixed="right">
                 <template #default="scope">
+                    <el-button link type="primary" @click="handlePreview(scope.row)">预览</el-button>
                     <el-button link type="primary" @click="handleEdit(scope.row)">编辑</el-button>
                     <el-button link type="primary" @click="handleDelete(scope.row)">删除</el-button>
                 </template>
@@ -112,6 +113,18 @@
                 </span>
             </template>
         </el-dialog>
+
+        <el-dialog :title="detailsObj.name" v-model="dialogVisibleDetails" width="80%">
+            <div class="block text-center">
+                <!-- <span class="demonstration">{{detailsObj.name}}</span> motion-blur -->
+                <el-carousel height="662px" direction="vertical">
+                    <el-carousel-item v-for="item in detailsObj.frames" :key="item">
+                        <!-- :src="`${proxy.$api.img_url}${scope.row?.avatar?.filePath}`" -->
+                        <el-image :src="`${proxy.$api.img_url}${item}`" />
+                    </el-carousel-item>
+                </el-carousel>
+            </div>
+        </el-dialog>
     </div>
 </template>
 
@@ -121,6 +134,8 @@ const { proxy } = getCurrentInstance();
 const tableData = ref([]);
 const ruleFormRef = ref(null);
 const uploadRef = ref(null);
+const detailsObj = ref({});
+const dialogVisibleDetails = ref(false);
 // 初始模板对象
 const formTemplate = {
     name: '',
@@ -185,6 +200,13 @@ const handleChange = (file, uploadFileList) => {
     previewVideoUrl.value = URL.createObjectURL(raw);
 
     fileList.value = [file];
+};
+
+// 预览
+const handlePreview = row => {
+    console.log('handlePreview 触发', row);
+    detailsObj.value = row;
+    dialogVisibleDetails.value = true;
 };
 
 // 编辑回显
