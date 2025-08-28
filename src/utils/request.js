@@ -363,7 +363,10 @@ export default {
     updateVideo(params) {
         return oPost(baseUrl + '/video/update', params);
     },
-
+    // 获取视频详情
+    getVideoFrames(params) {
+        return oGet(baseUrl + '/video/detail', params);
+    },
 };
 
 //封装post/get请求

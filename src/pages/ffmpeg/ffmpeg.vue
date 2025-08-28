@@ -15,7 +15,7 @@
             <el-table-column prop="name" label="名称" width="180"> </el-table-column>
             <el-table-column prop="name" label="视频预览" min-width="300">
                 <template #default="scope">
-                    <video :src="`${proxy.$api.baseUrl}/${scope.row.filepath}`" controls style="width: 100%; max-width: 200px; height: auto"></video>
+                    <video :src="`${proxy.$api.baseUrl}/${scope.row.filepath}`" muted autoplay style="width: 100%; max-width: 200px; height: auto"></video>
                 </template>
             </el-table-column>
             <!-- fps -->
@@ -58,9 +58,10 @@
                     {{ formatDuration(scope.row.duration) }}
                 </template>
             </el-table-column>
-            <el-table-column label="操作" width="150" fixed="right">
+            <el-table-column label="操作" width="220" fixed="right">
                 <template #default="scope">
                     <el-button link type="primary" @click="handlePreview(scope.row)">预览</el-button>
+                    <el-button link type="primary" @click="handleFrame(scope.row)">查看帧</el-button>
                     <el-button link type="primary" @click="handleEdit(scope.row)">编辑</el-button>
                     <el-button link type="primary" @click="handleDelete(scope.row)">删除</el-button>
                 </template>
@@ -188,7 +189,7 @@ const handleChange = (file, uploadFileList) => {
     if (!raw) return;
 
     if (!raw.type.includes('video/mp4')) {
-        ElMessage.error('只支持 mp4');
+        proxy.$message.error('只支持 mp4');
         uploadRef.value?.handleRemove(file);
         return;
     }
@@ -203,8 +204,23 @@ const handleChange = (file, uploadFileList) => {
 };
 
 // 预览
-const handlePreview = row => {
+const handlePreview = async row => {
     console.log('handlePreview 触发', row);
+    // 设置了全屏需要去掉 /home如果不是全屏就需要加 /home
+    // proxy.$router.push({
+    //     path: '/home/ffmpegGsap',
+    //     query: { idkey: row ? row.id : '' },
+    // });
+    const routeData = proxy.$router.resolve({
+        path: '/ffmpegGsap',
+        query: { idkey: row ? row.id : '', token: sessionStorage.getItem('token') }, // 添加查询参数
+    });
+    // 打开新标签页，并保存引用
+    window.open(routeData.href, '_blank');
+};
+
+// 查看图片
+const handleFrame = row => {
     detailsObj.value = row;
     dialogVisibleDetails.value = true;
 };
@@ -232,28 +248,13 @@ const uploadVideo = async ({ file, onSuccess, onError }) => {
     formData.append('file', file);
     formData.append('name', ruleForm.name);
     formData.append('fps', ruleForm.fps);
-    formData.append('id', ruleForm.id);
     try {
-        if (ruleForm.id) {
-            const res = await proxy.$api.updateVideo(formData);
-            if (res.code == 200) {
-                proxy.$message.success('上传成功');
-                dialogVisible.value = false;
-                getDataList();
-                onSuccess(res);
-                fileList.value = [];
-                previewVideoUrl.value = '';
-                ruleForm.videoFile = null;
-            }
-            return;
-        }
         const res = await proxy.$api.addVideo(formData);
-        console.log(res);
         if (res.code == 200) {
             proxy.$message.success('上传成功');
             dialogVisible.value = false;
             getDataList();
-            onSuccess(res);
+            // onSuccess(res);
             fileList.value = [];
             previewVideoUrl.value = '';
             ruleForm.videoFile = null;

@@ -27,6 +27,7 @@
     "cesium": "^1.127.0",
     "dompurify": "^3.2.4",
     "element-plus": "^2.7.4",
+    "gsap": "^3.13.0",
     "highlight.js": "^11.11.1",
     "markdown-it": "^14.1.0",
     "nprogress": "^0.2.0",
