@@ -22,13 +22,10 @@
         </section>
 
         <!-- 第二屏 -->
-        <div class="frame-container" ref="frameContainer">
+        <div class="frame-container">
             <div class="frame-sticky">
-                <!-- Added ref and class for GSAP animation -->
-                <div class="frame-box frame-item" v-for="(item, index) in fromData.frames" :key="index" ref="frameItems">
-                    <div class="frame-image-wrapper">
-                        <img :src="`${proxy.$api.baseUrl}/${item}`" alt="" class="frame-image" />
-                    </div>
+                <div class="frame-box" v-for="(item, index) in fromData.frames" :key="index">
+                    <img :src="`${proxy.$api.baseUrl}/${item}`" alt="" />
                 </div>
             </div>
         </div>
@@ -36,22 +33,16 @@
 </template>
 
 <script setup>
-import { ref, onMounted, getCurrentInstance, nextTick } from 'vue';
+import { ref, onMounted, getCurrentInstance } from 'vue';
 import { gsap } from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
-
 // 注册 ScrollTrigger
 gsap.registerPlugin(ScrollTrigger);
-
 const { proxy } = getCurrentInstance();
 const loadingFill = ref(null);
-const frameContainer = ref(null);
-const frameItems = ref([]);
-
 const fromData = ref({
     frames: [],
 });
-
 const getData = async () => {
     let res = await proxy.$api.getVideoFrames({ id: proxy.$route.query.idkey });
     fromData.value = res.data;
@@ -59,15 +50,21 @@ const getData = async () => {
     preloadImages();
 };
 
+// 初始化滚动动画
+const initScrollAnimation = () => {
+    const frameContainer = document.querySelector('.frame-container');
+    const images = document.querySelectorAll('.frame-box img');
+};
+
 // 预加图片
-const preloadImages = async () => {
+const preloadImages = () => {
     const totalFrames = fromData.value.frames.length;
     let loadedFrames = 0;
     fromData.value.frames.forEach(frame => {
         console.log('图片地址', frame);
         const img = new Image();
         img.src = `${proxy.$api.baseUrl}/${frame}`;
-        img.onload = async () => {
+        img.onload = () => {
             console.log('图片加载完成', img);
             loadedFrames++;
             const progress = (loadedFrames / totalFrames) * 100;
@@ -78,53 +75,11 @@ const preloadImages = async () => {
                 document.getElementById('loadingScreen').style.opacity = 0;
                 setTimeout(() => {
                     document.getElementById('loadingScreen').style.display = 'none';
-                    initScrollAnimation();
                 }, 500);
-                await nextTick();
+                initScrollAnimation();
             }
         };
     });
-};
-
-const initScrollAnimation = () => {
-    setTimeout(() => {
-        const images = document.querySelectorAll('.frame-image');
-        console.log('[v0] Found images:', images.length);
-
-        if (images.length === 0) {
-            console.log('[v0] No images found, retrying...');
-            setTimeout(() => initScrollAnimation(), 500);
-            return;
-        }
-
-        gsap.set(images, {
-            opacity: 0,
-            scale: 0.8,
-            transformOrigin: 'center center',
-        });
-
-        images.forEach((img, index) => {
-            console.log(img);
-            gsap.to(img, {
-                opacity: 1,
-                scale: 1,
-                duration: 1.25,
-                ease: 'power3.out',
-                scrollTrigger: {
-                    trigger: img.closest('.frame-box'),
-                    start: 'top 80%',
-                    end: 'bottom 20%',
-                    toggleActions: 'play none none reverse',
-                    onEnter: () => console.log(`[v0] Image ${index} animation triggered`),
-                    onLeave: () => console.log(`[v0] Image ${index} animation reversed`),
-                    markers: false,
-                },
-            });
-        });
-
-        ScrollTrigger.refresh();
-        console.log('[v0] ScrollTrigger initialized and refreshed');
-    }, 100);
 };
 
 onMounted(() => {
@@ -132,15 +87,12 @@ onMounted(() => {
 });
 </script>
 
-<style></style>
-
 <style lang="css" scoped>
 .frame-body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     background: #000;
     color: #fff;
     overflow-x: hidden;
-    min-height: 100vh;
 }
 
 .hero-section {
@@ -201,7 +153,6 @@ onMounted(() => {
 .frame-container {
     height: 500vh;
     position: relative;
-    overflow: visible;
 }
 
 .frame-sticky {
@@ -211,33 +162,12 @@ onMounted(() => {
 .frame-box {
     width: 100vw;
     height: 100vh;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    position: relative;
-}
-
-.frame-image-wrapper {
-    position: relative;
-    width: 80vw;
-    height: 80vh;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.frame-image {
-    max-width: 100%;
-    max-height: 100%;
-    border-radius: 20px;
-    box-shadow: 0 20px 60px rgba(255, 255, 255, 0.1);
-    object-fit: contain;
-    display: block;
 }
 
 .frame-canvas-wrapper {
     position: relative;
     width: 100vw;
+
     height: 90vh;
     display: flex;
     align-items: center;
@@ -337,7 +267,7 @@ onMounted(() => {
         font-size: 1.2rem;
     }
 
-    .frame-image-wrapper {
+    .frame-canvas-wrapper {
         width: 95vw;
         height: 70vh;
     }
