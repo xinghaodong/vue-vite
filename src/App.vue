@@ -16,7 +16,8 @@ body,
 
 #app {
     display: flex;
-    flex-direction: column;
+    /* flex-direction: column; */
+    width: 100%;
 }
 .mb-4 {
     margin-bottom: 16px;

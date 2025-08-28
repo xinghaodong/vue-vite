@@ -10,6 +10,7 @@
 
         <!-- 第一屏 -->
         <section class="hero-section">
+            <video ref="heroVideo" :src="`${proxy.$api.baseUrl}/${fromData.filepath}`" ></video>
             <div class="hero-content">
                 <h1 class="hero-title">苹果风格动画</h1>
                 <p class="hero-subtitle">滚动帧动画</p>
@@ -24,9 +25,7 @@
         <!-- 第二屏 -->
         <div class="frame-container">
             <div class="frame-sticky">
-                <div class="frame-box" v-for="(item, index) in fromData.frames" :key="index">
-                    <img :src="`${proxy.$api.baseUrl}/${item}`" alt="" />
-                </div>
+                <img ref="frameImg" class="frame-img" :src="`${proxy.$api.baseUrl}/${fromData.frames[0]}`" />
             </div>
         </div>
     </div>
@@ -43,6 +42,8 @@ const loadingFill = ref(null);
 const fromData = ref({
     frames: [],
 });
+const frameImg = ref(null);
+const heroVideo = ref(null);
 const getData = async () => {
     let res = await proxy.$api.getVideoFrames({ id: proxy.$route.query.idkey });
     fromData.value = res.data;
@@ -52,8 +53,67 @@ const getData = async () => {
 
 // 初始化滚动动画
 const initScrollAnimation = () => {
-    const frameContainer = document.querySelector('.frame-container');
-    const images = document.querySelectorAll('.frame-box img');
+    // 第一屏：滚动控制 video
+    if (heroVideo.value) {
+        const video = heroVideo.value;
+        console.log('video', video.duration);
+        // video.pause(); // 先暂停，避免自动播
+        // gsap.to(video, {
+        //     currentTime: video.duration || 1, // 从 0 → duration
+        //     snap: "frame", // 保证整数帧
+        //     ease: 'none',
+        //     scrollTrigger: {
+        //         trigger: '.hero-section',
+        //         start: 'top top',
+        //         end: 'bottom top', // 滚完第一屏
+        //         scrub: true,
+        //         pin: true, // 固定住视频区域
+        //     },
+        // })
+
+        ScrollTrigger.create({
+            trigger: '.hero-section',
+            start: 'top top',
+            end: 'bottom top', // 滚动距离
+            scrub: true, // 平滑滚动
+            pin: true, // 固定
+            onUpdate: self => {
+                console.log('进度', self.progress);
+                // progress 是 0 ~ 1 的滚动进度
+                let progress = self.progress;
+                if (video.duration) {
+                    video.currentTime = progress * video.duration;
+                }
+            },
+        });
+
+    }
+    
+    //   第二屏
+    if (!fromData.value.frames.length) return;
+
+    const frameCount = fromData.value.frames.length;
+    let obj = { frame: 0 };
+
+    gsap.to(obj, {
+        frame: frameCount - 1,
+        snap: 'frame',
+        ease: 'none',
+        scrollTrigger: {
+            trigger: '.frame-container',
+            start: 'top top',
+            end: 'bottom bottom',
+            scrub: true,
+            pin: '.frame-sticky',
+        },
+        onUpdate: () => {
+            const frame = obj.frame;
+            console.log('当前帧', frame, frameImg.value);
+            if (frameImg.value) {
+                frameImg.value.src = `${proxy.$api.baseUrl}/${fromData.value.frames[frame]}`;
+            }
+        },
+    });
 };
 
 // 预加图片
@@ -75,8 +135,8 @@ const preloadImages = () => {
                 document.getElementById('loadingScreen').style.opacity = 0;
                 setTimeout(() => {
                     document.getElementById('loadingScreen').style.display = 'none';
+                    initScrollAnimation();
                 }, 500);
-                initScrollAnimation();
             }
         };
     });
@@ -93,6 +153,8 @@ onMounted(() => {
     background: #000;
     color: #fff;
     overflow-x: hidden;
+    overflow: hidden;
+    height: 500vh;
 }
 
 .hero-section {
@@ -100,12 +162,19 @@ onMounted(() => {
     display: flex;
     align-items: center;
     justify-content: center;
-    background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
+    /* background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%); */
+    position: relative;
+    margin: 20px;
 }
-
+video {
+    margin: auto;
+    border-radius: 15px;
+    width: 100%;
+}
 .hero-content {
     text-align: center;
     z-index: 10;
+    position: absolute;
 }
 
 .hero-title {
@@ -156,12 +225,23 @@ onMounted(() => {
 }
 
 .frame-sticky {
+    position: relative;
+    width: 100vw;
+    height: 100vh;
     background: #000;
 }
 
 .frame-box {
     width: 100vw;
     height: 100vh;
+}
+
+.frame-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    will-change: transform;
 }
 
 .frame-canvas-wrapper {
