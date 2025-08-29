@@ -15,8 +15,6 @@ body,
 }
 
 #app {
-    display: flex;
-    /* flex-direction: column; */
     width: 100%;
 }
 .mb-4 {

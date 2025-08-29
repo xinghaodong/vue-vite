@@ -74,7 +74,7 @@
                     <el-input v-model="ruleForm.name" maxlength="20"></el-input>
                 </el-form-item>
                 <el-form-item label="fps" prop="fps">
-                    <el-input-number v-model="ruleForm.fps" :min="1" :max="10" />
+                    <el-input-number style="width: 204px" v-model="ruleForm.fps" :min="1" :max="10" />
                 </el-form-item>
                 <el-form-item label="视频上传">
                     <!-- 上传区域 -->
@@ -245,10 +245,25 @@ const handleEdit = async row => {
 const uploadVideo = async ({ file, onSuccess, onError }) => {
     console.log(112211666666);
     const formData = new FormData();
+    console.log(file);
     formData.append('file', file);
     formData.append('name', ruleForm.name);
     formData.append('fps', ruleForm.fps);
+    formData.append('id', ruleForm.id);
     try {
+        if (ruleForm.id) {
+            const res = await proxy.$api.updateVideo(formData);
+            if (res.code == 200) {
+                proxy.$message.success('上传成功');
+                dialogVisible.value = false;
+                getDataList();
+                // onSuccess(res);
+                fileList.value = [];
+                previewVideoUrl.value = '';
+                ruleForm.videoFile = null;
+            }
+            return;
+        }
         const res = await proxy.$api.addVideo(formData);
         if (res.code == 200) {
             proxy.$message.success('上传成功');
@@ -281,8 +296,10 @@ const onSubmit = async formEl => {
         if (hasNewFile) {
             // 有新文件，触发上传
             uploadRef.value?.submit();
+            console.log('上传中...');
         } else if (ruleForm.id && previewVideoUrl.value) {
             // 编辑模式且没有新文件，直接调用更新接口
+            console.log('更新视频');
             try {
                 const formData = new FormData();
                 formData.append('name', ruleForm.name);
