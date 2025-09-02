@@ -67,6 +67,17 @@
                 </template>
             </el-table-column>
         </el-table>
+        <el-pagination
+            style="padding: 16px"
+            background
+            @size-change="handleSizeChange"
+            @current-change="handleCurrentChange"
+            :current-page="currentPage"
+            :page-sizes="[10, 20, 50, 100]"
+            :page-size="pageSize"
+            layout="total, sizes,->, prev, pager, next, jumper"
+            :total="total"
+        ></el-pagination>
 
         <el-dialog :title="ruleForm.id ? '编辑' : '新增'" v-model="dialogVisible" width="50%">
             <el-form ref="ruleFormRef" :rules="rules" :model="ruleForm" label-width="100px">
@@ -150,6 +161,9 @@ const rules = {
 };
 const previewVideoUrl = ref('');
 const fileList = ref([]);
+const currentPage = ref(1);
+const pageSize = ref(10);
+const total = ref(0);
 // 重置表单sF
 const resetForm = () => {
     ruleForm = reactive({ ...formTemplate });
@@ -162,8 +176,13 @@ const dialogVisible = ref(false);
 
 // 查询视频
 const getDataList = async () => {
-    const res = await proxy.$api.getVideoList();
-    tableData.value = res.data;
+    let obj = {
+        page: currentPage.value,
+        pageSize: pageSize.value,
+    };
+    const res = await proxy.$api.getVideoList(obj);
+    tableData.value = res.data.list;
+    total.value = res.data.total;
 };
 
 // 重新上传
@@ -373,6 +392,16 @@ const formatBitrate = bpsStr => {
     if (bps < 1000) return `${bps} bps`;
     if (bps < 1_000_000) return `${(bps / 1000).toFixed(2)} kbps`;
     return `${(bps / 1_000_000).toFixed(2)} Mbps`;
+};
+
+const handleSizeChange = val => {
+    pageSize.value = val;
+    getDataList();
+};
+
+const handleCurrentChange = val => {
+    currentPage.value = val;
+    getDataList();
 };
 
 onMounted(() => {

@@ -64,8 +64,11 @@ window.handleSaveSuccess = () => {
 };
 
 const getCesiumList = async () => {
-    // 解构 axios
-    const { data } = await proxy.$api.getRouteList();
+    let obj = {
+        page: currentPage.value,
+        pageSize: pageSize.value,
+    };
+    const { data } = await proxy.$api.getRouteList(obj);
     tableData.value = data.list;
     total.value = data.total;
     console.log(data, '航线列表');
