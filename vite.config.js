@@ -46,5 +46,7 @@ export default defineConfig(({ mode }) => {
             alias: alias,
             extensions: ['.mjs', '.js', '.ts', '.jsx', '.tsx', '.json', '.vue'],
         },
+        // 支持 .gltf 和 .glb 作为静态资源
+        assetsInclude: ['**/*.gltf', '**/*.glb'],
     };
 });

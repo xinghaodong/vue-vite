@@ -72,9 +72,8 @@ import { useRoute } from 'vue-router';
 window.CESIUM_BASE_URL = './Cesium';
 
 // Cesium Ion访问令牌
-Cesium.Ion.defaultAccessToken =
+const CESIUM_TOKEN =
     'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI5NWEyM2E2Ni1mNDdmLTQ2NjYtYWQ0Mi0xYmE5OWVkYjIxNTUiLCJpZCI6Mjg3NzA3LCJpYXQiOjE3NDI5NTQ1ODR9.iyxiNumkb8sc6jM8EFk72wtwKmLOPAKqsxgeLqs1Nio';
-
 const ruleFormRef = ref(null);
 const rules = {
     name: [
@@ -571,7 +570,7 @@ const handleKeyDown = e => {
 // 动画循环函数
 const animationLoop = () => {
     let needsCameraUpdate = false;
-    viewer.value.scene.globe.depthTestAgainstTerrain = true;
+    // viewer.value.scene.globe.depthTestAgainstTerrain = true;
     // 处理旋转 - 使用更小的旋转步长
     if (keyStates.value['q']) {
         droneOrientation.value.heading = normalizeHeading(droneOrientation.value.heading - rotationStep.value);
@@ -606,31 +605,31 @@ const startAnimationLoop = () => {
 // 开始规划
 const startDrawing = async () => {
     isDrawing.value = true;
+    const centerLongitude = 112.178957053;
+    const centerLatitude = 37.800612779;
+    const positionToSample = Cesium.Cartographic.fromDegrees(centerLongitude, centerLatitude);
 
     try {
-        const centerLongitude = 112.178957053;
-        const centerLatitude = 37.800612779;
-        const positionToSample = [Cesium.Cartographic.fromDegrees(centerLongitude, centerLatitude)];
+        console.log('🚀 开始获取地形高度...', viewer.value.terrainProvider);
+        const updatedPositions = await Cesium.sampleTerrainMostDetailed(viewer.value.terrainProvider, [positionToSample]);
 
-        // 异步查询地形高度
-        const updatedPositions = await Cesium.sampleTerrainMostDetailed(viewer.value.terrainProvider, positionToSample);
-
-        if (updatedPositions && updatedPositions.length > 0 && updatedPositions[0].height !== undefined) {
+        if (updatedPositions && updatedPositions.length > 0 && Cesium.defined(updatedPositions[0].height)) {
             terrainHeight.value = updatedPositions[0].height;
-            console.log(`成功获取初始地形高度: ${terrainHeight.value.toFixed(2)} 米`);
+            console.log(`✅ 成功获取地形高度: ${terrainHeight.value.toFixed(2)} 米`);
         } else {
-            console.warn('无法获取地形高度，将使用默认值 0');
             terrainHeight.value = 0;
+            console.warn('⚠️ 无法获取地形高度，使用默认值 0');
         }
     } catch (error) {
-        console.error('获取地形高度时发生错误:', error);
-        terrainHeight.value = 0; // 出错时使用默认值
+        console.error('❌ 获取地形高度失败:', error);
+        terrainHeight.value = 0;
     }
 
+    // 飞向目标
     viewer.value.camera.flyTo({
         destination: Cesium.Cartesian3.fromDegrees(112.178957053, 37.800612779, currentHeight.value + terrainHeight.value),
-        duration: 2, // 飞行动画时长（秒）
-        maximumHeight: 5000, // 飞行时的最大高度
+        duration: 2,
+        maximumHeight: 5000,
         orientation: {
             heading: Cesium.Math.toRadians(0),
             pitch: Cesium.Math.toRadians(-90),
@@ -641,7 +640,6 @@ const startDrawing = async () => {
         },
     });
 };
-
 // 初始化飞行器
 const initDrone = () => {
     if (droneEntity.value) {
@@ -800,7 +798,7 @@ const handleKeyUp = e => {
             viewer.value.scene.camera.lookAtTransform(Cesium.Matrix4.IDENTITY);
         }
     }
-    viewer.value.scene.globe.depthTestAgainstTerrain = false;
+    // viewer.value.scene.globe.depthTestAgainstTerrain = false;
 };
 // 添加航向角归一化方法
 const normalizeHeading = heading => {
@@ -936,6 +934,7 @@ const handleMouseWheel = e => {
 };
 // 生命周期钩子
 onMounted(async () => {
+    Cesium.Ion.defaultAccessToken = CESIUM_TOKEN;
     viewer.value = new Cesium.Viewer('cesiumContainer', {
         infoBox: false,
         animation: false,
@@ -948,9 +947,10 @@ onMounted(async () => {
         timeline: false,
         navigationHelpButton: false,
         shouldAnimate: true,
-        requestRenderMode: true, // 启用按需渲染
-        maximumRenderTimeChange: Infinity, // 确保仅在需要时渲染
+        // terrainProvider: new Cesium.EllipsoidTerrainProvider(),
         terrainProvider: await Cesium.createWorldTerrainAsync(), // 添加地形
+        // requestRenderMode: true, // 启用按需渲染
+        // maximumRenderTimeChange: Infinity, // 确保仅在需要时渲染
     });
     var target = Cesium.Cartesian3.fromDegrees(116.4074, 39.9042, 16500000);
 
@@ -964,10 +964,10 @@ onMounted(async () => {
         },
         duration: 3, // 飞行持续时间，单位为秒
     });
-    viewer.value.scene.globe.depthTestAgainstTerrain = false;
-    viewer.value.canvas.addEventListener('wheel', handleMouseWheel);
+    // viewer.value.scene.globe.depthTestAgainstTerrain = false;
+    // viewer.value.canvas.addEventListener('wheel', handleMouseWheel);
     setTimeout(() => {
-        load3DTilesModels();
+        // load3DTilesModels();
     }, 1000);
 
     // 编辑回显
