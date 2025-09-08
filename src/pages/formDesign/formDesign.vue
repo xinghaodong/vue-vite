@@ -106,12 +106,12 @@
                                                                             ></el-option>
                                                                         </template>
                                                                         <template v-if="colElement.type === 'radio'">
-                                                                            <el-radio v-for="option in colElement.props.options" :key="option.value" :label="option.value">{{
+                                                                            <el-radio v-for="option in colElement.props.options" :key="option.value" :value="option.value">{{
                                                                                 option.label
                                                                             }}</el-radio>
                                                                         </template>
                                                                         <template v-if="colElement.type === 'checkbox'">
-                                                                            <el-checkbox v-for="option in colElement.props.options" :key="option.value" :label="option.value">{{
+                                                                            <el-checkbox v-for="option in colElement.props.options" :key="option.value" :value="option.value">{{
                                                                                 option.label
                                                                             }}</el-checkbox>
                                                                         </template>
@@ -141,10 +141,10 @@
                                                     <el-option v-for="option in element.props.options" :key="option.value" :label="option.label" :value="option.value"></el-option>
                                                 </template>
                                                 <template v-if="element.type === 'radio'">
-                                                    <el-radio v-for="option in element.props.options" :key="option.value" :label="option.value">{{ option.label }}</el-radio>
+                                                    <el-radio v-for="option in element.props.options" :key="option.value" :value="option.value">{{ option.label }}</el-radio>
                                                 </template>
                                                 <template v-if="element.type === 'checkbox'">
-                                                    <el-checkbox v-for="option in element.props.options" :key="option.value" :label="option.value">{{ option.label }}</el-checkbox>
+                                                    <el-checkbox v-for="option in element.props.options" :key="option.value" :value="option.value">{{ option.label }}</el-checkbox>
                                                 </template>
                                             </component>
                                         </el-form-item>
@@ -182,16 +182,16 @@
                         </el-form-item>
                         <el-form-item label="表单尺寸">
                             <el-radio-group v-model="formConfig.size">
-                                <el-radio-button label="large">大</el-radio-button>
-                                <el-radio-button label="default">中</el-radio-button>
-                                <el-radio-button label="small">小</el-radio-button>
+                                <el-radio-button value="large">大</el-radio-button>
+                                <el-radio-button value="default">中</el-radio-button>
+                                <el-radio-button value="small">小</el-radio-button>
                             </el-radio-group>
                         </el-form-item>
                         <el-form-item label="标签位置">
                             <el-radio-group v-model="formConfig.labelPosition">
-                                <el-radio-button label="left">左对齐</el-radio-button>
-                                <el-radio-button label="right">右对齐</el-radio-button>
-                                <el-radio-button label="top">顶部对齐</el-radio-button>
+                                <el-radio-button value="left">左对齐</el-radio-button>
+                                <el-radio-button value="right">右对齐</el-radio-button>
+                                <el-radio-button value="top">顶部对齐</el-radio-button>
                             </el-radio-group>
                         </el-form-item>
                     </el-form>
@@ -266,6 +266,10 @@
                                     <el-input v-model="currentItem.props.inactiveText"></el-input>
                                 </el-form-item>
                             </template>
+
+                            <el-form-item label="绑定字段" v-if="currentItem && currentItem.type !== 'grid'">
+                                <el-input v-model="currentItem.id" placeholder="如: username, email" clearable="true"></el-input>
+                            </el-form-item>
                         </el-form>
                     </div>
                     <div v-else class="empty-tip">请选择要配置的组件</div>
@@ -298,7 +302,7 @@
         </div>
         <!-- 生成代码对话框 -->
         <el-dialog v-model="showCodeDialog" title="生成的 Vue 代码" width="70%" top="5vh" custom-class="code-dialog">
-            <div style="height: 70vh; overflow: auto; background-color: #f5f5f5; padding: 10px; border-radius: 4px">
+            <div style="height: 70vh; overflow: auto; padding: 10px; border-radius: 4px">
                 <pre><code class="language-html" style="white-space: pre-wrap; word-wrap: break-word;">{{ generatedVueCode }}</code></pre>
             </div>
             <template #footer>
@@ -319,8 +323,7 @@ import xml from 'highlight.js/lib/languages/xml';
 hljs.registerLanguage('vue', xml);
 
 import { ref, reactive, computed, nextTick } from 'vue';
-import { ElMessage, ElDialog, ElButton } from 'element-plus'; // Added ElDialog, ElButton for modal. ElInput removed as not directly used in dialog.
-// 假设 @/utils/copy.js 文件存在并导出了 copyText 函数
+import { ElMessage, ElDialog, ElButton } from 'element-plus';
 // 例如: export const copyText = (text) => navigator.clipboard.writeText(text);
 import { copyText } from '@/utils/copy';
 import draggable from 'vuedraggable/src/vuedraggable';
@@ -412,8 +415,13 @@ const getProps = props => {
     return Object.entries(props)
         .filter(([key, value]) => !excludeProps.includes(key) && value !== undefined && value !== '' && value !== false)
         .map(([key, value]) => {
-            const val = typeof value === 'string' ? `"${value}"` : value;
-            return `:${key}="${val}"`;
+            if (typeof value === 'string') {
+                // 字符串：直接静态绑定，不需要 :，用单引号避免嵌套问题
+                return `${key}='${value.replace(/'/g, "\\'")}'`;
+            } else {
+                // 非字符串（布尔、数字等）：动态绑定
+                return `:${key}="${value}"`;
+            }
         })
         .join(' ');
 };
@@ -424,7 +432,7 @@ const generateFormItem = item => {
     if (!template) return '';
 
     return `
-        <el-form-item 
+    <el-form-item 
       label="${item.props.label}"
       prop="${item.id}"
       ${item.props.required ? ':required="true"' : ''}>
@@ -748,7 +756,6 @@ const removeOption = index => {
 .form-design-container {
     display: flex;
     height: 100vh;
-    background-color: #f5f7fa;
 }
 
 /* 通用样式 - 固定标题和滚动内容 */
@@ -762,7 +769,6 @@ const removeOption = index => {
 
 .section-header {
     padding: 15px 20px;
-    background-color: #fff;
     border-bottom: 1px solid #ebeef5;
     z-index: 10;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
@@ -778,7 +784,6 @@ const removeOption = index => {
 .component-list {
     width: 250px;
     border-right: 1px solid #dcdfe6;
-    background-color: #fff;
 }
 
 .component-item {
@@ -793,7 +798,6 @@ const removeOption = index => {
 }
 
 .component-item:hover {
-    background-color: #f5f7fa;
     border-color: #409eff;
 }
 
@@ -808,9 +812,8 @@ const removeOption = index => {
 }
 
 .form-canvas {
-    height: 100%;
+    min-height: calc(100% - 40px);
     padding: 20px;
-    background-color: #fff;
     border-radius: 4px;
     box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
 }
@@ -829,7 +832,6 @@ const removeOption = index => {
 
 .form-item-wrapper.active {
     border: 1px solid #409eff;
-    background-color: #ecf5ff;
 }
 
 /* 栅格布局样式 */
@@ -851,7 +853,6 @@ const removeOption = index => {
 
 .grid-col-active {
     border: 1px solid #409eff;
-    background-color: #f0f9ff;
 }
 
 .grid-empty-tip {
@@ -866,7 +867,6 @@ const removeOption = index => {
     padding: 8px;
     border: 1px solid #ebeef5;
     border-radius: 4px;
-    background-color: #f9fafc;
 }
 
 .column-header {
@@ -907,7 +907,6 @@ const removeOption = index => {
 .config-panel {
     width: 300px;
     border-left: 1px solid #dcdfe6;
-    background-color: #fff;
 }
 
 .empty-tip {
