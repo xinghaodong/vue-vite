@@ -92,10 +92,10 @@ const isDarkMode = ref(localStorage.getItem('theme') === 'dark');
 
 const toggleDarkMode = () => {
     isDarkMode.value = !isDarkMode.value;
-    // let params = {
-    //     id: userInfo.value.id,
-    //     theme: isDarkMode.value ? 'dark' : 'light',
-    // };
+    let params = {
+        id: userInfo.value.id,
+        theme: isDarkMode.value ? 'dark' : 'light',
+    };
     if (isDarkMode.value) {
         localStorage.setItem('theme', 'dark');
         document.documentElement.classList.add('dark');
@@ -103,17 +103,17 @@ const toggleDarkMode = () => {
         localStorage.setItem('theme', 'light');
         document.documentElement.classList.remove('dark');
     }
-    // proxy.$api.updateTheme(params).then(res => {
-    //     localStorage.setItem('theme', res.data);
-    //     if (isDarkMode.value) {
-    //         document.documentElement.classList.add('dark');
-    //     } else {
-    //         document.documentElement.classList.remove('dark');
-    //     }
-    //     nextTick(() => {
-    //         window.location.reload();
-    //     });
-    // });
+    proxy.$api.updateTheme(params).then(res => {
+        localStorage.setItem('theme', res.data);
+        if (isDarkMode.value) {
+            document.documentElement.classList.add('dark');
+        } else {
+            document.documentElement.classList.remove('dark');
+        }
+        // nextTick(() => {
+        //     window.location.reload();
+        // });
+    });
 };
 
 // 定义函数 foldEvent

@@ -367,6 +367,15 @@ export default {
     getVideoFrames(params) {
         return oGet(baseUrl + '/video/detail', params);
     },
+
+    // 流程审批列表
+    logicfind(params) {
+        return oGet(baseUrl + '/logic-flow/find', params);
+    },
+
+    logicadd(params) {
+        return oPost(baseUrl + '/logic-flow/add', params);
+    },
 };
 
 //封装post/get请求

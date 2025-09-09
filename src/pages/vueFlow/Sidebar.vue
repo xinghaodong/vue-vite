@@ -59,7 +59,7 @@ const save = (form, type) => {
     ruleFormRef.value.validate(async valid => {
         if (valid) {
             const data = await proxy.$api.addFlowChart(obj);
-            if (data.code == 200) {;
+            if (data.code == 200) {
                 proxy.$message.success(data.message);
                 ruleFormRef.value.resetFields();
                 // 关闭当前路由页面

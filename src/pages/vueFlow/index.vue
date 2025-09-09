@@ -101,11 +101,11 @@ function updateNode(updatedNode) {
 }
 </script>
 <style scoped>
-@import 'https://cdn.jsdelivr.net/npm/@vue-flow/core@1.42.0/dist/style.css';
-@import 'https://cdn.jsdelivr.net/npm/@vue-flow/core@1.42.0/dist/theme-default.css';
-@import 'https://cdn.jsdelivr.net/npm/@vue-flow/controls@latest/dist/style.css';
-@import 'https://cdn.jsdelivr.net/npm/@vue-flow/minimap@latest/dist/style.css';
-@import 'https://cdn.jsdelivr.net/npm/@vue-flow/node-resizer@latest/dist/style.css';
+@import './vueFlowStyle/coreStyle.css';
+@import './vueFlowStyle/theme-default.css';
+@import './vueFlowStyle/coreStyle.css';
+@import './vueFlowStyle/latestStyle.css';
+@import './vueFlowStyle/node-resizerStyle.css';
 
 .vue-flow__minimap {
     transform: scale(75%);
