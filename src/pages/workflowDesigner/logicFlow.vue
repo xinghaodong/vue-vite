@@ -23,13 +23,16 @@
                     <el-form-item label="节点名称">
                         <el-input placeholder="请输入节点名称" v-model="currentNodeConfig.text.value" />
                     </el-form-item>
-                    <el-form-item label="审批人">
+                    <el-form-item label="审批人" v-if="currentNode?.type === 'rect'">
                         <el-select v-model="currentNodeConfig.properties.assignee" placeholder="请选择">
                             <el-option label="部门领导" value="deptLeader" />
                             <el-option label="HR专员" value="hr" />
                         </el-select>
                     </el-form-item>
-                    <el-form-item label="关联表单">
+                    <el-form-item label="条件表达式" v-if="currentNode?.type === 'diamond'">
+                        <el-input v-model="currentNodeConfig.properties.condition" placeholder="如请假审批: days>3" />
+                    </el-form-item>
+                    <el-form-item label="关联表单" v-if="currentNode?.type === 'rect'">
                         <el-select v-model="currentNodeConfig.properties.formId" placeholder="请选择表单">
                             <el-option v-for="form in mockFormList" :key="form.id" :label="form.name" :value="form.id" />
                         </el-select>
@@ -59,6 +62,7 @@
 <script setup>
 import { ref, onMounted, nextTick, reactive, getCurrentInstance } from 'vue';
 const { proxy } = getCurrentInstance();
+import { useRoute } from 'vue-router';
 import LogicFlow from '@logicflow/core';
 // 1. 引入 DndPanel 插件及样式
 import { Menu, Control, ProximityConnect, DndPanel } from '@logicflow/extension';
@@ -72,14 +76,17 @@ LogicFlow.use(Control);
 LogicFlow.use(ProximityConnect);
 LogicFlow.use(DndPanel); // 注册拖拽面板插件
 
-// 原有表单相关逻辑（保留）
+// 原有表单相关逻辑
 const ruleFormRef = ref(null);
 const rules = reactive({
     name: [{ required: true, message: '请输入模板名称', trigger: 'blur' }],
 });
-const ruleForm = reactive({ name: '', status: 0, description: '' });
+const ruleForm = ref({ name: '', status: 0, description: '' });
 
-// 原有模拟表单数据（保留）
+const route = useRoute();
+const { idkey } = route.query;
+
+// 原有模拟表单数据
 const mockFormList = [
     { id: 'form_leave_001', name: '请假申请表单' },
     { id: 'form_reimburse_002', name: '报销申请表单' },
@@ -91,91 +98,15 @@ const mockFormSchemas = {
     },
 };
 
-// 原有节点配置相关逻辑（保留）
+// 原有节点配置相关逻辑
 const drawerVisible = ref(false);
 const previewVisible = ref(false);
 const currentNode = ref(null);
 const currentNodeConfig = ref({});
 const previewSchema = ref(null);
 
-// 原有流程数据（保留）
-const dataObj = ref({
-    nodes: [
-        {
-            id: '36d91bae-43c4-4587-ab6f-967463b402ed',
-            type: 'circle',
-            x: 240,
-            y: 204,
-            properties: {
-                assignee: 'deptLeader',
-                formId: 'form_leave_001',
-                remark: '45',
-                width: 100,
-                height: 100,
-            },
-            text: {
-                x: 240,
-                y: 204,
-                value: '开始',
-            },
-        },
-        {
-            id: '7308bf36-f706-4fd6-ae12-7c7aba03c456',
-            type: 'rect',
-            x: 242,
-            y: 434,
-            properties: {
-                assignee: 'deptLeader',
-                formId: 'form_leave_001',
-                remark: '45',
-                width: 100,
-                height: 80,
-            },
-            text: {
-                x: 242,
-                y: 434,
-                value: '审批节点45',
-            },
-        },
-    ],
-    edges: [
-        {
-            id: 'dd50c990-e696-4a87-8ae8-d7ea981cf308',
-            type: 'bezier',
-            properties: {},
-            sourceNodeId: '36d91bae-43c4-4587-ab6f-967463b402ed',
-            targetNodeId: '7308bf36-f706-4fd6-ae12-7c7aba03c456',
-            sourceAnchorId: '36d91bae-43c4-4587-ab6f-967463b402ed_2',
-            targetAnchorId: '7308bf36-f706-4fd6-ae12-7c7aba03c456_0',
-            startPoint: {
-                x: 240,
-                y: 254,
-            },
-            endPoint: {
-                x: 242,
-                y: 394,
-            },
-            pointsList: [
-                {
-                    x: 240,
-                    y: 254,
-                },
-                {
-                    x: 240,
-                    y: 354,
-                },
-                {
-                    x: 242,
-                    y: 294,
-                },
-                {
-                    x: 242,
-                    y: 394,
-                },
-            ],
-        },
-    ],
-});
+// 原有流程数据
+const dataObj = ref({});
 
 // LogicFlow 实例
 let lf = null;
@@ -205,7 +136,7 @@ const initLogicFlow = () => {
             type: 'circle', // 节点类型：圆形（开始节点）
             text: '开始', // 拖拽到画布后节点的默认文本
             label: '开始节点', // 拖拽面板中显示的节点名称
-            properties: { assignee: '', formId: '', remark: '' },
+            properties: {}, // 空对象，不挂业务属性
             icon: '/yq.png',
         },
         {
@@ -219,19 +150,19 @@ const initLogicFlow = () => {
             type: 'diamond', // 节点类型：矩形（审批节点）
             text: '条件节点', // 默认文本
             label: '条件节点', // 面板显示名称
-            properties: { assignee: '', formId: '', remark: '' }, // 默认属性
+            properties: { condition: '' }, //  条件节点挂条件表达式，不挂人
             icon: '/tj.png',
         },
         {
             type: 'circle', // 节点类型：菱形（结束节点）
             text: '结束', // 默认文本
             label: '结束节点', // 面板显示名称
-            properties: { assignee: '', formId: '', remark: '' }, // 默认属性
+            properties: {}, // 默认属性
             icon: '/yq.png',
         },
     ]);
 
-    // 原有主题适配逻辑（保留）
+    // 原有主题适配逻辑
     if (localStorage.getItem('theme') === 'dark') {
         lf.setTheme({}, 'dark');
     } else {
@@ -250,7 +181,7 @@ const initLogicFlow = () => {
         );
     }
 
-    // 原有节点点击事件（保留）
+    // 原有节点点击事件
     lf.on('node:click', ({ data }) => {
         currentNode.value = data;
         currentNodeConfig.value = {
@@ -259,14 +190,19 @@ const initLogicFlow = () => {
                 assignee: data.properties?.assignee || '',
                 formId: data.properties?.formId || '',
                 remark: data.properties?.remark || '',
+                condition: data.properties?.condition || '',
             },
         };
         drawerVisible.value = true;
     });
 
-    // 原有画布渲染逻辑（保留）
+    // 原有画布渲染逻辑
     lf.render();
     // 回显数据
+    if (idkey) {
+        console.log('回显数据', dataObj.value);
+        lf.renderRawData(dataObj.value);
+    }
     // lf.renderRawData(dataObj.value);
 };
 
@@ -288,7 +224,7 @@ const applyConfig = () => {
     }
 };
 
-// 原有预览表单逻辑（保留）
+// 原有预览表单逻辑
 const previewForm = () => {
     const formId = currentNodeConfig.value.properties.formId;
     if (!formId) {
@@ -299,23 +235,46 @@ const previewForm = () => {
     previewVisible.value = true;
 };
 
-// 原有保存工作流逻辑（保留）
+// 原有保存工作流逻辑
 const saveWorkflow = async () => {
     const graphData = lf.getGraphData();
-    let obj = { ...ruleForm, graphData: graphData };
+    let obj = { ...ruleForm.value, graphData: graphData };
     console.log('流程数据:', graphData, obj);
     // 可在此处添加接口请求提交数据
-    const res = await proxy.$api.logicadd(obj);
-    if (res.code === 200) {
+    let res = null;
+    if (idkey) {
+        obj.id = idkey;
+        res = await proxy.$api.logicupdate(obj);
+    } else {
+        res = await proxy.$api.logicadd(obj);
+    }
+    if (res.code == 200) {
         ElMessage.success('保存成功');
     } else {
         ElMessage.error('保存失败');
     }
 };
+const getLogicdetail = async () => {
+    try {
+        const res = await proxy.$api.logicdetail({ id: idkey });
+        if (res.code === 200) {
+            ruleForm.value = res.data;
+            dataObj.value = res.data.graphData;
+            console.log(res.data, dataObj.value);
+            initLogicFlow();
+        }
+    } catch (error) {
+        console.log(error);
+    }
+};
 
-// 初始化（保留）
+// 初始化
 onMounted(() => {
-    nextTick().then(initLogicFlow);
+    if (idkey) {
+        getLogicdetail();
+    } else {
+        nextTick().then(initLogicFlow());
+    }
 });
 </script>
 
@@ -343,17 +302,15 @@ onMounted(() => {
     right: 10px;
     top: 68px;
     width: 253px;
-    padding: 20px 10px;
+    padding: 16px 10px;
     text-align: center;
-    z-index: 101;
-
+    z-index: 1;
     background: #fff;
     border-radius: 5px;
     box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
     margin: 5px;
 }
 
-/* 原有画布样式（保留） */
 .canvas {
     flex: 1;
     height: 100%;
@@ -364,7 +321,6 @@ onMounted(() => {
     margin-top: 20px;
 }
 
-/* 修复节点文本溢出（保留） */
 .lf-node text {
     white-space: nowrap;
 }

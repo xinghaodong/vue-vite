@@ -46,7 +46,7 @@ axios.interceptors.request.use(
             // 我们只需要确保不要覆盖它
             delete config.headers['Content-Type']; // 让 axios 自动识别
         }
-        console.log('请求config：', config.responseType);
+        // console.log('请求config：', config.responseType);
         return config;
     },
     error => {
@@ -372,9 +372,21 @@ export default {
     logicfind(params) {
         return oGet(baseUrl + '/logic-flow/find', params);
     },
-
+    // 新增流程审批
     logicadd(params) {
         return oPost(baseUrl + '/logic-flow/add', params);
+    },
+    // 流程审批详情
+    logicdetail(params) {
+        return oGet(baseUrl + '/logic-flow/detail', params);
+    },
+    // 修改流程审批
+    logicupdate(params) {
+        return oPost(baseUrl + '/logic-flow/update', params);
+    },
+    // 删除流程审批
+    logicdelete(params) {
+        return oPost(baseUrl + '/logic-flow/remove', params);
     },
 };
 

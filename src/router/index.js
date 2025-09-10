@@ -149,7 +149,7 @@ const setupDynamicRoutes = async () => {
                 router.addRoute(route);
             }
         });
-        console.log('路由表:', router.getRoutes());
+        // console.log('路由表:', router.getRoutes());
         // 添加一个catch-all路由，确保无效路由会重定向到 404
         router.addRoute({
             path: '/:catchAll(.*)', // 使用 catchAll 匹配所有路径

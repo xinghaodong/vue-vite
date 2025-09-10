@@ -44,7 +44,7 @@ const govueFlow = row => {
     // 路由跳转
     proxy.$router.push({
         path: '/home/logicFlow',
-        query: { id: row ? row.id : '' },
+        query: { idkey: row ? row.id : '' },
     });
 };
 const getList = async () => {
@@ -70,7 +70,7 @@ const handleDelete = async row => {
         })
         .then(async () => {
             console.log(row);
-            const data = await proxy.$api.deleteFlowChart({ id: row.id });
+            const data = await proxy.$api.logicdelete({ id: row.id });
             if (data.code == 200) {
                 proxy.$message.success(data.message);
                 getList();

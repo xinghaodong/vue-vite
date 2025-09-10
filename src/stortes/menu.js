@@ -42,12 +42,12 @@ const menuStore = defineStore('menu', {
          * 对象应包含一个URL属性，用于唯一标识菜单项。
          */
         changeMenu(obj) {
-            console.log(
-                '检查',
-                this.activeTabArray,
-                obj,
-                this.activeTabArray.some(item => item.url == obj.url),
-            );
+            // console.log(
+            //     '检查',
+            //     this.activeTabArray,
+            //     obj,
+            //     this.activeTabArray.some(item => item.url == obj.url),
+            // );
             // 检查新的菜单项是否已经存在于活跃菜单数组中
             if (this.activeTabArray.some(item => item.url == obj.url)) {
                 // 存在就

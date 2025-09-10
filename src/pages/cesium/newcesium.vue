@@ -997,6 +997,13 @@ const handleMouseWheel = e => {
         }
     }
 };
+// 停止动画循环
+const stopAnimationLoop = () => {
+    if (animationFrameId.value) {
+        cancelAnimationFrame(animationFrameId.value);
+        animationFrameId.value = null;
+    }
+};
 // 生命周期钩子
 onMounted(async () => {
     // 初始化
@@ -1042,11 +1049,29 @@ onMounted(async () => {
 });
 
 onUnmounted(() => {
+    console.log('即将离开当前路由，清理 Cesium 资源');
+
+    stopAnimationLoop();
     document.removeEventListener('keydown', handleKeyDown);
     document.removeEventListener('keyup', handleKeyUp);
+
     if (viewer.value && !viewer.value.isDestroyed()) {
         viewer.value.destroy();
     }
+
+    // 移除 postRender 监听器
+    if (updateFlightPathTimeRef.value && viewer.value?.scene?.postRender) {
+        viewer.value.scene.postRender.removeEventListener(updateFlightPathTimeRef.value);
+    }
+
+    // 销毁容器
+    const container = document.getElementById('cesiumContainer');
+    if (container && container.parentNode) {
+        container.parentNode.removeChild(container);
+    }
+
+    // 清空引用
+    viewer.value = null;
 });
 </script>
 
