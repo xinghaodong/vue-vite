@@ -388,6 +388,31 @@ export default {
     logicdelete(params) {
         return oPost(baseUrl + '/logic-flow/remove', params);
     },
+
+    // 新增动态表单
+    designAdd(params) {
+        return oPost(baseUrl + '/form-design/add', params);
+    },
+    // 修改动态表单
+    designUpdate(params) {
+        return oPost(baseUrl + '/form-design/update', params);
+    },
+    // 删除动态表单
+    designDelete(params) {
+        return oPost(baseUrl + '/form-design/remove', params);
+    },
+    // 查询动态表单列表
+    designQuery(params) {
+        return oGet(baseUrl + '/form-design/find', params);
+    },
+    // 查询动态表单详情
+    designDetail(params) {
+        return oGet(baseUrl + '/form-design/detail', params);
+    },
+    // 修改状态
+    designStatus(params) {
+        return oPost(baseUrl + '/form-design/updateStatus', params);
+    },
 };
 
 //封装post/get请求

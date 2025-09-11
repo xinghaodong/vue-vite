@@ -198,6 +198,18 @@ const initLogicFlow = () => {
 
     // 原有画布渲染逻辑
     lf.render();
+    // lf.on('edge:added', ({ edge }) => {
+    //     const sourceNode = lf.getNode(edge.sourceNodeId);
+    //     if (sourceNode?.type === 'diamond') {
+    //         // 只处理条件节点的边
+    //         const edges = lf.getEdgesBySourceId(edge.sourceNodeId); // 获取该条件节点的所有出边
+    //         const index = edges.findIndex(e => e.id === edge.id); // 找到当前边的索引
+
+    //         // 第一条边设为“是”，第二条设为“否”
+    //         const text = index === 0 ? '是' : '否';
+    //         lf.updateText(edge.id, text); // 设置边的文本
+    //     }
+    // });
     // 回显数据
     if (idkey) {
         console.log('回显数据', dataObj.value);

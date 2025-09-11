@@ -40,7 +40,10 @@
             <div class="section-header">
                 <div style="display: flex; justify-content: space-between; align-items: center; width: 100%">
                     <h4 style="margin: 0px">{{ formConfig.name }}</h4>
-                    <el-button type="primary" size="small" @click="openGeneratedCodeDialog">生成代码</el-button>
+                    <div>
+                        <el-button type="primary" size="small" @click="openGeneratedCodeDialog">生成代码</el-button>
+                        <el-button type="primary" size="small" @click="saveFormSchema">保存</el-button>
+                    </div>
                 </div>
             </div>
             <div class="section-content">
@@ -322,8 +325,12 @@ import 'highlight.js/styles/atom-one-dark.css';
 import xml from 'highlight.js/lib/languages/xml';
 hljs.registerLanguage('vue', xml);
 
-import { ref, reactive, computed, nextTick } from 'vue';
+import { ref, reactive, computed, nextTick, getCurrentInstance, onMounted } from 'vue';
 import { ElMessage, ElDialog, ElButton } from 'element-plus';
+const { proxy } = getCurrentInstance();
+import { useRoute } from 'vue-router';
+const route = useRoute();
+const { idkey } = route.query;
 // 例如: export const copyText = (text) => navigator.clipboard.writeText(text);
 import { copyText } from '@/utils/copy';
 import draggable from 'vuedraggable/src/vuedraggable';
@@ -340,6 +347,30 @@ const md = new MarkdownIt({
         return '';
     },
 });
+onMounted(() => {
+    if (idkey) {
+        getDesignQuery();
+    }
+});
+
+const getDesignQuery = async () => {
+    try {
+        const data = await proxy.$api.designDetail({ id: idkey });
+        if (data.code == 200) {
+            console.log(data.data);
+
+            Object.assign(formConfig, data.data.ui_config, {
+                name: data.data.name,
+                description: data.data.description,
+                status: data.data.status,
+            });
+
+            formItems.value = JSON.parse(data.data.schema);
+        }
+    } catch (error) {
+        console.log(error);
+    }
+};
 
 // 组件列表数据
 const componentList = [
@@ -374,6 +405,36 @@ const generatedVueCode = ref('');
 const openGeneratedCodeDialog = () => {
     generatedVueCode.value = generateVueCode();
     showCodeDialog.value = true;
+};
+
+// 保存
+const saveFormSchema = async () => {
+    try {
+        console.log(formConfig, formItems.value);
+        const formData = {
+            id: idkey || '', // 如果是编辑，用已有ID
+            name: formConfig.name,
+            description: '', // 可扩展(说明)
+            schema: JSON.stringify(formItems.value), // 组件结构
+            ui_config: {
+                // UI配置
+                labelWidth: formConfig.labelWidth,
+                size: formConfig.size,
+                labelPosition: formConfig.labelPosition,
+            },
+            status: 2, // 1=发布 2 = 草稿
+        };
+        console.log(formData);
+        const res = await proxy.$api.designAdd(formData);
+        if (res.code == 200) {
+            proxy.$message.success('保存成功');
+            proxy.$router.push('/home/formDesignList');
+        } else {
+            proxy.$message.error(res.message);
+        }
+    } catch (error) {
+        console.error(error);
+    }
 };
 
 const copyGeneratedCode = async () => {
@@ -432,7 +493,7 @@ const generateFormItem = item => {
     if (!template) return '';
 
     return `
-    <el-form-item 
+    <el-form-item
       label="${item.props.label}"
       prop="${item.id}"
       ${item.props.required ? ':required="true"' : ''}>
@@ -505,7 +566,7 @@ const collectFormDataDefaults = items => {
     }, {});
 };
 // 表单配置
-const formConfig = reactive({
+let formConfig = reactive({
     name: '未命名表单',
     labelWidth: 100,
     size: 'default',
@@ -743,10 +804,10 @@ const addOption = () => {
 const removeOption = index => {
     if (!currentItem.value || !currentItem.value.props.options) return;
 
-    if (currentItem.value.props.options.length <= 1) {
-        ElMessage.warning('至少保留一个选项');
-        return;
-    }
+    // if (currentItem.value.props.options.length <= 1) {
+    //     ElMessage.warning('至少保留一个选项');
+    //     return;
+    // }
 
     currentItem.value.props.options.splice(index, 1);
 };
