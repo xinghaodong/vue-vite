@@ -1,3 +1,4 @@
+<!-- logicFlow 流程设计器 -->
 <template>
     <div>
         <div class="main-container">
@@ -8,6 +9,14 @@
                 <el-form ref="ruleFormRef" :model="ruleForm" :rules="rules" label-width="80px" class="demo-ruleForm">
                     <el-form-item label="模板名称" prop="name">
                         <el-input v-model="ruleForm.name"></el-input>
+                    </el-form-item>
+                    <!-- 关联表单 -->
+                    <el-form-item label="关联表单" prop="formId">
+                        <!-- <el-input v-model="ruleForm.formId"></el-input> -->
+                        <el-select v-model="ruleForm.formId" placeholder="请选择关联表单">
+                            <el-option v-for="form in mockFormList" :key="form.id" :label="form.name" :value="form.id"> </el-option>
+                        </el-select>
+                        <el-button link type="primary" @click="previewForm" style="margin-left: 10px"> 预览 </el-button>
                     </el-form-item>
                 </el-form>
 
@@ -25,8 +34,7 @@
                     </el-form-item>
                     <el-form-item label="审批人" v-if="currentNode?.type === 'rect'">
                         <el-select v-model="currentNodeConfig.properties.assignee" placeholder="请选择">
-                            <el-option label="部门领导" value="deptLeader" />
-                            <el-option label="HR专员" value="hr" />
+                            <el-option v-for="item in options" :key="item" :label="item.name" :value="item.id" />
                         </el-select>
                     </el-form-item>
                     <el-form-item label="条件表达式" v-if="currentNode?.type === 'diamond'">
@@ -48,12 +56,18 @@
             </el-drawer>
 
             <!-- 原有表单预览弹窗 -->
-            <el-dialog v-model="previewVisible" title="表单预览" width="50%">
+            <!-- <el-dialog v-model="previewVisible" title="表单预览" width="50%">
                 <div v-if="previewSchema">
                     <p>表单名称：{{ previewSchema.name }}</p>
                     <pre>{{ JSON.stringify(previewSchema.schema, null, 2) }}</pre>
                 </div>
                 <div v-else>暂无表单</div>
+            </el-dialog> -->
+            <el-dialog v-model="previewVisible" title="表单预览" width="70%" top="5vh" custom-class="code-dialog">
+                <div style="height: 70vh; overflow: auto; padding: 10px; border-radius: 4px">
+                    <!-- <h3>{{ previewSchema.name }}</h3> -->
+                    <DynamicForm :schema="formSchema" :ui-config="uiConfig" />
+                </div>
             </el-dialog>
         </div>
     </div>
@@ -61,6 +75,7 @@
 
 <script setup>
 import { ref, onMounted, nextTick, reactive, getCurrentInstance } from 'vue';
+import DynamicForm from '@/pages/formDesign/components/DynamicForm.vue';
 const { proxy } = getCurrentInstance();
 import { useRoute } from 'vue-router';
 import LogicFlow from '@logicflow/core';
@@ -69,6 +84,11 @@ import { Menu, Control, ProximityConnect, DndPanel } from '@logicflow/extension'
 import '@logicflow/core/lib/style/index.css';
 import '@logicflow/extension/lib/style/index.css';
 import { ElMessage } from 'element-plus';
+
+const formSchema = ref([]); // 从接口获取的 schema
+const uiConfig = ref({}); // 从接口获取的 ui_config
+// const formData = ref({}); // 表单数据
+const formName = ref('');
 
 // 2. 注册 DndPanel 插件
 LogicFlow.use(Menu);
@@ -80,17 +100,23 @@ LogicFlow.use(DndPanel); // 注册拖拽面板插件
 const ruleFormRef = ref(null);
 const rules = reactive({
     name: [{ required: true, message: '请输入模板名称', trigger: 'blur' }],
+    formId: [{ required: true, message: '请选择关联表单', trigger: 'change' }],
 });
-const ruleForm = ref({ name: '', status: 0, description: '' });
+const ruleForm = ref({ name: '', formId: '', status: 0, description: '' });
+const options = ref([
+    { label: '张三', value: 'zhangsan' },
+    { label: '李四', value: 'lisi' },
+    { label: '王五', value: 'wangwu' },
+]);
 
 const route = useRoute();
 const { idkey } = route.query;
 
 // 原有模拟表单数据
-const mockFormList = [
+const mockFormList = ref([
     { id: 'form_leave_001', name: '请假申请表单' },
     { id: 'form_reimburse_002', name: '报销申请表单' },
-];
+]);
 const mockFormSchemas = {
     form_leave_001: {
         name: '请假申请表单',
@@ -236,15 +262,25 @@ const applyConfig = () => {
     }
 };
 
-// 原有预览表单逻辑
-const previewForm = () => {
-    const formId = currentNodeConfig.value.properties.formId;
+// 预览表单
+const previewForm = async () => {
+    const formId = ruleForm.value.formId || currentNodeConfig.value.properties.formId;
     if (!formId) {
-        alert('请选择表单');
+        proxy.$message.warning('请先选择表单');
         return;
     }
-    previewSchema.value = mockFormSchemas[formId] || null;
+    // previewSchema.value = mockFormSchemas[formId] || null;
     previewVisible.value = true;
+    // 根据formId 查询表单接口
+
+    const data = await proxy.$api.designDetail({ id: formId });
+    if (data.code == 200) {
+        console.log(data.data);
+
+        formSchema.value = JSON.parse(data.data.schema);
+        uiConfig.value = data.data.ui_config;
+        formName.value = data.data.name;
+    }
 };
 
 // 原有保存工作流逻辑
@@ -280,6 +316,21 @@ const getLogicdetail = async () => {
     }
 };
 
+const findAll = async () => {
+    const res = await proxy.$api.findAll();
+    if (res.code === 200) {
+        options.value = res.data;
+    }
+};
+
+const designNoPage = async () => {
+    const res = await proxy.$api.designNoPage();
+    if (res.code === 200) {
+        console.log('表单列表', res.data);
+        mockFormList.value = res.data;
+    }
+};
+
 // 初始化
 onMounted(() => {
     if (idkey) {
@@ -287,6 +338,8 @@ onMounted(() => {
     } else {
         nextTick().then(initLogicFlow());
     }
+    findAll();
+    designNoPage();
 });
 </script>
 

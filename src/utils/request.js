@@ -196,6 +196,9 @@ export default {
     find(params) {
         return oGet(baseUrl + '/internalusers/find', params);
     },
+    findAll(params) {
+        return oGet(baseUrl + '/internalusers/findAll', params);
+    },
     //新增用户
     add(params) {
         return oPost(baseUrl + '/internalusers/add', params);
@@ -404,6 +407,10 @@ export default {
     // 查询动态表单列表
     designQuery(params) {
         return oGet(baseUrl + '/form-design/find', params);
+    },
+    // 不分页
+    designNoPage(params) {
+        return oGet(baseUrl + '/form-design/findAll', params);
     },
     // 查询动态表单详情
     designDetail(params) {

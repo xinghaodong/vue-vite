@@ -1,3 +1,4 @@
+<!-- 表单设计器 -->
 <template>
     <div class="form-design-container">
         <!-- 左侧组件列表 -->
@@ -34,7 +35,6 @@
                 </draggable>
             </div>
         </div>
-
         <!-- 中间设计区域 -->
         <div class="design-area">
             <div class="section-header">
@@ -241,6 +241,10 @@
                                     </div>
                                     <el-button @click="addOption" type="primary" size="small">添加选项</el-button>
                                 </el-form-item>
+                                <el-form-item label="数据源API">
+                                    <el-input v-model="currentItem.props.apiUrl" placeholder="如: /api/employees 或 /api/enums/leaveType" />
+                                    <div style="font-size: 12px; color: #999; margin-top: 5px">留空则使用静态选项，填写后将动态加载数据</div>
+                                </el-form-item>
                                 <el-form-item label="多选">
                                     <el-switch v-model="currentItem.props.multiple"></el-switch>
                                 </el-form-item>
@@ -273,6 +277,22 @@
                             <el-form-item label="绑定字段" v-if="currentItem && currentItem.type !== 'grid'">
                                 <el-input v-model="currentItem.id" placeholder="如: username, email" clearable="true"></el-input>
                             </el-form-item>
+
+                            <!-- 计算字段配置，仅对 input 类型 -->
+                            <template v-if="currentItem.type === 'input'">
+                                <el-form-item label="是否计算字段">
+                                    <el-switch v-model="currentItem.props.isComputed"></el-switch>
+                                </el-form-item>
+                                <el-form-item label="依赖字段" v-if="currentItem.props.isComputed">
+                                    <el-select v-model="currentItem.props.dependencies" multiple placeholder="选择依赖字段">
+                                        <el-option v-for="field in getAvailableFields()" :key="field.id" :label="field.props.label" :value="field.id" />
+                                    </el-select>
+                                </el-form-item>
+                                <el-form-item label="计算表达式" v-if="currentItem.props.isComputed">
+                                    <el-input v-model="currentItem.props.computedExpression" placeholder="如: (endDate - startDate) / (1000*60*60*24)" />
+                                    <div style="font-size: 12px; color: #999">支持 JS 表达式，引用字段 ID</div>
+                                </el-form-item>
+                            </template>
                         </el-form>
                     </div>
                     <div v-else class="empty-tip">请选择要配置的组件</div>
@@ -405,6 +425,26 @@ const generatedVueCode = ref('');
 const openGeneratedCodeDialog = () => {
     generatedVueCode.value = generateVueCode();
     showCodeDialog.value = true;
+};
+
+// 获取可用的依赖字段
+const getAvailableFields = () => {
+    const fields = [];
+    // 遍历所有表单项，收集可作为依赖的字段
+    const traverseItems = items => {
+        items.forEach(item => {
+            if (item.type === 'grid') {
+                // 处理栅格列内的字段
+                console.log(item);
+                item.props.columns.forEach(col => traverseItems(col.list));
+            } else if (item.id !== currentItem.value?.id) {
+                // 排除自身
+                fields.push(item);
+            }
+        });
+    };
+    traverseItems(formItems.value);
+    return fields;
 };
 
 // 保存
@@ -609,6 +649,11 @@ const createComponentConfig = item => {
             placeholder: `请输入${item.label}`,
             required: false,
             disabled: false,
+
+            // 计算字段相关默认值
+            isComputed: false,
+            dependencies: [], // 计算字段依赖的组件ID
+            computedExpression: '', // 计算表达式
         },
     };
     if (item.type !== 'grid') {
@@ -637,10 +682,8 @@ const createComponentConfig = item => {
             baseConfig.props.showWordLimit = true;
             break;
         case 'select':
-            baseConfig.props.options = [
-                { label: '选项1', value: 'option1' },
-                { label: '选项2', value: 'option2' },
-            ];
+            baseConfig.props.options = [{ label: '选项1', value: 'option1' }];
+            baseConfig.props.apiUrl = '';
             baseConfig.props.multiple = false;
             baseConfig.props.clearable = false;
             baseConfig.props.filterable = false;
