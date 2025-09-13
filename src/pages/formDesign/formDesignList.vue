@@ -16,9 +16,9 @@
             <el-table-column prop="created_at" label="创建时间" width="180"> </el-table-column>
             <el-table-column prop="updated_at" label="更新时间" width="180"> </el-table-column>
             <!-- 操作 -->
-            <el-table-column label="操作" width="240" fixed="right">
+            <el-table-column label="操作" width="260" fixed="right">
                 <template #default="scope">
-                    <el-button type="primary" link @click="startOrStop(scope.row)" v-text="scope.row.status == 2 ? '启用' : '禁用'"></el-button>
+                    <el-button type="primary" link @click="startOrStop(scope.row)">{{ scope.row.status == 2 ? '启用' : '禁用' }}</el-button>
                     <el-button type="primary" link @click="handlePreview(scope.row)">预览</el-button>
                     <el-button v-if="scope.row.status == 1" type="primary" link @click="handlePreview(scope.row, 1)">发起</el-button>
                     <el-button type="primary" link @click="govueFlow(scope.row)">编辑</el-button>
@@ -55,6 +55,8 @@
 <script setup>
 import { ref, onMounted, getCurrentInstance } from 'vue';
 import DynamicForm from './components/DynamicForm.vue';
+import useUserInfoStore from '@/stortes/user'; //引入仓库
+const userInfoStore = useUserInfoStore();
 const { proxy } = getCurrentInstance();
 const tableData = ref([]);
 const currentPage = ref(1);
@@ -65,10 +67,12 @@ const formSchema = ref([]); // 从接口获取的 schema
 const uiConfig = ref({}); // 从接口获取的 ui_config
 const formData = ref({}); // 表单数据
 const formName = ref('');
+const formId = ref('');
 
 const isInitiate = ref(false); // 是否是发起流程
 
 const handlePreview = (row, val) => {
+    formId.value = row.id;
     isInitiate.value = val ? true : false;
     showCodeDialog.value = true;
     console.log('Preview row:', row);
@@ -80,8 +84,16 @@ const handlePreview = (row, val) => {
 // 发起流程审批
 const handleInitiate = async () => {
     try {
-        console.log('data', formSchema.value, formData.value);
-        const data = await proxy.$api.saveFirstDialogue();
+        formData.value.formId = formId.value;
+        // 从 store 获取申请人
+        formData.value.userId = userInfoStore?.userInfo?.id;
+        console.log('data', formData.value);
+        let obj = {
+            formId: formId.value,
+            formData: formData.value,
+            userId: userInfoStore?.userInfo?.id,
+        };
+        const data = await proxy.$api.startWorkflow(obj);
         if (data.code == 200) {
             proxy.$message.success(data.message);
             showCodeDialog.value = false;
@@ -93,7 +105,7 @@ const handleInitiate = async () => {
 const govueFlow = row => {
     // 路由跳转
     proxy.$router.push({
-        path: '/formDesign',
+        path: '/home/formDesign',
         query: { idkey: row ? row.id : '' },
     });
 };

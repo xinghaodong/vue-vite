@@ -420,6 +420,10 @@ export default {
     designStatus(params) {
         return oPost(baseUrl + '/form-design/updateStatus', params);
     },
+    // 发起流程审批
+    startWorkflow(params) {
+        return oPost(baseUrl + '/logic-flow/startWorkflow', params);
+    },
 };
 
 //封装post/get请求

@@ -79,11 +79,11 @@ const router = createRouter({
         //     path: '/cesium3d',
         //     component: () => import('@/pages/cesium/cesium3d.vue'),
         // },
-        {
-            name: 'formDesign',
-            path: '/formDesign',
-            component: () => import('@/pages/formDesign/formDesign.vue'),
-        },
+        // {
+        //     name: 'formDesign',
+        //     path: '/formDesign',
+        //     component: () => import('@/pages/formDesign/formDesign.vue'),
+        // },
     ],
 });
 
@@ -178,7 +178,7 @@ router.beforeEach(async (to, from, next) => {
     };
 
     // 如果是ai界面直接放行 无需登录
-    if (to.path === '/ai' || to.path === '/cesium' || to.path === '/cesium2d' || to.path === '/newcesium' || to.path === '/formDesign') {
+    if (to.path === '/ai' || to.path === '/cesium' || to.path === '/cesium2d' || to.path === '/newcesium') {
         next();
         return;
     }

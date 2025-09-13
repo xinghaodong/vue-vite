@@ -298,6 +298,7 @@ const saveWorkflow = async () => {
     }
     if (res.code == 200) {
         ElMessage.success('保存成功');
+        proxy.$router.push({ path: '/home/logicFlowList' });
     } else {
         ElMessage.error('保存失败');
     }
