@@ -424,6 +424,10 @@ export default {
     startWorkflow(params) {
         return oPost(baseUrl + '/logic-flow/startWorkflow', params);
     },
+    // 获取我发起的流程审批数据
+    getMyInstances(params) {
+        return oGet(baseUrl + '/logic-flow/getMyInstances', params);
+    },
 };
 
 //封装post/get请求

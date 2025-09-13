@@ -75,7 +75,6 @@ const handlePreview = (row, val) => {
     formId.value = row.id;
     isInitiate.value = val ? true : false;
     showCodeDialog.value = true;
-    console.log('Preview row:', row);
     formSchema.value = JSON.parse(row.schema);
     uiConfig.value = row.ui_config;
     formName.value = row.name;
