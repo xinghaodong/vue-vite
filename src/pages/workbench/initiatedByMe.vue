@@ -7,6 +7,15 @@
         <el-table :data="tableData" border style="width: 100%">
             <el-table-column prop="title" label="流程名称"> </el-table-column>
             <!-- <el-table-column prop="code" label="code"> </el-table-column> -->
+             <!-- 状态 -->
+              <el-table-column label="状态" width="100">
+                <template #default="scope">
+                    <!-- 1=待审批, 2=通过, 3=拒绝, 4=退回 -->
+                    <el-tag v-if="scope.row.status == 1" type="success">待审批</el-tag>
+                    <el-tag v-if="scope.row.status == 2" type="info">通过</el-tag>
+                    <el-tag v-if="scope.row.status == 3" type="danger">拒绝</el-tag>
+                </template>
+              </el-table-column>
             <el-table-column prop="created_at" label="创建时间" width="180"> </el-table-column>
             <el-table-column prop="updated_at" label="更新时间" width="180"> </el-table-column>
             <!-- 操作 -->

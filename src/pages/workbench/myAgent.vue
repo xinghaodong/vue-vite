@@ -62,8 +62,8 @@
                                     <div class="approval-actions">
                                         <!-- 单选框 -->
                                         <el-radio-group v-model="approvalStatus" size="small">
-                                            <el-radio-button label="1">同意</el-radio-button>
-                                            <el-radio-button label="2">拒绝</el-radio-button>
+                                            <el-radio-button label="2">同意</el-radio-button>
+                                            <el-radio-button label="3">拒绝</el-radio-button>
                                         </el-radio-group>
                                     </div>
                                 </div>
@@ -161,6 +161,8 @@ const handleSubmitApproval = async () => {
             status: approvalStatus.value,
             comment: currentApproval.value,
         };
+        console.log('obj', obj);
+        // return;
         const res = await proxy.$api.approve(obj);
         if (res.code == 200) {
             proxy.$message.success('提交成功');
