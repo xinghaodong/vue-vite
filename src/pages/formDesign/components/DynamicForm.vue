@@ -117,7 +117,7 @@ const loadApiOptions = async item => {
             label: d.label || d.name || d.title || String(d),
             value: d.value || d.id || d.code || d,
         }));
-        console.log('选项:', item.options);
+        console.log('选项:', item);
     } catch (error) {
         console.error(`加载数据源失败 ${item.props.apiUrl}:`, error);
         item.options = [];
@@ -196,6 +196,7 @@ watch(
             }
             enhancedSchema.push(newItem);
         }
+        console.log('enhancedSchema:', enhancedSchema);
 
         // 加载动态数据源
         for (let item of enhancedSchema) {

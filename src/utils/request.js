@@ -428,6 +428,14 @@ export default {
     getMyInstances(params) {
         return oGet(baseUrl + '/logic-flow/getMyInstances', params);
     },
+    // 我的代办列表
+    getMyTodoInstances(params) {
+        return oGet(baseUrl + '/logic-flow/getMyTodoInstances', params);
+    },
+    // 处理审批
+    approve(params) {
+        return oPost(baseUrl + '/logic-flow/approve', params);
+    },
 };
 
 //封装post/get请求

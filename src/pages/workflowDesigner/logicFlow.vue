@@ -213,7 +213,7 @@ const initLogicFlow = () => {
         currentNodeConfig.value = {
             text: { value: typeof data.text === 'string' ? data.text : data.text?.value || '' },
             properties: {
-                assignee: data.properties?.assignee || '',
+                assignee: data.properties?.assignee || '', // 审批节点挂审批人
                 formId: data.properties?.formId || '',
                 remark: data.properties?.remark || '',
                 condition: data.properties?.condition || '',
