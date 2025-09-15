@@ -33,7 +33,7 @@
                         <el-input placeholder="请输入节点名称" v-model="currentNodeConfig.text.value" />
                     </el-form-item>
                     <el-form-item label="审批人" v-if="currentNode?.type === 'rect'">
-                        <el-select v-model="currentNodeConfig.properties.assignee" placeholder="请选择">
+                        <el-select v-model="currentNodeConfig.properties.assignee" @change="loadApiOptions(currentNodeConfig.properties.assignee)" placeholder="请选择">
                             <el-option v-for="item in options" :key="item" :label="item.name" :value="item.id" />
                         </el-select>
                     </el-form-item>
@@ -103,11 +103,7 @@ const rules = reactive({
     formId: [{ required: true, message: '请选择关联表单', trigger: 'change' }],
 });
 const ruleForm = ref({ name: '', formId: '', status: 0, description: '' });
-const options = ref([
-    { label: '张三', value: 'zhangsan' },
-    { label: '李四', value: 'lisi' },
-    { label: '王五', value: 'wangwu' },
-]);
+const options = ref([]);
 
 const route = useRoute();
 const { idkey } = route.query;
@@ -169,7 +165,7 @@ const initLogicFlow = () => {
             type: 'rect', // 节点类型：矩形（审批节点）
             text: '审批节点', // 默认文本
             label: '审批节点', // 面板显示名称
-            properties: { assignee: '', formId: '', remark: '' }, // 默认属性
+            properties: { assignee: '', assigneeName: '', formId: '', remark: '' }, // 默认属性
             icon: '/jx.png',
         },
         {
@@ -260,6 +256,12 @@ const applyConfig = () => {
     } catch (error) {
         console.error('更新节点失败:', error);
     }
+};
+const loadApiOptions = () => {
+    // 从 options.value 中获取 assigneeName
+    let item = options.value.find(option => option.id == currentNodeConfig.value.properties.assignee);
+    console.log(item);
+    currentNodeConfig.value.properties.assigneeName = item.name;
 };
 
 // 预览表单

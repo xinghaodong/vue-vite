@@ -88,14 +88,17 @@
                     </div>
                 </el-tab-pane>
 
-                <el-tab-pane label="流程图" name="workflow">
+                <el-tab-pane label="审批记录" name="workflow">
                     <div class="workflow-content">
                         <div class="workflow-steps">
-                            <el-steps :active="2" direction="vertical">
-                                <el-step title="提交申请" description="2024-12-23 09:06:57" />
-                                <el-step title="部门审批" description="审批中..." />
-                                <el-step title="HR审批" description="待审批" />
-                                <el-step title="完成" description="" />
+                            <el-steps :active="activeStep" direction="vertical">
+                                <el-step
+                                    v-for="(step, index) in steps"
+                                    :key="step.nodeId"
+                                    :title="step.title"
+                                    :description="getDescription(step, index)"
+                                    :status="getStepStatus(step.status, index)"
+                                />
                             </el-steps>
                         </div>
                     </div>
@@ -132,7 +135,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, getCurrentInstance, reactive, toRefs, watch } from 'vue';
+import { ref, onMounted, getCurrentInstance, reactive, toRefs, watch, computed } from 'vue';
 import useUserInfoStore from '@/stortes/user'; //引入仓库
 import DynamicForm from '@/pages/formDesign/components/DynamicForm.vue';
 const userInfoStore = useUserInfoStore();
@@ -148,9 +151,17 @@ const formName = ref('');
 const formData = ref({});
 const currentApproval = ref('');
 const activeTab = ref('form');
-const approvalStatus = ref('1');
+const approvalStatus = ref('2');
 const rowId = ref({});
+const instance = ref([]);
+const steps = ref([]);
 
+// 计算当前激活的步骤
+const activeStep = computed(() => {
+    console.log('instance.value', instance.value, steps.value);
+    const currentIndex = steps.value.findIndex(step => step.nodeId == instance.value.currentNodeId);
+    return currentIndex >= 0 ? currentIndex : steps.value.length;
+});
 
 // 提交审批
 const handleSubmitApproval = async () => {
@@ -173,6 +184,61 @@ const handleSubmitApproval = async () => {
         console.log(error);
     }
 };
+const getApprovalHistory = async () => {
+    try {
+        console.log('rowId.value', rowId.value);
+        const data = await proxy.$api.getApprovalHistory({ id: rowId.value });
+        console.log(data);
+        // approvalHistory.value = data.data;
+        instance.value = data.data;
+        steps.value = data.data.steps;
+        console.log('steps.value', steps.value);
+        if (data.code == 200) {
+        }
+    } catch (error) {
+        console.log(error);
+    }
+};
+// 格式化描述信息
+const getDescription = (step, index) => {
+    if (index == 0) return `申请人: ${step.userName || '未知'}\n发起时间: ${step.approvedAt || '-'}\n`;
+    if (step.type == 'circle') return '';
+    if (step.status == 0) return `审批人: ${step.userName} 待审批...`;
+    if (step.status == 1) {
+        return `审批人: ${step.userName} 审批中...`;
+    }
+    if (step.status == 2) {
+        return `审批人: ${step.userName || '未知'}\n审批时间: ${step.approvedAt || '-'}\n备注: ${step.comment || '无'}`;
+    }
+    if (step.status == 3) {
+        return `审批人: ${step.userName || '未知'}\n审批时间: ${step.approvedAt || '-'}\n备注: ${step.comment || '无'}\n状态: 拒绝`;
+    }
+    return '';
+};
+
+// 转换步骤状态
+const getStepStatus = (status, index) => {
+    if (index == 0) return 'finish';
+    if (status == 0) {
+        return index == 0 ? 'finish' : 'wait'; // 第一步提交为完成，其余等待
+    }
+    if (status == 1) return 'process'; // 审批中
+    if (status == 2) return 'finish'; // 通过
+    if (status == 3) return 'error'; // 拒绝
+    return 'wait'; // 默认未知状态
+};
+
+watch(
+    () => activeTab.value,
+    val => {
+        console.log(val, '...');
+        if (val == 'workflow') {
+            // 查看审批记录
+            // getList();
+            getApprovalHistory();
+        }
+    },
+);
 
 const govueFlow = async row => {
     rowId.value = row.id;

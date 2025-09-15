@@ -436,6 +436,10 @@ export default {
     approve(params) {
         return oPost(baseUrl + '/logic-flow/approve', params);
     },
+    // 历史审批记录
+    getApprovalHistory(params) {
+        return oGet(baseUrl + '/logic-flow/getApprovalHistory', params);
+    },
 };
 
 //封装post/get请求
