@@ -29,41 +29,35 @@
             layout="total, sizes,->, prev, pager, next, jumper"
             :total="total"
         ></el-pagination>
-        <!-- <el-dialog v-model="showCodeDialog" title="表单预览" width="70%" top="5vh" custom-class="code-dialog">
-            <div style="height: 70vh; overflow: auto; padding: 10px; border-radius: 4px">
-                <h3>{{ formName }}</h3>
-                <DynamicForm :schema="formSchema" :ui-config="uiConfig" v-model="formData" />
-            </div>
-            <template #footer>
-                <span class="dialog-footer">
-                    <el-button @click="showCodeDialog = false">关闭</el-button>
-                </span>
-            </template>
-        </el-dialog> -->
-        <el-drawer v-model="showCodeDialog" :title="formName" direction="rtl" size="60%" class="form-drawer">
-            <!-- 头部信息 -->
+        <!-- 审批相关内容 -->
+        <ApprovalDrawer
+            v-model:visible="showCodeDialog"
+            :form-name="formName"
+            :form-schema="formSchema"
+            :ui-config="uiConfig"
+            :form-data="formData"
+            :row-id="rowId"
+            :workflow-id="workflowId"
+            @close="showCodeDialog = false"
+            @submit="handleSubmitApproval"
+        />
+        <!-- <el-drawer v-model="showCodeDialog" :title="formName" direction="rtl" size="60%" class="form-drawer">
             <div class="drawer-header">
                 <div class="form-title">
-                    <!-- <h2>{{ formName }}</h2> -->
-                    <div class="form-status">
-                        <span class="status-badge processing">审批中</span>
-                    </div>
+                    <el-tag type="primary">审批中</el-tag>
                 </div>
             </div>
 
-            <!-- 标签页 -->
-            <el-tabs v-model="activeTab" class="form-tabs">
+            <el-tabs type="border-card" v-model="activeTab" class="form-tabs">
                 <el-tab-pane label="表单信息" name="form">
                     <div class="form-content">
-                        <!-- 上半部分：审批意见 -->
                         <div class="approval-section">
                             <div class="approval-history">
                                 <div class="approval-item">
                                     <div class="approval-actions">
-                                        <!-- 单选框 -->
-                                        <el-radio-group v-model="approvalStatus" size="small">
-                                            <el-radio-button label="2">同意</el-radio-button>
-                                            <el-radio-button label="3">拒绝</el-radio-button>
+                                        <el-radio-group v-model="approvalStatus">
+                                            <el-radio label="2">同意</el-radio>
+                                            <el-radio label="3">拒绝</el-radio>
                                         </el-radio-group>
                                     </div>
                                 </div>
@@ -78,16 +72,13 @@
                                 <el-button type="primary" @click="handleSubmitApproval()">提交审批</el-button>
                             </div>
                         </div>
-                        <!-- 分割线 -->
                         <el-divider />
-                        <!-- 下半部分：申请信息 -->
-                        <div class="application-section">
+                        <div class="application-section" style="padding-left: 10px">
                             <h3>申请信息</h3>
                             <DynamicForm :schema="formSchema" :ui-config="uiConfig" v-model="formData" class="dynamic-form" />
                         </div>
                     </div>
                 </el-tab-pane>
-
                 <el-tab-pane label="审批记录" name="workflow">
                     <div class="workflow-content">
                         <div class="workflow-steps">
@@ -103,41 +94,20 @@
                         </div>
                     </div>
                 </el-tab-pane>
-
-                <!-- <el-tab-pane label="流转记录" name="history">
-                    <div class="history-content">
-                        <el-timeline>
-                            <el-timeline-item timestamp="2024-12-23 09:06:57" type="primary">
-                                <h4>申请提交</h4>
-                                <p>用户提交了请假申请</p>
-                            </el-timeline-item>
-                            <el-timeline-item timestamp="2024-12-23 09:03:34" type="success">
-                                <h4>部门审批</h4>
-                                <p>部门经理审批通过</p>
-                            </el-timeline-item>
-                            <el-timeline-item timestamp="2024-12-23 08:48:32" type="warning">
-                                <h4>等待审批</h4>
-                                <p>等待HR审批</p>
-                            </el-timeline-item>
-                        </el-timeline>
-                    </div>
-                </el-tab-pane> -->
+                <el-tab-pane lazy label="审批流程图" name="workflow1">
+                    <LogicFlow :workflowId="workflowId" :appId="rowId"></LogicFlow>
+                </el-tab-pane>
             </el-tabs>
-            <!-- 底部操作按钮 -->
-            <!-- <template #footer>
-                <div class="drawer-footer">
-                    <el-button @click="showCodeDialog = false">关闭</el-button>
-                    <el-button type="primary">保存</el-button>
-                </div>
-            </template> -->
-        </el-drawer>
+        </el-drawer> -->
     </div>
 </template>
 
 <script setup>
 import { ref, onMounted, getCurrentInstance, reactive, toRefs, watch, computed } from 'vue';
-import useUserInfoStore from '@/stortes/user'; //引入仓库
+import ApprovalDrawer from './components/ApprovalDrawer.vue';
 import DynamicForm from '@/pages/formDesign/components/DynamicForm.vue';
+import LogicFlow from '@/pages/workflowDesigner/logicFlow.vue';
+import useUserInfoStore from '@/stortes/user'; //引入仓库
 const userInfoStore = useUserInfoStore();
 const { proxy } = getCurrentInstance();
 const tableData = ref([]);
@@ -155,13 +125,14 @@ const approvalStatus = ref('2');
 const rowId = ref({});
 const instance = ref([]);
 const steps = ref([]);
+const workflowId = ref('');
 
 // 计算当前激活的步骤
-const activeStep = computed(() => {
-    console.log('instance.value', instance.value, steps.value);
-    const currentIndex = steps.value.findIndex(step => step.nodeId == instance.value.currentNodeId);
-    return currentIndex >= 0 ? currentIndex : steps.value.length;
-});
+// const activeStep = computed(() => {
+//     console.log('instance.value', instance.value, steps.value);
+//     const currentIndex = steps.value.findIndex(step => step.nodeId == instance.value.currentNodeId);
+//     return currentIndex >= 0 ? currentIndex : steps.value.length;
+// });
 
 // 提交审批
 const handleSubmitApproval = async () => {
@@ -172,7 +143,6 @@ const handleSubmitApproval = async () => {
             status: approvalStatus.value,
             comment: currentApproval.value,
         };
-        console.log('obj', obj);
         // return;
         const res = await proxy.$api.approve(obj);
         if (res.code == 200) {
@@ -199,49 +169,11 @@ const getApprovalHistory = async () => {
         console.log(error);
     }
 };
-// 格式化描述信息
-const getDescription = (step, index) => {
-    if (index == 0) return `申请人: ${step.userName || '未知'}\n发起时间: ${step.approvedAt || '-'}\n`;
-    if (step.type == 'circle') return '';
-    if (step.status == 0) return `审批人: ${step.userName} 待审批...`;
-    if (step.status == 1) {
-        return `审批人: ${step.userName} 审批中...`;
-    }
-    if (step.status == 2) {
-        return `审批人: ${step.userName || '未知'}\n审批时间: ${step.approvedAt || '-'}\n备注: ${step.comment || '无'}`;
-    }
-    if (step.status == 3) {
-        return `审批人: ${step.userName || '未知'}\n审批时间: ${step.approvedAt || '-'}\n备注: ${step.comment || '无'}\n状态: 拒绝`;
-    }
-    return '';
-};
-
-// 转换步骤状态
-const getStepStatus = (status, index) => {
-    if (index == 0) return 'finish';
-    if (status == 0) {
-        return index == 0 ? 'finish' : 'wait'; // 第一步提交为完成，其余等待
-    }
-    if (status == 1) return 'process'; // 审批中
-    if (status == 2) return 'finish'; // 通过
-    if (status == 3) return 'error'; // 拒绝
-    return 'wait'; // 默认未知状态
-};
-
-watch(
-    () => activeTab.value,
-    val => {
-        console.log(val, '...');
-        if (val == 'workflow') {
-            // 查看审批记录
-            // getList();
-            getApprovalHistory();
-        }
-    },
-);
 
 const govueFlow = async row => {
     rowId.value = row.id;
+    workflowId.value = row.workflowId;
+    console.log(row, 'row.id');
     // 路由跳转
     // proxy.$router.push({
     //     path: '/home/logicFlow',
@@ -256,6 +188,7 @@ const govueFlow = async row => {
     formSchema.value = JSON.parse(res.data.schema);
     uiConfig.value = res.data.ui_config;
     formName.value = res.data.name;
+    activeTab.value = 'form';
     showCodeDialog.value = true;
 };
 const getList = async () => {
@@ -314,18 +247,6 @@ onMounted(() => {
     font-weight: 600;
 }
 
-.status-badge {
-    padding: 4px 12px;
-    border-radius: 12px;
-    font-size: 12px;
-    font-weight: 500;
-}
-
-.status-badge.processing {
-    background: #e6f7ff;
-    color: #1890ff;
-}
-
 .form-tabs {
     padding: 0 24px;
 }
@@ -336,6 +257,7 @@ onMounted(() => {
 
 .approval-section {
     margin-bottom: 24px;
+    padding-left: 10px;
 }
 
 .approval-section h3 {

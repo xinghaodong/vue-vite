@@ -37,24 +37,24 @@
             layout="total, sizes,->, prev, pager, next, jumper"
             :total="total"
         ></el-pagination>
-        <el-dialog v-model="showCodeDialog" title="表单预览" width="70%" top="5vh" custom-class="code-dialog">
-            <div style="height: 70vh; overflow: auto; padding: 10px; border-radius: 4px">
-                <h3>{{ formName }}</h3>
-                <DynamicForm :schema="formSchema" :ui-config="uiConfig" v-model="formData" />
-            </div>
-            <template #footer>
-                <span class="dialog-footer">
-                    <el-button @click="showCodeDialog = false">关闭</el-button>
-                </span>
-            </template>
-        </el-dialog>
+        <!-- 审批相关内容 -->
+        <ApprovalDrawer
+            v-model:visible="showCodeDialog"
+            :form-name="formName"
+            :form-schema="formSchema"
+            :ui-config="uiConfig"
+            :form-data="formData"
+            :row-id="rowId"
+            :workflow-id="workflowId"
+            @close="showCodeDialog = false"
+        />
     </div>
 </template>
 
 <script setup>
 import { ref, onMounted, getCurrentInstance, reactive, toRefs, watch } from 'vue';
 import useUserInfoStore from '@/stortes/user'; //引入仓库
-import DynamicForm from '@/pages/formDesign/components/DynamicForm.vue';
+import ApprovalDrawer from './components/ApprovalDrawer.vue';
 const userInfoStore = useUserInfoStore();
 const { proxy } = getCurrentInstance();
 const tableData = ref([]);
@@ -67,7 +67,14 @@ const uiConfig = ref({});
 const formName = ref('');
 const formData = ref({});
 
+const rowId = ref({});
+const instance = ref([]);
+const steps = ref([]);
+const workflowId = ref('');
+
 const govueFlow = async row => {
+    rowId.value = row.id;
+    workflowId.value = row.workflowId;
     // 路由跳转
     // proxy.$router.push({
     //     path: '/home/logicFlow',
@@ -76,7 +83,6 @@ const govueFlow = async row => {
     // console.log(row);
     //  根据 formId 查询表单数据
     const res = await proxy.$api.designDetail({ id: row.formId });
-    console.log(row.formData);
 
     formData.value = row.formData;
     formSchema.value = JSON.parse(res.data.schema);
@@ -84,6 +90,30 @@ const govueFlow = async row => {
     formName.value = res.data.name;
     showCodeDialog.value = true;
 };
+
+// const getApprovalHistory = async () => {
+//     try {
+//         const data = await proxy.$api.getApprovalHistory({ id: rowId.value });
+//         // approvalHistory.value = data.data;
+//         instance.value = data.data;
+//         steps.value = data.data.steps;
+//     } catch (error) {
+//         console.log(error);
+//     }
+// };
+
+// watch(
+//     () => activeTab.value,
+//     val => {
+//         console.log(val, '...');
+//         if (val == 'workflow') {
+//             // 查看审批记录
+//             // getList();
+//             getApprovalHistory();
+//         }
+//     },
+// );
+
 const getList = async () => {
     const data = await proxy.$api.getMyInstances({ userId: userInfoStore?.userInfo?.id, page: currentPage.value, pageSize: pageSize.value });
     if (data.code == 200) {

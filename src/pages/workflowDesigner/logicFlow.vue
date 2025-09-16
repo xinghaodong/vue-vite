@@ -5,7 +5,7 @@
             <!-- 1. DndPanel 容器：插件会自动渲染拖拽面板 -->
             <div id="dnd-panel-container" class="dnd-panel"></div>
 
-            <div class="toolbar">
+            <div class="toolbar" v-if="!workflowId">
                 <el-form ref="ruleFormRef" :model="ruleForm" :rules="rules" label-width="80px" class="demo-ruleForm">
                     <el-form-item label="模板名称" prop="name">
                         <el-input v-model="ruleForm.name"></el-input>
@@ -55,17 +55,8 @@
                 </el-form>
             </el-drawer>
 
-            <!-- 原有表单预览弹窗 -->
-            <!-- <el-dialog v-model="previewVisible" title="表单预览" width="50%">
-                <div v-if="previewSchema">
-                    <p>表单名称：{{ previewSchema.name }}</p>
-                    <pre>{{ JSON.stringify(previewSchema.schema, null, 2) }}</pre>
-                </div>
-                <div v-else>暂无表单</div>
-            </el-dialog> -->
             <el-dialog v-model="previewVisible" title="表单预览" width="70%" top="5vh" custom-class="code-dialog">
                 <div style="height: 70vh; overflow: auto; padding: 10px; border-radius: 4px">
-                    <!-- <h3>{{ previewSchema.name }}</h3> -->
                     <DynamicForm :schema="formSchema" :ui-config="uiConfig" />
                 </div>
             </el-dialog>
@@ -79,22 +70,34 @@ import DynamicForm from '@/pages/formDesign/components/DynamicForm.vue';
 const { proxy } = getCurrentInstance();
 import { useRoute } from 'vue-router';
 import LogicFlow from '@logicflow/core';
+import { registerCustomNodes } from './customNodes.js';
 // 1. 引入 DndPanel 插件及样式
 import { Menu, Control, ProximityConnect, DndPanel } from '@logicflow/extension';
 import '@logicflow/core/lib/style/index.css';
 import '@logicflow/extension/lib/style/index.css';
 import { ElMessage } from 'element-plus';
 
+const props = defineProps({
+    workflowId: {
+        type: Number || String,
+    },
+    appId: {
+        type: Number || String,
+    },
+});
+
 const formSchema = ref([]); // 从接口获取的 schema
 const uiConfig = ref({}); // 从接口获取的 ui_config
 // const formData = ref({}); // 表单数据
 const formName = ref('');
+// 父组件传来的参数
 
 // 2. 注册 DndPanel 插件
-LogicFlow.use(Menu);
 LogicFlow.use(Control);
-LogicFlow.use(ProximityConnect);
-LogicFlow.use(DndPanel); // 注册拖拽面板插件
+if (!props.workflowId) {
+    LogicFlow.use(Menu);
+    LogicFlow.use(DndPanel); // 注册拖拽面板插件
+}
 
 // 原有表单相关逻辑
 const ruleFormRef = ref(null);
@@ -106,33 +109,22 @@ const ruleForm = ref({ name: '', formId: '', status: 0, description: '' });
 const options = ref([]);
 
 const route = useRoute();
-const { idkey } = route.query;
-
+const idkey = route.query.idkey || props.workflowId;
 // 原有模拟表单数据
-const mockFormList = ref([
-    { id: 'form_leave_001', name: '请假申请表单' },
-    { id: 'form_reimburse_002', name: '报销申请表单' },
-]);
-const mockFormSchemas = {
-    form_leave_001: {
-        name: '请假申请表单',
-        schema: { fields: [{ name: 'reason', label: '原因', type: 'text' }] },
-    },
-};
+const mockFormList = ref([{ id: 'form_leave_001', name: '请假申请表单' }]);
 
 // 原有节点配置相关逻辑
 const drawerVisible = ref(false);
 const previewVisible = ref(false);
 const currentNode = ref(null);
 const currentNodeConfig = ref({});
-const previewSchema = ref(null);
+const approvalHistoryData = ref(null);
 
 // 原有流程数据
 const dataObj = ref({});
 
 // LogicFlow 实例
 let lf = null;
-
 // 初始化 LogicFlow
 const initLogicFlow = () => {
     lf = new LogicFlow({
@@ -140,20 +132,11 @@ const initLogicFlow = () => {
         edgeType: 'bezier',
         grid: true,
         background: { color: '#f8f9fa' },
-        // ProximityConnect
-        plugins: [Menu, Control, DndPanel],
-        // 3. 配置 DndPanel 容器 指定拖拽面板渲染位置
-        extension: {
-            dndPanel: {
-                container: document.querySelector('#dnd-panel-container'), // 拖拽面板的DOM容器
-                width: 180, // 面板宽度
-                title: '审批流节点库', // 面板标题
-            },
-        },
     });
 
-    // 4. 设置 DndPanel 拖拽项
-    lf.extension.dndPanel.setPatternItems([
+    // ========== 注册所有自定义节点 ========== //
+    registerCustomNodes(lf, calculateNodeColors, approvalHistoryData);
+    let nodeData = [
         {
             type: 'circle', // 节点类型：圆形（开始节点）
             text: '开始', // 拖拽到画布后节点的默认文本
@@ -167,6 +150,8 @@ const initLogicFlow = () => {
             label: '审批节点', // 面板显示名称
             properties: { assignee: '', assigneeName: '', formId: '', remark: '' }, // 默认属性
             icon: '/jx.png',
+            fill: '#87CEFA',
+            stroke: '#1E90FF',
         },
         {
             type: 'diamond', // 节点类型：矩形（审批节点）
@@ -182,12 +167,15 @@ const initLogicFlow = () => {
             properties: {}, // 默认属性
             icon: '/yq.png',
         },
-    ]);
+    ];
+
+    // 4. 设置 DndPanel 拖拽项
+    if (!props.workflowId) {
+        lf.extension.dndPanel.setPatternItems(nodeData);
+    }
 
     // 原有主题适配逻辑
     if (localStorage.getItem('theme') === 'dark') {
-        lf.setTheme({}, 'dark');
-    } else {
         lf.setTheme(
             {
                 nodeText: {
@@ -199,12 +187,14 @@ const initLogicFlow = () => {
                     fontSize: 12,
                 },
             },
-            'custom',
+            'dark',
         );
     }
 
     // 原有节点点击事件
     lf.on('node:click', ({ data }) => {
+        console.log('点击了节点:', data);
+        if (props.workflowId) return;
         currentNode.value = data;
         currentNodeConfig.value = {
             text: { value: typeof data.text === 'string' ? data.text : data.text?.value || '' },
@@ -220,24 +210,61 @@ const initLogicFlow = () => {
 
     // 原有画布渲染逻辑
     lf.render();
-    // lf.on('edge:added', ({ edge }) => {
-    //     const sourceNode = lf.getNode(edge.sourceNodeId);
-    //     if (sourceNode?.type === 'diamond') {
-    //         // 只处理条件节点的边
-    //         const edges = lf.getEdgesBySourceId(edge.sourceNodeId); // 获取该条件节点的所有出边
-    //         const index = edges.findIndex(e => e.id === edge.id); // 找到当前边的索引
-
-    //         // 第一条边设为“是”，第二条设为“否”
-    //         const text = index === 0 ? '是' : '否';
-    //         lf.updateText(edge.id, text); // 设置边的文本
-    //     }
-    // });
     // 回显数据
     if (idkey) {
-        console.log('回显数据', dataObj.value);
         lf.renderRawData(dataObj.value);
+        if (props.appId) {
+            getApprovalHistory().then(() => {
+                injectNodeStatusIntoGraphData();
+            });
+        }
     }
-    // lf.renderRawData(dataObj.value);
+};
+// 通用的颜色计算函数
+const calculateNodeColors = (properties, globalStatus) => {
+    const status = properties?.nodeStatus;
+    const title = properties?.nodeTitle;
+
+    let fill, stroke;
+
+    // 特殊处理开始和结束节点
+    if (title === '开始') {
+        fill = '#d4edda'; // 浅绿
+        stroke = '#155724'; // 深绿
+    } else if (title === '结束') {
+        if (globalStatus == 2) {
+            fill = '#c3e6cb'; // 整个流程通过 - 绿
+            stroke = '#28a745';
+        } else if (globalStatus == 3) {
+            fill = '#f5c6cb'; // 整个流程拒绝 - 红
+            stroke = '#dc3545';
+        } else {
+            fill = '#fff'; // 流程进行中 - 灰
+            stroke = '#000';
+        }
+    } else {
+        // 普通节点按状态着色
+        switch (status) {
+            case '2' || 2: // 通过
+                fill = '#d4edda';
+                stroke = '#155724';
+                break;
+            case '3' || 3: // 拒绝
+                fill = '#f5c6cb';
+                stroke = '#dc3545';
+                break;
+            case '1' || 1: // 审批中
+                fill = '#fff3cd';
+                stroke = '#ffc107';
+                break;
+            default: // 未开始
+                fill = '#fff';
+                stroke = '#000';
+                break;
+        }
+    }
+
+    return { fill, stroke };
 };
 
 // 原有应用节点配置逻辑
@@ -258,10 +285,20 @@ const applyConfig = () => {
     }
 };
 const loadApiOptions = () => {
-    // 从 options.value 中获取 assigneeName
     let item = options.value.find(option => option.id == currentNodeConfig.value.properties.assignee);
-    console.log(item);
     currentNodeConfig.value.properties.assigneeName = item.name;
+};
+// 获取审批历史 主要用于给流程设计器显示状态
+const getApprovalHistory = async () => {
+    try {
+        let data = await proxy.$api.getApprovalHistory({ id: props.appId });
+        if (data.code == 200) {
+            approvalHistoryData.value = data.data;
+            return approvalHistoryData.value;
+        }
+    } catch (error) {
+        console.log(error);
+    }
 };
 
 // 预览表单
@@ -271,26 +308,20 @@ const previewForm = async () => {
         proxy.$message.warning('请先选择表单');
         return;
     }
-    // previewSchema.value = mockFormSchemas[formId] || null;
     previewVisible.value = true;
     // 根据formId 查询表单接口
-
     const data = await proxy.$api.designDetail({ id: formId });
     if (data.code == 200) {
-        console.log(data.data);
-
         formSchema.value = JSON.parse(data.data.schema);
         uiConfig.value = data.data.ui_config;
         formName.value = data.data.name;
     }
 };
 
-// 原有保存工作流逻辑
+// 保存工作流
 const saveWorkflow = async () => {
     const graphData = lf.getGraphData();
     let obj = { ...ruleForm.value, graphData: graphData };
-    console.log('流程数据:', graphData, obj);
-    // 可在此处添加接口请求提交数据
     let res = null;
     if (idkey) {
         obj.id = idkey;
@@ -305,17 +336,57 @@ const saveWorkflow = async () => {
         ElMessage.error('保存失败');
     }
 };
+// 获取流程设计器
 const getLogicdetail = async () => {
     try {
         const res = await proxy.$api.logicdetail({ id: idkey });
         if (res.code === 200) {
             ruleForm.value = res.data;
             dataObj.value = res.data.graphData;
-            console.log(res.data, dataObj.value);
+            if (dataObj.value && dataObj.value.nodes) {
+                dataObj.value.nodes = dataObj.value.nodes.map(node => {
+                    let newType = node.type;
+                    // 根据原始类型映射到自定义类型
+                    if (node.type === 'rect') {
+                        newType = 'rect';
+                    } else if (node.type === 'circle') {
+                        newType = 'circle';
+                    } else if (node.type === 'diamond') {
+                        newType = 'diamond';
+                    }
+                    return {
+                        ...node,
+                        type: newType,
+                    };
+                });
+            }
             initLogicFlow();
         }
     } catch (error) {
         console.log(error);
+    }
+};
+// 将审批状态的颜色直接注入到 graphData 中
+const injectNodeStatusIntoGraphData = () => {
+    lf.setProperties({ globalStatus: approvalHistoryData.value?.status });
+    if (approvalHistoryData.value && approvalHistoryData.value.steps) {
+        const { steps } = approvalHistoryData.value;
+        steps.forEach(step => {
+            console.log('step', step);
+            const { nodeId, status, title, userName, comment } = step;
+            try {
+                // 关键：只更新 properties，不碰 fill/stroke
+                lf.setProperties(nodeId, {
+                    nodeStatus: status, // 将状态存入 properties
+                    nodeTitle: title, // 将标题存入 properties
+                    assigneeName: userName || '', //设置审批人姓名
+                    comment: comment || '', //设置审批人意见
+                });
+                console.log(`节点 ${nodeId} 状态属性更新为: ${status}`, step);
+            } catch (error) {
+                console.warn(`节点 ${nodeId} 不存在或更新失败:`, error.message);
+            }
+        });
     }
 };
 
@@ -397,5 +468,11 @@ onMounted(() => {
 <style>
 .lf-control-text {
     color: black !important;
+}
+.el-drawer__body {
+    padding: 0px;
+}
+.el-drawer__header {
+    margin-bottom: 16px;
 }
 </style>
