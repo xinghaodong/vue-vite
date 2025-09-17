@@ -440,6 +440,10 @@ export default {
     getApprovalHistory(params) {
         return oGet(baseUrl + '/logic-flow/getApprovalHistory', params);
     },
+    // 根据token 查询用户
+    getUserInfo(params) {
+        return oGet(baseUrl + '/internalusers/getUserInfo', params);
+    },
 };
 
 //封装post/get请求

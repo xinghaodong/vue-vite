@@ -40,7 +40,7 @@
         <el-dialog v-model="showCodeDialog" :title="isInitiate ? '发起审批' : '表单预览'" width="70%" top="5vh" custom-class="code-dialog">
             <div style="height: 70vh; overflow: auto; padding: 10px; border-radius: 4px">
                 <h3>{{ formName }}</h3>
-                <DynamicForm :schema="formSchema" :ui-config="uiConfig" v-model="formData" />
+                <DynamicForm v-if="showCodeDialog" ref="dynamicFormRef" :noApproval="noApproval" :schema="formSchema" :ui-config="uiConfig" v-model="formData" />
             </div>
             <template #footer>
                 <span class="dialog-footer">
@@ -70,19 +70,28 @@ const formName = ref('');
 const formId = ref('');
 
 const isInitiate = ref(false); // 是否是发起流程
+const noApproval = ref(false);
+const dynamicFormRef = ref(null); // 获取子组件实例
 
 const handlePreview = (row, val) => {
     formId.value = row.id;
     isInitiate.value = val ? true : false;
+    noApproval.value = val ? false : true;
     showCodeDialog.value = true;
     formSchema.value = JSON.parse(row.schema);
     uiConfig.value = row.ui_config;
     formName.value = row.name;
+    // 重置formData
+    formData.value = {};
 };
 
 // 发起流程审批
 const handleInitiate = async () => {
+    console.log('发起流程审批', dynamicFormRef.value);
     try {
+        await dynamicFormRef.value.validate();
+        //  只有校验通过才执行
+        console.log(' 发起审批...');
         formData.value.formId = formId.value;
         // 从 store 获取申请人
         formData.value.userId = userInfoStore?.userInfo?.id;
@@ -92,13 +101,14 @@ const handleInitiate = async () => {
             formData: formData.value,
             userId: userInfoStore?.userInfo?.id,
         };
+        console.log('obj', obj);
         const data = await proxy.$api.startWorkflow(obj);
         if (data.code == 200) {
             proxy.$message.success(data.message);
             showCodeDialog.value = false;
         }
     } catch (error) {
-        console.log(error);
+        proxy.$message.error(error.message || '请填写必填项');
     }
 };
 const govueFlow = row => {

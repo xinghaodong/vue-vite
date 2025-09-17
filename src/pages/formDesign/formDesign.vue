@@ -279,20 +279,20 @@
                             </el-form-item>
 
                             <!-- 计算字段配置，仅对 input 类型 -->
-                            <template v-if="currentItem.type === 'input'">
-                                <el-form-item label="是否计算字段">
-                                    <el-switch v-model="currentItem.props.isComputed"></el-switch>
-                                </el-form-item>
-                                <el-form-item label="依赖字段" v-if="currentItem.props.isComputed">
-                                    <el-select v-model="currentItem.props.dependencies" multiple placeholder="选择依赖字段">
-                                        <el-option v-for="field in getAvailableFields()" :key="field.id" :label="field.props.label" :value="field.id" />
-                                    </el-select>
-                                </el-form-item>
-                                <el-form-item label="计算表达式" v-if="currentItem.props.isComputed">
-                                    <el-input v-model="currentItem.props.computedExpression" placeholder="如: (endDate - startDate) / (1000*60*60*24)" />
-                                    <div style="font-size: 12px; color: #999">支持 JS 表达式，引用字段 ID</div>
-                                </el-form-item>
-                            </template>
+                            <!-- <template v-if="currentItem.type === 'input'"> -->
+                            <el-form-item label="是否计算字段">
+                                <el-switch v-model="currentItem.props.isComputed"></el-switch>
+                            </el-form-item>
+                            <el-form-item label="依赖字段" v-if="currentItem.props.isComputed">
+                                <el-select v-model="currentItem.props.dependencies" multiple placeholder="选择依赖字段">
+                                    <el-option v-for="field in getAvailableFields()" :key="field.id" :label="field.props.label" :value="field.id" />
+                                </el-select>
+                            </el-form-item>
+                            <el-form-item label="计算表达式" v-if="currentItem.props.isComputed">
+                                <el-input v-model="currentItem.props.computedExpression" placeholder="如: (endDate - startDate) / (1000*60*60*24)" />
+                                <div style="font-size: 12px; color: #999">支持 JS 表达式，引用字段 ID</div>
+                            </el-form-item>
+                            <!-- </template> -->
                         </el-form>
                     </div>
                     <div v-else class="empty-tip">请选择要配置的组件</div>
@@ -437,10 +437,13 @@ const getAvailableFields = () => {
                 // 处理栅格列内的字段
                 console.log(item);
                 item.props.columns.forEach(col => traverseItems(col.list));
-            } else if (item.id !== currentItem.value?.id) {
-                // 排除自身
+            }else{
                 fields.push(item);
             }
+            //  else if (item.id !== currentItem.value?.id) {
+            //     // 排除自身
+            //     fields.push(item);
+            // }
         });
     };
     traverseItems(formItems.value);

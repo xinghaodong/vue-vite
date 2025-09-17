@@ -31,6 +31,7 @@
         ></el-pagination>
         <!-- 审批相关内容 -->
         <ApprovalDrawer
+            v-if="showCodeDialog"
             v-model:visible="showCodeDialog"
             :form-name="formName"
             :form-schema="formSchema"
@@ -38,6 +39,8 @@
             :form-data="formData"
             :row-id="rowId"
             :workflow-id="workflowId"
+            :noApproval="true"
+            :noreq="false"
             @close="showCodeDialog = false"
             @submit="handleSubmitApproval"
         />
@@ -224,6 +227,9 @@ const handleDelete = async row => {
 // onMounted
 onMounted(() => {
     getList();
+    proxy.$api.getUserInfo().then(res => {
+        console.log(res, '..............');
+    });
 });
 </script>
 <style scoped>

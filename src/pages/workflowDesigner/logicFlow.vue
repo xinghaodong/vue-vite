@@ -110,7 +110,7 @@ const options = ref([]);
 
 const route = useRoute();
 const idkey = route.query.idkey || props.workflowId;
-// 原有模拟表单数据
+// 表单数据
 const mockFormList = ref([{ id: 'form_leave_001', name: '请假申请表单' }]);
 
 // 原有节点配置相关逻辑
@@ -249,7 +249,7 @@ const calculateNodeColors = (properties, globalStatus) => {
                 fill = '#d4edda';
                 stroke = '#155724';
                 break;
-            case '3' || 3: // 拒绝
+            case '3' || 3: // 驳回
                 fill = '#f5c6cb';
                 stroke = '#dc3545';
                 break;
@@ -398,7 +398,7 @@ const findAll = async () => {
 };
 
 const designNoPage = async () => {
-    const res = await proxy.$api.designNoPage();
+    const res = await proxy.$api.designNoPage({ status: '1' });
     if (res.code === 200) {
         console.log('表单列表', res.data);
         mockFormList.value = res.data;

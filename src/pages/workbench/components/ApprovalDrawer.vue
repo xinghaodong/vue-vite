@@ -1,39 +1,42 @@
 <!-- ApprovalDrawer.vue -->
 <template>
-    <el-drawer :model-value="visible" :title="formName" direction="rtl" size="60%" class="form-drawer" @update:visible="$emit('update:visible', $event)" @close="$emit('close')">
+    <el-drawer :model-value="visible" :title="formName" direction="rtl" size="70%" class="form-drawer" @update:visible="$emit('update:visible', $event)" @close="$emit('close')">
         <div class="drawer-header">
             <div class="form-title">
-                <el-tag type="primary">审批中</el-tag>
+                <el-tag :type="activeStatusTag" size="large">{{ activeStatus }}</el-tag>
             </div>
         </div>
         <el-tabs type="border-card" v-model="activeTab" class="form-tabs">
             <el-tab-pane label="表单信息" name="form">
                 <div class="form-content">
-                    <div class="approval-section">
-                        <div class="approval-history">
-                            <div class="approval-item">
-                                <div class="approval-actions">
-                                    <el-radio-group v-model="approvalStatus">
-                                        <el-radio label="2">同意</el-radio>
-                                        <el-radio label="3">拒绝</el-radio>
-                                    </el-radio-group>
+                    <template v-if="noApproval">
+                        <div class="approval-section">
+                            <div class="approval-history">
+                                <div class="approval-item">
+                                    <div class="approval-actions">
+                                        <el-radio-group v-model="approvalStatus">
+                                            <el-radio label="2">同意</el-radio>
+                                            <el-radio label="3">驳回</el-radio>
+                                        </el-radio-group>
+                                    </div>
+                                </div>
+                                <div class="approval-item current">
+                                    <div class="approval-user">
+                                        <span>审批意见</span>
+                                    </div>
+                                    <el-input v-model="currentApproval" type="textarea" placeholder="请输入审批意见..." :rows="3" class="approval-input" />
                                 </div>
                             </div>
-                            <div class="approval-item current">
-                                <div class="approval-user">
-                                    <span>审批意见</span>
-                                </div>
-                                <el-input v-model="currentApproval" type="textarea" placeholder="请输入审批意见..." :rows="3" class="approval-input" />
+                            <div class="submit-section">
+                                <el-button type="primary" @click="handleSubmitApproval">提交审批</el-button>
                             </div>
                         </div>
-                        <div class="submit-section">
-                            <el-button type="primary" @click="handleSubmitApproval">提交审批</el-button>
-                        </div>
-                    </div>
-                    <el-divider />
+                        <el-divider />
+                    </template>
                     <div class="application-section">
                         <h3>申请信息</h3>
                         <DynamicForm
+                            :noApproval="noreq"
                             :schema="formSchema"
                             :ui-config="uiConfig"
                             :model-value="formData"
@@ -66,7 +69,7 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, getCurrentInstance } from 'vue';
+import { ref, computed, watch, getCurrentInstance, onMounted } from 'vue';
 import DynamicForm from '@/pages/formDesign/components/DynamicForm.vue';
 import LogicFlow from '@/pages/workflowDesigner/logicFlow.vue';
 import useUserInfoStore from '@/stortes/user'; //引入仓库
@@ -80,15 +83,18 @@ const props = defineProps({
     formData: { type: Object, default: () => ({}) },
     rowId: { type: [String, Number], default: '' },
     workflowId: { type: [String, Number], default: '' },
+    noApproval: { type: Boolean, default: false },
+    noreq: { type: Boolean, default: false },
 });
 
-const emit = defineEmits(['update:visible', 'close', 'submit', 'fetchApprovalHistory', 'update:formData']); // 添加 update:formData
+const emit = defineEmits(['update:visible', 'close', 'submit', 'update:formData']); // 添加 update:formData
 
 const activeTab = ref('form');
 const approvalStatus = ref('2');
 const currentApproval = ref('');
 const instance = ref([]);
 const steps = ref([]);
+const status = ref(0);
 
 // 计算当前激活的步骤
 const activeStep = computed(() => {
@@ -96,6 +102,17 @@ const activeStep = computed(() => {
     return currentIndex >= 0 ? currentIndex : steps.value.length;
 });
 
+const activeStatus = computed(() => {
+    if (status.value == 1) return '待审批';
+    if (status.value == 2) return '通过';
+    if (status.value == 3) return '驳回';
+});
+
+const activeStatusTag = computed(() => {
+    if (status.value == 1) return 'warning';
+    if (status.value == 2) return 'success';
+    if (status.value == 3) return 'danger';
+});
 // 格式化描述信息
 const getDescription = (step, index) => {
     if (index == 0) return `申请人: ${step.userName || '未知'}\n发起时间: ${step.approvedAt || '-'}\n`;
@@ -106,7 +123,7 @@ const getDescription = (step, index) => {
         return `审批人: ${step.userName || '未知'}\n审批时间: ${step.approvedAt || '-'}\n备注: ${step.comment || '无'}`;
     }
     if (step.status == 3) {
-        return `审批人: ${step.userName || '未知'}\n审批时间: ${step.approvedAt || '-'}\n备注: ${step.comment || '无'}\n状态: 拒绝`;
+        return `审批人: ${step.userName || '未知'}\n审批时间: ${step.approvedAt || '-'}\n备注: ${step.comment || '无'}\n状态: 驳回`;
     }
     return '';
 };
@@ -140,6 +157,7 @@ const getApprovalHistory = async () => {
         const data = await proxy.$api.getApprovalHistory({ id: props.rowId });
         instance.value = data.data;
         steps.value = data.data.steps;
+        status.value = data.data.status;
     } catch (error) {
         console.log(error);
     }
@@ -151,6 +169,10 @@ watch(activeTab, val => {
         // emit('fetchApprovalHistory', props.rowId);
         getApprovalHistory();
     }
+});
+
+onMounted(() => {
+    getApprovalHistory();
 });
 </script>
 
@@ -179,10 +201,6 @@ watch(activeTab, val => {
     padding: 0 24px;
 }
 
-.form-content {
-    padding: 14px 0;
-}
-
 .approval-section {
     margin-bottom: 24px;
     padding-left: 10px;
@@ -192,6 +210,7 @@ watch(activeTab, val => {
     margin: 0 0 16px 0;
     font-size: 16px;
     font-weight: 600;
+    margin-top: 0px;
 }
 
 .approval-item {

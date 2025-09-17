@@ -1,6 +1,9 @@
 <!-- 表单渲染器 -->
 <template>
     <el-form
+        v-if="enhancedSchema.length > 0"
+        ref="formRef"
+        :rules="formRules"
         :model="innerData"
         :label-position="uiConfig?.labelPosition || 'right'"
         :size="uiConfig?.size || 'default'"
@@ -14,7 +17,7 @@
                     <el-col v-for="(col, colIndex) in item.props.columns" :key="colIndex" :span="col.span">
                         <div class="grid-col-content">
                             <template v-for="(colItem, colItemIndex) in col.list" :key="colItem.id">
-                                <el-form-item :label="colItem.props.label" :required="colItem.props.required" style="margin-bottom: 16px">
+                                <el-form-item :label="colItem.props.label" :prop="colItem.id" :required="colItem.props.required" style="margin-bottom: 16px">
                                     <component
                                         :is="colItem.component"
                                         v-model="innerData[colItem.id]"
@@ -47,7 +50,7 @@
             </div>
 
             <!-- 普通组件 -->
-            <el-form-item v-else :label="item.props.label" :required="item.props.required" style="margin-bottom: 16px">
+            <el-form-item v-else :label="item.props.label" :prop="item.id" :required="item.props.required" style="margin-bottom: 16px">
                 <component :is="item.component" v-model="innerData[item.id]" v-bind="getComponentProps(item)" :placeholder="item.props.placeholder" :loading="item.loading">
                     <!-- 下拉选项（支持动态加载） -->
                     <template v-if="item.type === 'select'">
@@ -73,8 +76,9 @@
 
 <script setup>
 import { oGet } from '@/utils/request';
-import { ref, reactive, watch, onMounted, getCurrentInstance } from 'vue';
+import { ref, reactive, watch, onMounted, getCurrentInstance, computed, nextTick } from 'vue';
 const { proxy } = getCurrentInstance();
+const formRef = ref(null);
 
 const props = defineProps({
     schema: {
@@ -89,6 +93,10 @@ const props = defineProps({
         type: Object,
         default: () => ({}),
     },
+    noApproval: {
+        type: Boolean,
+        default: true,
+    },
 });
 
 const emit = defineEmits(['update:modelValue']);
@@ -96,11 +104,39 @@ const emit = defineEmits(['update:modelValue']);
 // 内部数据
 const innerData = ref({ ...props.modelValue });
 
+// 动态生成校验规则
+const formRules = computed(() => {
+    const rules = {};
+    const processItem = item => {
+        if (item.props?.required) {
+            rules[item.id] = [
+                {
+                    required: true,
+                    message: item.props.label ? `${item.props.label}不能为空` : '该字段不能为空',
+                    trigger: ['blur', 'change'],
+                },
+            ];
+        }
+    };
+
+    enhancedSchema.forEach(item => {
+        if (item.type === 'grid') {
+            item.props.columns.forEach(col => {
+                col.list.forEach(colItem => {
+                    processItem(colItem);
+                });
+            });
+        } else {
+            processItem(item);
+        }
+    });
+
+    return rules;
+});
+
 // 加载 API 数据源
 const loadApiOptions = async item => {
-    console.log('不走这', item);
     if (!item.props.apiUrl) return;
-    console.log('API:', item.props.apiUrl);
     item.loading = true;
     try {
         const res = await oGet(item.props.apiUrl);
@@ -111,13 +147,18 @@ const loadApiOptions = async item => {
             data = res.data;
         } else if (res.list && Array.isArray(res.list)) {
             data = res.list;
+        } else {
+            data.push(res.data);
         }
-        // 默认取 label/value，你也可以扩展字段映射
+        // 默认取 label/value，可以扩展字段映射
         item.options = data.map(d => ({
             label: d.label || d.name || d.title || String(d),
             value: d.value || d.id || d.code || d,
         }));
-        console.log('选项:', item);
+        // 如果只有一项的话就默认选中
+        if (item.options.length == 1) {
+            innerData.value[item.id] = item.options[0].value;
+        }
     } catch (error) {
         console.error(`加载数据源失败 ${item.props.apiUrl}:`, error);
         item.options = [];
@@ -128,12 +169,20 @@ const loadApiOptions = async item => {
 
 // 获取组件属性
 const getComponentProps = item => {
-    const props = { ...item.props };
+    const propsCol = { ...item.props };
+    // 检查 propsCol 自身没有disabled 属性
+    // if (!propsCol.hasOwnProperty('disabled')) {
+    //     propsCol.disabled = props.noApproval;
+    // }
+    if (propsCol.disabled === false) {
+        propsCol.disabled = props.noApproval;
+    }
+
     // 删除不需要传递给组件的属性
     // delete props.label;
     // delete props.options;
     // delete props.apiUrl;
-    return props;
+    return propsCol;
 };
 
 // 监听外部数据变化
@@ -239,7 +288,7 @@ const setupComputedFields = () => {
                         // 使用 new Function 执行表达式
                         const exprFn = new Function('context', `with(context) { return ${field.props.computedExpression}; }`);
                         const result = exprFn(context);
-                        innerData.value[field.id] = Number.isFinite(result) ? result.toFixed(1) : '无效';
+                        innerData.value[field.id] = Number.isFinite(result) ? result.toFixed(1) : '';
                     } catch (error) {
                         console.error(`计算字段 ${field.id} 失败:`, error);
                         innerData.value[field.id] = '计算错误';
@@ -264,6 +313,12 @@ const setupComputedFields = () => {
         }
     });
 };
+
+defineExpose({
+    async validate() {
+        await formRef.value.validate();
+    },
+});
 </script>
 
 <style scoped>

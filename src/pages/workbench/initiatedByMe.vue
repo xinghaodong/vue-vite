@@ -10,10 +10,10 @@
             <!-- 状态 -->
             <el-table-column label="状态" width="100">
                 <template #default="scope">
-                    <!-- 1=待审批, 2=通过, 3=拒绝, 4=退回 -->
-                    <el-tag v-if="scope.row.status == 1" type="info">待审批</el-tag>
+                    <!-- 1=待审批, 2=通过, 3=驳回, 4=退回 -->
+                    <el-tag v-if="scope.row.status == 1" type="warning">待审批</el-tag>
                     <el-tag v-if="scope.row.status == 2" type="success">通过</el-tag>
-                    <el-tag v-if="scope.row.status == 3" type="danger">拒绝</el-tag>
+                    <el-tag v-if="scope.row.status == 3" type="danger">驳回</el-tag>
                 </template>
             </el-table-column>
             <el-table-column prop="created_at" label="创建时间" width="180"> </el-table-column>
@@ -39,6 +39,7 @@
         ></el-pagination>
         <!-- 审批相关内容 -->
         <ApprovalDrawer
+            v-if="showCodeDialog"
             v-model:visible="showCodeDialog"
             :form-name="formName"
             :form-schema="formSchema"
@@ -46,6 +47,8 @@
             :form-data="formData"
             :row-id="rowId"
             :workflow-id="workflowId"
+            :noApproval="false"
+            :noreq="true"
             @close="showCodeDialog = false"
         />
     </div>
