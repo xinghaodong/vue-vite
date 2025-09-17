@@ -227,9 +227,9 @@ const handleDelete = async row => {
 // onMounted
 onMounted(() => {
     getList();
-    proxy.$api.getUserInfo().then(res => {
-        console.log(res, '..............');
-    });
+    // proxy.$api.getUserInfo().then(res => {
+    //     console.log(res, '..............');
+    // });
 });
 </script>
 <style scoped>
