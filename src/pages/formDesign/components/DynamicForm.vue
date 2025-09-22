@@ -95,7 +95,7 @@ const props = defineProps({
     },
     noApproval: {
         type: Boolean,
-        default: true,
+        default: false,
     },
 });
 
@@ -136,6 +136,34 @@ const formRules = computed(() => {
 
 // 加载 API 数据源
 const loadApiOptions = async item => {
+    // if (item.id === 'sqr' && !props.noApproval) {
+    console.log('loadApiOptions', item);
+    if (item.id === 'sqr' && innerData.value[item.id]) {
+        const savedValue = innerData.value[item.id];
+        if (savedValue) {
+            try {
+                // 调用接口，根据 ID 获取用户信息
+                const userRes = await oGet(`/internalusers/detail?id=${savedValue}`);
+                const user = userRes.data || userRes;
+                item.options = [
+                    {
+                        label: user.name || user.realName || user.username || `用户(${savedValue})`,
+                        value: savedValue,
+                    },
+                ];
+                if (!innerData.value[item.id]) {
+                    innerData.value[item.id] = savedValue;
+                }
+            } catch (error) {
+                console.error('获取用户信息失败:', error);
+                item.options = [{ label: `用户(${savedValue})`, value: savedValue }];
+            }
+        } else {
+            item.options = [];
+        }
+        return;
+    }
+
     if (!item.props.apiUrl) return;
     item.loading = true;
     try {

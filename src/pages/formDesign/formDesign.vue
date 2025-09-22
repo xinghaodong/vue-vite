@@ -230,7 +230,7 @@
                                 </el-form-item>
                             </template>
 
-                            <template v-if="currentItem.type === 'select'">
+                            <template v-if="currentItem.type === 'select' || currentItem.type === 'checkbox' || currentItem.type === 'radio'">
                                 <el-form-item label="选项">
                                     <div v-for="(option, idx) in currentItem.props.options" :key="idx" class="option-item">
                                         <el-input v-model="option.label" placeholder="选项名称" class="option-input"></el-input>
@@ -245,7 +245,7 @@
                                     <el-input v-model="currentItem.props.apiUrl" placeholder="如: /api/employees 或 /api/enums/leaveType" />
                                     <div style="font-size: 12px; color: #999; margin-top: 5px">留空则使用静态选项，填写后将动态加载数据</div>
                                 </el-form-item>
-                                <el-form-item label="多选">
+                                <el-form-item label="多选" v-if="currentItem.type !== 'radio'">
                                     <el-switch v-model="currentItem.props.multiple"></el-switch>
                                 </el-form-item>
                                 <el-form-item label="可清除">
@@ -437,7 +437,7 @@ const getAvailableFields = () => {
                 // 处理栅格列内的字段
                 console.log(item);
                 item.props.columns.forEach(col => traverseItems(col.list));
-            }else{
+            } else {
                 fields.push(item);
             }
             //  else if (item.id !== currentItem.value?.id) {
@@ -698,6 +698,8 @@ const createComponentConfig = item => {
             ];
             break;
         case 'checkbox':
+            baseConfig.props.options = [{ label: '选项1', value: 'option1' }];
+            baseConfig.props.apiUrl = '';
             baseConfig.props.options = [
                 { label: '选项1', value: 'option1' },
                 { label: '选项2', value: 'option2' },

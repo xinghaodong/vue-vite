@@ -40,7 +40,7 @@
             :row-id="rowId"
             :workflow-id="workflowId"
             :noApproval="true"
-            :noreq="false"
+            :noreq="true"
             @close="showCodeDialog = false"
             @submit="handleSubmitApproval"
         />
@@ -185,12 +185,12 @@ const govueFlow = async row => {
     // console.log(row);
     //  根据 formId 查询表单数据
     const res = await proxy.$api.designDetail({ id: row.formId });
-    console.log(row.formData);
 
     formData.value = row.formData;
     formSchema.value = JSON.parse(res.data.schema);
     uiConfig.value = res.data.ui_config;
     formName.value = res.data.name;
+    console.log(row.formData, '...');
     activeTab.value = 'form';
     showCodeDialog.value = true;
 };

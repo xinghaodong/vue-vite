@@ -319,6 +319,8 @@ const flyToCombinedBoundingSphere = (viewerInstance, tilesets) => {
             offset: new Cesium.HeadingPitchRange(0, -0.5, compositeBoundingSphere.radius * 3.0),
         });
     }
+    // viewer.value.scene.globe.show = false;
+    viewer.value.enterVR();
 };
 
 // 加载建筑模型
@@ -1021,7 +1023,9 @@ onMounted(async () => {
         shouldAnimate: true,
         requestRenderMode: true, // 启用按需渲染
         maximumRenderTimeChange: Infinity, // 确保仅在需要时渲染
-        // terrainProvider: await Cesium.createWorldTerrainAsync(), // 添加地形
+        terrainProvider: await Cesium.createWorldTerrainAsync(), // 添加地形
+        vrButton: true, //开启VR
+        sceneMode: Cesium.SceneMode.SCENE3D,
     });
     var target = Cesium.Cartesian3.fromDegrees(116.4074, 39.9042, 16500000);
 
@@ -1035,10 +1039,22 @@ onMounted(async () => {
         },
         duration: 1, // 飞行持续时间，单位为秒
     });
-    viewer.value.scene.globe.depthTestAgainstTerrain = true;
+
+    // 检测 WebXR 支持
+    if (navigator.xr) {
+        navigator.xr.isSessionSupported('immersive-vr').then(supported => {
+            console.log('是否支持沉浸式 VR:', supported);
+            if (!supported) {
+                alert('浏览器支持 WebXR，但当前无设备。请安装 WebXR Emulator 插件进行模拟。');
+            }
+        });
+    } else {
+        alert('当前浏览器不支持 WebXR，无法使用 VR 功能。请使用 Chrome 最新版。');
+    }
+    // viewer.value.scene.globe.depthTestAgainstTerrain = true;
     // viewer.value.canvas.addEventListener('wheel', handleMouseWheel);
     setTimeout(() => {
-        // load3DTilesModels();
+        load3DTilesModels();
     }, 1500);
 
     // 编辑回显

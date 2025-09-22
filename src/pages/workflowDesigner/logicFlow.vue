@@ -372,7 +372,7 @@ const injectNodeStatusIntoGraphData = () => {
     if (approvalHistoryData.value && approvalHistoryData.value.steps) {
         const { steps } = approvalHistoryData.value;
         steps.forEach(step => {
-            console.log('step', step);
+            // console.log('step', step);
             const { nodeId, status, title, userName, comment } = step;
             try {
                 // 关键：只更新 properties，不碰 fill/stroke
@@ -382,7 +382,7 @@ const injectNodeStatusIntoGraphData = () => {
                     assigneeName: userName || '', //设置审批人姓名
                     comment: comment || '', //设置审批人意见
                 });
-                console.log(`节点 ${nodeId} 状态属性更新为: ${status}`, step);
+                // console.log(`节点 ${nodeId} 状态属性更新为: ${status}`, step);
             } catch (error) {
                 console.warn(`节点 ${nodeId} 不存在或更新失败:`, error.message);
             }

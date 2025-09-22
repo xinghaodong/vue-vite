@@ -91,10 +91,11 @@ const handleInitiate = async () => {
     try {
         await dynamicFormRef.value.validate();
         //  只有校验通过才执行
-        console.log(' 发起审批...');
         formData.value.formId = formId.value;
         // 从 store 获取申请人
         formData.value.userId = userInfoStore?.userInfo?.id;
+        formData.value.applicantName = userInfoStore?.userInfo?.name;
+        console.log(' 发起审批...', formData.value);
         console.log('data', formData.value);
         let obj = {
             formId: formId.value,
