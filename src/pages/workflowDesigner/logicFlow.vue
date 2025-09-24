@@ -5,7 +5,9 @@
             <!-- 1. DndPanel 容器：插件会自动渲染拖拽面板 -->
             <div id="dnd-panel-container" class="dnd-panel"></div>
 
-            <div class="toolbar" v-if="!workflowId">
+            <!-- <div class="toolbar" v-if="!workflowId"> -->
+
+            <el-card style="max-width: 480px" class="toolbar" v-if="!workflowId">
                 <el-form ref="ruleFormRef" :model="ruleForm" :rules="rules" label-width="80px" class="demo-ruleForm">
                     <el-form-item label="模板名称" prop="name">
                         <el-input v-model="ruleForm.name"></el-input>
@@ -19,9 +21,10 @@
                         <el-button link type="primary" @click="previewForm" style="margin-left: 10px"> 预览 </el-button>
                     </el-form-item>
                 </el-form>
-
                 <el-button type="primary" @click="saveWorkflow">保存流程</el-button>
-            </div>
+            </el-card>
+
+            <!-- </div> -->
 
             <!-- 2. LogicFlow 画布容器 -->
             <div id="logic-flow-container" class="canvas"></div>
@@ -325,10 +328,8 @@ const saveWorkflow = async () => {
     let res = null;
     if (idkey) {
         obj.id = idkey;
-        res = await proxy.$api.logicupdate(obj);
-    } else {
-        res = await proxy.$api.logicadd(obj);
     }
+    res = await proxy.$api.logicadd(obj);
     if (res.code == 200) {
         ElMessage.success('保存成功');
         proxy.$router.push({ path: '/home/logicFlowList' });
@@ -444,7 +445,6 @@ onMounted(() => {
     padding: 16px 10px;
     text-align: center;
     z-index: 1;
-    background: #fff;
     border-radius: 5px;
     box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
     margin: 5px;

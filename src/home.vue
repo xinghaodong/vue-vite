@@ -63,6 +63,7 @@ import { storeToRefs } from 'pinia'; //引入pinia转换
 import { useRouter, useRoute } from 'vue-router';
 import { ElNotification, ElTabs, ElTabPane } from 'element-plus';
 import { Moon, Sunny } from '@element-plus/icons-vue';
+import { settings } from 'nprogress';
 let route = useRoute();
 const router = useRouter();
 const { proxy } = getCurrentInstance();
@@ -194,7 +195,11 @@ const handleContextOut = e => {
                 type: '提示',
             })
             .then(() => {
-                proxy.$router.push('/login');
+                // 移除主题色
+                document.documentElement.classList.remove('dark');
+                setTimeout(() => {
+                    proxy.$router.push('/login');
+                }, 0);
             });
     }
 };

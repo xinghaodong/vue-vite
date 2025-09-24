@@ -95,7 +95,7 @@ const onSubmit = formEl => {
         if (valid) {
             const data = await proxy.$api.login(ruleForm);
 
-            console.log(localStorage.getItem('theme'), 'data');
+            console.log(localStorage.getItem('theme'), 'data', data);
 
             if (data.code == 200) {
                 console.log(userInfoStore, 'userInfoStoreuserInfoStore');
@@ -106,6 +106,16 @@ const onSubmit = formEl => {
                     document.documentElement.classList.add(`${localStorage.getItem('theme')}`);
                 } else if (data.data.informationObject.theme) {
                     document.documentElement.classList.add('dark');
+                } else {
+                    console.log('没有主题');
+                    // 根据当前用户浏览器主题颜色设置
+                    const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+                    console.log(prefersDark, 'prefersDarkprefersDark');
+                    if (prefersDark) {
+                        document.documentElement.classList.add('dark');
+                    } else {
+                        document.documentElement.classList.remove('dark');
+                    }
                 }
 
                 // localStorage.setItem('theme', data.data.informationObject.theme);

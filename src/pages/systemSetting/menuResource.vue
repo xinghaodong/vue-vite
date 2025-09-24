@@ -157,6 +157,7 @@
                                     popper-class="mod-menu__icon-popover"
                                     placement="top-start"
                                     trigger="click"
+                                    popper-style="height: 520px;"
                                     :visible="visible"
                                     @before-leave="handlePopoverClose"
                                 >
@@ -318,7 +319,7 @@ const submitSort = async () => {
     tableData.value.forEach(elem => {
         arr.push(elem.id);
     });
-    let ids = arr
+    let ids = arr;
     console.log(arr);
     const data = await proxy.$api.saveMenuSort(ids);
     if (data.code == 200) {
@@ -437,7 +438,12 @@ onBeforeUnmount(() => {
     // proxy.$websocket.close();
 });
 </script>
+
 <style scoped>
+:deep(.el-popper) {
+    height: 500px !important;
+}
+
 .iconsStyle {
     top: 9px;
     right: 3px;

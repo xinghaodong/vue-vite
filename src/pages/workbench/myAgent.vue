@@ -138,16 +138,10 @@ const workflowId = ref('');
 // });
 
 // 提交审批
-const handleSubmitApproval = async () => {
+const handleSubmitApproval = async objs => {
+    console.log('handleSubmitApproval', objs);
     try {
-        let obj = {
-            id: rowId.value,
-            userId: userInfoStore.userInfo.id,
-            status: approvalStatus.value,
-            comment: currentApproval.value,
-        };
-        // return;
-        const res = await proxy.$api.approve(obj);
+        const res = await proxy.$api.approve(objs);
         if (res.code == 200) {
             proxy.$message.success('提交成功');
             showCodeDialog.value = false;
