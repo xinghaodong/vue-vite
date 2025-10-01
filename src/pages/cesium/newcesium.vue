@@ -56,6 +56,31 @@
                 <div class="key spacer"></div>
             </div>
         </div>
+
+        <!-- 陀螺仪仪表盘（仅在开始规划后显示） -->
+        <div v-if="isDrawing" class="gyroscope-overlay">
+            <div class="gyro-compass">
+                <div class="compass-outer">
+                    <div class="compass-inner" :style="{ transform: `rotate(${-frustumcurrentHeading}deg)` }">
+                        <div class="compass-n">N</div>
+                        <div class="compass-e">E</div>
+                        <div class="compass-s">S</div>
+                        <div class="compass-w">W</div>
+                    </div>
+                    <div class="compass-pointer"></div>
+                </div>
+                <div class="gyro-info">
+                    <div class="gyro-item">
+                        <label>航向</label>
+                        <span>{{ frustumcurrentHeading }}°</span>
+                    </div>
+                    <div class="gyro-item">
+                        <label>俯仰</label>
+                        <span>{{ currentPitch.toFixed(1) }}°</span>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 </template>
 
@@ -77,6 +102,10 @@ window.CESIUM_BASE_URL = './Cesium';
 Cesium.Ion.defaultAccessToken =
     'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI5NWEyM2E2Ni1mNDdmLTQ2NjYtYWQ0Mi0xYmE5OWVkYjIxNTUiLCJpZCI6Mjg3NzA3LCJpYXQiOjE3NDI5NTQ1ODR9.iyxiNumkb8sc6jM8EFk72wtwKmLOPAKqsxgeLqs1Nio';
 
+// 陀螺仪所需数据
+const currentPitch = ref(0);
+const currentRoll = ref(0);
+const gyroUpdateInterval = ref(null);
 const ruleFormRef = ref(null);
 const rules = {
     name: [
@@ -650,7 +679,6 @@ const startAnimationLoop = () => {
 // 开始规划
 const startDrawing = async () => {
     isDrawing.value = true;
-
     terrainHeight.value = 1133.74;
 
     viewer.value.camera.flyTo({
@@ -664,8 +692,30 @@ const startDrawing = async () => {
         },
         complete: () => {
             initKeyboardControl();
+            startGyroscope(); // 👈 启动陀螺仪
         },
     });
+};
+// 启动陀螺仪数据更新
+const startGyroscope = () => {
+    if (gyroUpdateInterval.value) return;
+    gyroUpdateInterval.value = setInterval(() => {
+        if (!viewer.value) return;
+        const camera = viewer.value.camera;
+        // Cesium 的 pitch/roll 是负值表示向下/右倾，我们取反更符合直觉
+        currentPitch.value = -Cesium.Math.toDegrees(camera.pitch);
+        currentRoll.value = -Cesium.Math.toDegrees(camera.roll);
+        console.log(`当前俯仰角: ${currentPitch.value.toFixed(1)}°, 翻滚角: ${currentRoll.value.toFixed(1)}°`);
+        // frustumcurrentHeading 已由你的代码维护，无需重复计算
+    }, 100); // 10 FPS 足够流畅
+};
+
+// 停止陀螺仪
+const stopGyroscope = () => {
+    if (gyroUpdateInterval.value) {
+        clearInterval(gyroUpdateInterval.value);
+        gyroUpdateInterval.value = null;
+    }
 };
 
 // 初始化飞行器
@@ -1023,8 +1073,8 @@ onMounted(async () => {
         shouldAnimate: true,
         requestRenderMode: true, // 启用按需渲染
         maximumRenderTimeChange: Infinity, // 确保仅在需要时渲染
-        terrainProvider: await Cesium.createWorldTerrainAsync(), // 添加地形
-        vrButton: true, //开启VR
+        // terrainProvider: await Cesium.createWorldTerrainAsync(), // 添加地形
+        // vrButton: true, //开启VR
         sceneMode: Cesium.SceneMode.SCENE3D,
     });
     var target = Cesium.Cartesian3.fromDegrees(116.4074, 39.9042, 16500000);
@@ -1039,18 +1089,6 @@ onMounted(async () => {
         },
         duration: 1, // 飞行持续时间，单位为秒
     });
-
-    // 检测 WebXR 支持
-    if (navigator.xr) {
-        navigator.xr.isSessionSupported('immersive-vr').then(supported => {
-            console.log('是否支持沉浸式 VR:', supported);
-            if (!supported) {
-                alert('浏览器支持 WebXR，但当前无设备。请安装 WebXR Emulator 插件进行模拟。');
-            }
-        });
-    } else {
-        alert('当前浏览器不支持 WebXR，无法使用 VR 功能。请使用 Chrome 最新版。');
-    }
     // viewer.value.scene.globe.depthTestAgainstTerrain = true;
     // viewer.value.canvas.addEventListener('wheel', handleMouseWheel);
     setTimeout(() => {
@@ -1066,7 +1104,6 @@ onMounted(async () => {
 
 onUnmounted(() => {
     console.log('即将离开当前路由，清理 Cesium 资源');
-
     stopAnimationLoop();
     document.removeEventListener('keydown', handleKeyDown);
     document.removeEventListener('keyup', handleKeyUp);
@@ -1200,5 +1237,104 @@ button:disabled {
         padding: 10px;
         font-size: 12px;
     }
+}
+
+.gyroscope-overlay {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    z-index: 1000;
+    pointer-events: none;
+}
+
+.gyro-compass {
+    background: rgba(0, 0, 0, 0.7);
+    border-radius: 12px;
+    padding: 16px;
+    color: white;
+    font-family: Arial, sans-serif;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+}
+
+.compass-outer {
+    width: 120px;
+    height: 120px;
+    position: relative;
+    margin: 0 auto 12px;
+    border-radius: 50%;
+    border: 2px solid #444;
+    overflow: hidden;
+}
+
+.compass-inner {
+    width: 100%;
+    height: 100%;
+    position: absolute;
+    top: 0;
+    left: 0;
+    transition: transform 0.1s linear;
+}
+
+.compass-inner div {
+    position: absolute;
+    font-size: 14px;
+    font-weight: bold;
+    color: #fff;
+}
+
+.compass-n {
+    top: 8px;
+    left: 50%;
+    transform: translateX(-50%);
+    color: #ffcc00;
+}
+.compass-e {
+    top: 50%;
+    right: 8px;
+    transform: translateY(-50%);
+}
+.compass-s {
+    bottom: 8px;
+    left: 50%;
+    transform: translateX(-50%);
+}
+.compass-w {
+    top: 50%;
+    left: 8px;
+    transform: translateY(-50%);
+}
+
+.compass-pointer {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 2px;
+    height: 50px;
+    background: red;
+    transform: translate(-50%, -100%);
+    z-index: 10;
+}
+
+.gyro-info {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+}
+
+.gyro-item {
+    text-align: center;
+}
+
+.gyro-item label {
+    display: block;
+    font-size: 12px;
+    color: #aaa;
+}
+
+.gyro-item span {
+    display: block;
+    font-size: 16px;
+    font-weight: bold;
+    color: #4fc3f7;
 }
 </style>
