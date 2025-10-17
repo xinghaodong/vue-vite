@@ -444,6 +444,22 @@ export default {
     getUserInfo(params) {
         return oGet(baseUrl + '/internalusers/getUserInfo', params);
     },
+    // 获取基金列表
+    getFundList(params) {
+        return oGet(baseUrl + '/fund-estimate', params);
+    },
+    // 检索基金
+    getFundSearch(params) {
+        return oGet(baseUrl + '/fund-estimate/search', params);
+    },
+    // 新增基金
+    addFund(params) {
+        return oPost(baseUrl + '/fund-estimate/batch', params);
+    },
+    // 删除基金
+    deleteFund(params) {
+        return oPost(baseUrl + '/fund-estimate/delete', params);
+    },
 };
 
 //封装post/get请求
