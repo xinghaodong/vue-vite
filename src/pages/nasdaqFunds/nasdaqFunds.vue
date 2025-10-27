@@ -9,12 +9,14 @@
                     <div class="p-4 pl-6">
                         <div class="pb-4 text-lg font-bold">{{ props.row.name }} 持仓详情</div>
                         <el-table :data="props.row.data">
-                            <el-table-column label="股票" prop="f14" />
+                            <el-table-column label="股票" prop="rawNames" />
                             <el-table-column label="持仓占比" prop="rawWeight" />
                             <el-table-column label="涨跌幅" prop="f3">
                                 <template #default="scope">
                                     <el-tag v-if="scope.row.f3 > 0" type="danger">{{ (scope.row.f3 * 0.01).toFixed(2) + '%' }}</el-tag>
-                                    <el-tag v-else type="success">{{ (scope.row.f3 * 0.01).toFixed(2) + '%' }}</el-tag>
+                                    <el-tag v-else-if="scope.row.f3 < 0" type="success">{{ (scope.row.f3 * 0.01).toFixed(2) + '%' }}</el-tag>
+                                    <el-tag v-else-if="scope.row.f3 == 0" type="info">{{ (scope.row.f3 * 0.01).toFixed(2) + '%' }}</el-tag>
+                                    <el-tag v-else type="info">其他市场未能获取到</el-tag>
                                 </template>
                             </el-table-column>
                             <el-table-column label="股票代码" prop="rawName" />
