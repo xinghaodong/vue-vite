@@ -36,7 +36,7 @@
             <!-- 操作 -->
             <el-table-column label="操作" width="130" fixed="right">
                 <template #default="scope">
-                    <el-button link type="primary" @click="handleEdit(scope.row)">编辑</el-button>
+                    <!-- <el-button link type="primary" @click="handleEdit(scope.row)">编辑</el-button> -->
                     <el-button link type="primary" @click="handleDelete(scope.row)">删除</el-button>
                     <!-- <el-button link type="primary" @click="handleRelieve(scope.row)" v-text="scope.row.is_active == 0 ? '解除' : '禁用'"></el-button> -->
                 </template>
@@ -242,10 +242,10 @@ const handleCurrentChange = val => {
 };
 // 修改
 const handleEdit = row => {
-    proxy.$router.push({
-        path: '/home/newcesium',
-        query: { idkey: row ? row.id : '' },
-    });
+    //proxy.$router.push({
+    //    path: '/home/newcesium',
+    //    query: { idkey: row ? row.id : '' },
+    //});
     // const routeData = proxy.$router.resolve({
     //     path: '/cesium2d',
     //     query: { idkey: row ? row.id : '', token: sessionStorage.getItem('token') }, // 添加查询参数

@@ -145,14 +145,14 @@ const initLogicFlow = () => {
             text: '开始', // 拖拽到画布后节点的默认文本
             label: '开始节点', // 拖拽面板中显示的节点名称
             properties: {}, // 空对象，不挂业务属性
-            icon: '/yq.png',
+            icon: './yq.png',
         },
         {
             type: 'rect', // 节点类型：矩形（审批节点）
             text: '审批节点', // 默认文本
             label: '审批节点', // 面板显示名称
             properties: { assignee: '', assigneeName: '', formId: '', remark: '' }, // 默认属性
-            icon: '/jx.png',
+            icon: './jx.png',
             fill: '#87CEFA',
             stroke: '#1E90FF',
         },
@@ -161,14 +161,14 @@ const initLogicFlow = () => {
             text: '条件节点', // 默认文本
             label: '条件节点', // 面板显示名称
             properties: { condition: '' }, //  条件节点挂条件表达式，不挂人
-            icon: '/tj.png',
+            icon: './tj.png',
         },
         {
             type: 'circle', // 节点类型：菱形（结束节点）
             text: '结束', // 默认文本
             label: '结束节点', // 面板显示名称
             properties: {}, // 默认属性
-            icon: '/yq.png',
+            icon: './yq.png',
         },
     ];
 
