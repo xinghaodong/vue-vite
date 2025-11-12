@@ -15,7 +15,9 @@
     "test": "jest --passWithNoTests",
     "build": "vite build",
     "springboot-build": "vite build --mode springboot",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "build:lib:input": "vite build --mode lib-input",
+    "build:lib:button": "vite build --mode lib-button"
   },
   "dependencies": {
     "@element-plus/icons-vue": "^2.3.1",
@@ -29,6 +31,7 @@
     "cesium": "^1.127.0",
     "dompurify": "^3.2.4",
     "element-plus": "^2.7.4",
+    "element-plus-input-number-thousands": "^1.1.6",
     "gsap": "^3.13.0",
     "highlight.js": "^11.11.1",
     "markdown-it": "^14.1.0",

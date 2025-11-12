@@ -15,6 +15,8 @@ import 'uno.css';
 import 'element-plus/theme-chalk/dark/css-vars.css';
 import '@/assets/css/dark/css-vars.css';
 
+import MyInputNumber from 'element-plus-input-number-thousands';
+import 'element-plus-input-number-thousands/style.css';
 const app = createApp(App);
 app.config.globalProperties.$api = axios;
 app.config.globalProperties.$icon = ElementPlusIconsVue;
@@ -23,6 +25,7 @@ app.config.globalProperties.$checkPermissions = checkPermissions;
 // 注册全局指令 v-has-permi
 app.directive('has-permi', hasPermi);
 // size: 'small',
+app.component('MyInputNumber', MyInputNumber);
 app.use(router).use(pinia).use(ElementPlus, { locale: zhCn, zIndex: 3000 });
 for (const [key, component] of Object.entries(ElementPlusIconsVue)) {
     app.component(key, component);
