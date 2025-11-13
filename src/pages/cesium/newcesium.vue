@@ -91,6 +91,7 @@ import 'cesium/Build/Cesium/Widgets/widgets.css';
 import { createDroneFrustum, calculateRouteInfo } from '@/assets/js/common';
 // import droneImage from '@/assets/WRJ.png';
 import droneImage from '@/assets/5cb4d4a54db5bef6.gltf';
+import jt1Image from '@/assets/jt1.png';
 const { proxy } = getCurrentInstance();
 import { useRoute } from 'vue-router';
 import { createFlowLineMaterial } from '@/utils/cesiumMaterials.js';
@@ -163,7 +164,7 @@ const airRoute = ref({
     trackmileage: 0,
 });
 const moveSpeed = ref(0.0000005); // 移动速度
-const heightSpeed = ref(30); // 高度变化速度
+const heightSpeed = ref(1); // 高度变化速度
 const droneGroundPoint = ref(null); // 无人机地面投影点实体
 const droneHeightLine = ref(null); // 无人机高度连接线实体
 const droneOrientation = ref(new Cesium.HeadingPitchRoll(0, 0, 0));
@@ -489,7 +490,7 @@ const updatePath = () => {
             // 创建带流动效果的新航线，传入viewer引用
             const material = createFlowLineMaterial({
                 viewer: viewer.value, // 新增：传入viewer引用
-                image: './jt1.png',
+                image: jt1Image,
                 flowSpeed: 2.0,
                 mixColor: Cesium.Color.fromCssColorString('#6495ED').withAlpha(1.0),
                 mixRatio: 0.7,
