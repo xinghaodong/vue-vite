@@ -91,6 +91,7 @@ import 'cesium/Build/Cesium/Widgets/widgets.css';
 import { createDroneFrustum, calculateRouteInfo } from '@/assets/js/common';
 // import droneImage from '@/assets/WRJ.png';
 import droneImage from '@/assets/5cb4d4a54db5bef6.gltf';
+import jt1Image from '@/assets/jt1.png';
 const { proxy } = getCurrentInstance();
 import { useRoute } from 'vue-router';
 import { createFlowLineMaterial } from '@/utils/cesiumMaterials.js';
@@ -158,12 +159,11 @@ const airRoute = ref({
     pointNum: 0,
     speed: 10,
 
-    waypoints: [],
     globalheight: 100,
     trackmileage: 0,
 });
 const moveSpeed = ref(0.0000005); // 移动速度
-const heightSpeed = ref(30); // 高度变化速度
+const heightSpeed = ref(1); // 高度变化速度
 const droneGroundPoint = ref(null); // 无人机地面投影点实体
 const droneHeightLine = ref(null); // 无人机高度连接线实体
 const droneOrientation = ref(new Cesium.HeadingPitchRoll(0, 0, 0));
@@ -177,7 +177,7 @@ const frustumcurrentGimbalPitch = ref(null); // 存储当前视椎体俯仰角
 const terrainHeight = ref(0);
 
 // 模型
-const modelList = ref([{ url: 'http://localhost:9001/tileset.json' }]);
+const modelList = ref([{ url: 'http://192.168.8.111:9002/tileset.json' }]);
 
 const handleChange = value => {
     getCalculateRouteInfo();
@@ -326,7 +326,7 @@ const applyHeightOffset = tileset => {
     };
 
     const height = findLowestHeight(tileset.root);
-    const heightOffset = -height;
+    const heightOffset = -height + 60;
     const boundingSphere = tileset.boundingSphere;
     const cartographic = Cesium.Cartographic.fromCartesian(boundingSphere.center);
     const surface = Cesium.Cartesian3.fromRadians(cartographic.longitude, cartographic.latitude, 0);
@@ -489,7 +489,7 @@ const updatePath = () => {
             // 创建带流动效果的新航线，传入viewer引用
             const material = createFlowLineMaterial({
                 viewer: viewer.value, // 新增：传入viewer引用
-                image: './jt1.png',
+                image: jt1Image,
                 flowSpeed: 2.0,
                 mixColor: Cesium.Color.fromCssColorString('#6495ED').withAlpha(1.0),
                 mixRatio: 0.7,
@@ -692,7 +692,7 @@ const startDrawing = async () => {
         },
         complete: () => {
             initKeyboardControl();
-            startGyroscope(); // 👈 启动陀螺仪
+            startGyroscope(); //
         },
     });
 };
@@ -711,12 +711,12 @@ const startGyroscope = () => {
 };
 
 // 停止陀螺仪
-const stopGyroscope = () => {
-    if (gyroUpdateInterval.value) {
-        clearInterval(gyroUpdateInterval.value);
-        gyroUpdateInterval.value = null;
-    }
-};
+// const stopGyroscope = () => {
+//     if (gyroUpdateInterval.value) {
+//         clearInterval(gyroUpdateInterval.value);
+//         gyroUpdateInterval.value = null;
+//     }
+// };
 
 // 初始化飞行器
 const initDrone = () => {
@@ -1074,11 +1074,15 @@ onMounted(async () => {
         requestRenderMode: true, // 启用按需渲染
         maximumRenderTimeChange: Infinity, // 确保仅在需要时渲染
         // terrainProvider: await Cesium.createWorldTerrainAsync(), // 添加地形
+        terrainProvider: new Cesium.EllipsoidTerrainProvider(),
         // vrButton: true, //开启VR
         sceneMode: Cesium.SceneMode.SCENE3D,
     });
-    var target = Cesium.Cartesian3.fromDegrees(116.4074, 39.9042, 16500000);
-
+    let target = Cesium.Cartesian3.fromDegrees(116.4074, 39.9042, 16500000);
+    // 开启高分辨率
+    viewer.value.resolutionScale = window.devicePixelRatio || 1.25;
+    // 开启cesium 帧率
+    viewer.value.scene.debugShowFramesPerSecond = true;
     // 使用flyTo方法飞向目标点
     viewer.value.camera.flyTo({
         destination: target,
