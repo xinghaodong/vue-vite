@@ -8,8 +8,8 @@
         <el-table :data="tableData" border style="width: 100%">
             <el-table-column prop="name" label="模板名称"> </el-table-column>
             <!-- <el-table-column prop="code" label="code"> </el-table-column> -->
-            <el-table-column prop="created_at" label="创建时间" width="180"> </el-table-column>
-            <el-table-column prop="updated_at" label="更新时间" width="180"> </el-table-column>
+            <el-table-column prop="created_at" label="创建时间" width="200"> </el-table-column>
+            <el-table-column prop="updated_at" label="更新时间" width="200"> </el-table-column>
             <!-- 操作 -->
             <el-table-column label="操作" width="130" fixed="right">
                 <template #default="scope">
