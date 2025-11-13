@@ -489,7 +489,7 @@ const updatePath = () => {
             // 创建带流动效果的新航线，传入viewer引用
             const material = createFlowLineMaterial({
                 viewer: viewer.value, // 新增：传入viewer引用
-                image: '/jt1.png',
+                image: './jt1.png',
                 flowSpeed: 2.0,
                 mixColor: Cesium.Color.fromCssColorString('#6495ED').withAlpha(1.0),
                 mixRatio: 0.7,
