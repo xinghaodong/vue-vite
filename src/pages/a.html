@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+
+<body>
+    <script>
+        // 写一个好理解的递归函数为了 数组去重
+        var num = 100
+        var a = 1
+        function func() {
+            if (a >= num) {
+                console.log(a, '66')
+                return a
+            } else {
+                a++
+            }
+            return func()
+        }
+        console.log(func())
+
+        let arr = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
+        function func1(arr) {
+            return Array.from(new Set(arr))
+        }
+        console.log(func1(arr))
+
+        // 实现一个深拷贝
+        function deepClone(obj) {
+            if (typeof obj !== 'object') {
+                return obj
+            }
+            let newObj = Array.isArray(obj) ? [] : {}
+            for (let key in obj) {
+                if (obj.hasOwnProperty(key)) {
+                    newObj[key] = deepClone(obj[key])
+                }
+            }
+            return newObj
+        }
+        // 实现一个浅拷贝
+        function shallowClone(obj) {
+            let newObj = {}
+            for (let key in obj) {
+                if (obj.hasOwnProperty(key)) {
+                    newObj[key] = obj[key]
+                }
+            }
+            return newObj
+        }
+
+    </script>
+
+</body>
+
+</html>

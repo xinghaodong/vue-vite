@@ -209,13 +209,13 @@ const handleAvatarSuccess = (res, uploadFile) => {
 };
 
 const beforeAvatarUpload = rawFile => {
-    if (rawFile.type != 'image/jpeg' && rawFile.type != 'image/png') {
-        proxy.$message.error('图片必须是jpg或png格式');
-        return false;
-    } else if (rawFile.size / 1024 / 1024 > 5) {
-        proxy.$message.error('图片不能超过5M');
-        return false;
-    }
+    // if (rawFile.type != 'image/jpeg' && rawFile.type != 'image/png') {
+    //     proxy.$message.error('图片必须是jpg或png格式');
+    //     return false;
+    // } else if (rawFile.size / 1024 / 1024 > 5) {
+    //     proxy.$message.error('图片不能超过5M');
+    //     return false;
+    // }
     return true;
 };
 // 查询用户的函数

@@ -1,41 +1,41 @@
 <template>
     <div id="cesiumContainer" class="cesium-drone-simulator">
-        <div class="control-panel">
-            <el-button @click="startDrawing" :disabled="isDrawing || idkey ? true : false">开始规划</el-button>
-            <div class="status-info">
-                <span>当前相机高度：{{ currentHeight.toFixed(1) }}米</span>
-                <span>当前无人机高度：{{ airRoute.globalheight.toFixed(1) }}米</span>
-                <span>航点数量：{{ airRoute.waypoints.length }}</span>
-                <span>朝向：{{ frustumcurrentHeading }}°</span>
-            </div>
-            <el-form ref="ruleFormRef" :rules="rules" :model="airRoute" label-width="100px" style="max-width: 260px">
-                <el-form-item label="航线名称">
-                    <el-input v-model="airRoute.name" maxlength="20" prop="name" />
-                </el-form-item>
-                <el-form-item label="航线速度">
-                    <el-space>
-                        <el-input-number style="width: 100%" v-model="airRoute.speed" :min="1" :max="15" @change="handleChange">
-                            <template #suffix>km/h</template>
-                        </el-input-number>
-                    </el-space>
-                </el-form-item>
-                <el-form-item label="航线预估时间">
-                    <el-input v-model="airRoute.trackduration_ms" disabled />
-                </el-form-item>
-                <el-form-item label="航线长">
-                    <el-input v-model="airRoute.trackmileage" disabled prop="trackmileage">
-                        <template #append>米</template>
-                    </el-input>
-                </el-form-item>
-                <el-button type="primary" @click="onSubmit(ruleFormRef)" style="width: 100%">保存</el-button>
-                <!-- <div class="status-info">
-                    <span>当前相机高度：{{ currentHeight.toFixed(1) }}米</span>
-                    <span>当前无人机高度：{{ airRoute.globalheight.toFixed(1) }}米</span>
-                    <span>航点数量：{{ airRoute.waypoints.length }}</span>
-                    <span>朝向：{{ frustumcurrentHeading }}°</span>
-                </div> -->
-            </el-form>
-        </div>
+        <!--        <div class="control-panel">-->
+        <!--            <el-button @click="startDrawing" :disabled="isDrawing || idkey ? true : false">开始规划</el-button>-->
+        <!--            <div class="status-info">-->
+        <!--                <span>当前相机高度：{{ currentHeight.toFixed(1) }}米</span>-->
+        <!--                <span>当前无人机高度：{{ airRoute.globalheight.toFixed(1) }}米</span>-->
+        <!--                <span>航点数量：{{ airRoute.waypoints.length }}</span>-->
+        <!--                <span>朝向：{{ frustumcurrentHeading }}°</span>-->
+        <!--            </div>-->
+        <!--            <el-form ref="ruleFormRef" :rules="rules" :model="airRoute" label-width="100px" style="max-width: 260px">-->
+        <!--                <el-form-item label="航线名称">-->
+        <!--                    <el-input v-model="airRoute.name" maxlength="20" prop="name" />-->
+        <!--                </el-form-item>-->
+        <!--                <el-form-item label="航线速度">-->
+        <!--                    <el-space>-->
+        <!--                        <el-input-number style="width: 100%" v-model="airRoute.speed" :min="1" :max="15" @change="handleChange">-->
+        <!--                            <template #suffix>km/h</template>-->
+        <!--                        </el-input-number>-->
+        <!--                    </el-space>-->
+        <!--                </el-form-item>-->
+        <!--                <el-form-item label="航线预估时间">-->
+        <!--                    <el-input v-model="airRoute.trackduration_ms" disabled />-->
+        <!--                </el-form-item>-->
+        <!--                <el-form-item label="航线长">-->
+        <!--                    <el-input v-model="airRoute.trackmileage" disabled prop="trackmileage">-->
+        <!--                        <template #append>米</template>-->
+        <!--                    </el-input>-->
+        <!--                </el-form-item>-->
+        <!--                <el-button type="primary" @click="onSubmit(ruleFormRef)" style="width: 100%">保存</el-button>-->
+        <!--                &lt;!&ndash; <div class="status-info">-->
+        <!--                    <span>当前相机高度：{{ currentHeight.toFixed(1) }}米</span>-->
+        <!--                    <span>当前无人机高度：{{ airRoute.globalheight.toFixed(1) }}米</span>-->
+        <!--                    <span>航点数量：{{ airRoute.waypoints.length }}</span>-->
+        <!--                    <span>朝向：{{ frustumcurrentHeading }}°</span>-->
+        <!--                </div> &ndash;&gt;-->
+        <!--            </el-form>-->
+        <!--        </div>-->
 
         <div class="virtual-keyboard">
             <div class="keyboard-row">
@@ -312,6 +312,26 @@ const create3DTileset = async modelConfig => {
         cullWithChildrenBounds: false,
         cullRequestsWhileMoving: false, // 移动时不剔除请求
         cullRequestsWhileMovingMultiplier: 1, // 减少剔除敏感度
+
+        // skipLevelOfDetail: true,
+        // baseScreenSpaceError: 1024,
+        // skipScreenSpaceErrorFactor: 16,
+        // skipLevels: 1,
+        // preferLeaves: true,
+
+        // // ================= 清晰度与内存 =================
+        // maximumScreenSpaceError: 1.0, // 默认较清晰
+        // maximumMemoryUsage: 512, // 控制显存上限
+        // cullWithChildrenBounds: true,
+        // cullRequestsWhileMoving: true,
+        // cullRequestsWhileMovingMultiplier: 1,
+        // preloadWhenHidden: false,
+
+        // // ================= 动态误差控制 =================
+        // dynamicScreenSpaceError: true,
+        // dynamicScreenSpaceErrorFactor: 5.0, // 清晰度偏高（默认4~8）
+        // dynamicScreenSpaceErrorDensity: 0.002,
+        // dynamicScreenSpaceErrorHeightFalloff: 0.25,
     });
 };
 
@@ -1073,8 +1093,8 @@ onMounted(async () => {
         shouldAnimate: true,
         requestRenderMode: true, // 启用按需渲染
         maximumRenderTimeChange: Infinity, // 确保仅在需要时渲染
-        // terrainProvider: await Cesium.createWorldTerrainAsync(), // 添加地形
-        terrainProvider: new Cesium.EllipsoidTerrainProvider(),
+        // terrainProvider: new Cesium.EllipsoidTerrainProvider(),
+        terrainProvider: await Cesium.createWorldTerrainAsync(), // 添加地形
         // vrButton: true, //开启VR
         sceneMode: Cesium.SceneMode.SCENE3D,
     });

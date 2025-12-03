@@ -164,6 +164,11 @@ export default {
     login(params) {
         return oPost(baseUrl + '/auth/login', params);
     },
+    // 附件上传
+    upload(params) {
+        return oPost(baseUrl + '/upload/uploadFile', params);
+    },
+
     // 删除菜单
     deletemenu(params) {
         return oPost(baseUrl + '/menus/deletemenu', params);
@@ -459,6 +464,10 @@ export default {
     // 删除基金
     deleteFund(params) {
         return oPost(baseUrl + '/fund-estimate/delete', params);
+    },
+    // 语音识别
+    transcribe(params) {
+        return oPost(baseUrl + '/ai/transcribe', params);
     },
 };
 

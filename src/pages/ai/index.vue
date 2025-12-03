@@ -186,6 +186,32 @@
                                 </svg>
                                 <!-- 语音按钮 -->
                                 <svg
+                                    @click="stopRecording"
+                                    v-if="mediaShow"
+                                    t="1764657223103"
+                                    class="icon cursor-pointer pl-2"
+                                    viewBox="0 0 1024 1024"
+                                    version="1.1"
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    p-id="5295"
+                                    width="23"
+                                    height="23"
+                                >
+                                    <path
+                                        d="M913.18949273 968.10553227c-11.29527793 0-22.57674747-4.363457-31.11034375-13.06275419L76.05474375 131.89594663c-16.83244963-17.17765984-16.54247307-44.76685948 0.64899518-61.57169228 17.16385143-16.84625804 44.75305108-16.52866465 61.57169232 0.62137836L944.29983647 894.07865573c16.83244963 17.17765984 16.54247307 44.76685948-0.64899519 61.5716923-8.46455425 8.31266175-19.4560472 12.45518421-30.46134855 12.45518424z"
+                                        fill="#2c2c2c"
+                                        p-id="5296"
+                                    ></path>
+                                    <path
+                                        d="M107.1788959 968.10553227c11.29527793 0 22.57674747-4.363457 31.11034375-13.06275419l806.01059682-823.13302303c16.83244963-17.17765984 16.54247307-44.76685948-0.64899519-61.5716923-17.16385143-16.84625804-44.75305108-16.52866465-61.5716923 0.62137837L76.05474375 894.07865573c-16.83244963 17.17765984-16.54247307 44.76685948 0.64899518 61.5716923 8.46455425 8.31266175 19.46985561 12.45518421 30.47515697 12.45518424z"
+                                        fill="#2c2c2c"
+                                        p-id="5297"
+                                    ></path>
+                                </svg>
+
+                                <svg
+                                    @click="startRecording"
+                                    v-if="!mediaShow"
                                     t="1742268730610"
                                     class="icon cursor-pointer pl-2"
                                     viewBox="0 0 1024 1024"
@@ -221,6 +247,8 @@
 import { getCurrentInstance, ref, onMounted, nextTick, computed, watchEffect } from 'vue';
 const { VITE_STATIC_URL } = import.meta.env;
 const { proxy } = getCurrentInstance();
+import { aiAudioPlayer } from '@/utils/audioQueuePlayer';
+import toWav from 'audiobuffer-to-wav'; // 轻量 WAV 编码器
 import MarkdownIt from 'markdown-it';
 import hljs from 'highlight.js';
 // import 'highlight.js/styles/github.css'; // 引入样式
@@ -285,6 +313,102 @@ const isUserInteracting = ref(false);
 const isSwitchOn = ref(false);
 
 const isBtn = ref(true);
+
+// 全局变量（避免组件销毁后内存泄漏）
+let audioContext = null;
+let processor = null;
+let mediaStream = null;
+const audioChunks = []; // 存 Float32Array
+const mediaShow = ref(false);
+
+// 开始录音
+const startRecording = async () => {
+    try {
+        mediaShow.value = true;
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        mediaStream = stream;
+
+        // 创建 AudioContext 采集原始 PCM
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        const source = audioContext.createMediaStreamSource(stream);
+        processor = audioContext.createScriptProcessor(4096, 1, 1);
+
+        processor.onaudioprocess = e => {
+            // e.inputBuffer 是 AudioBuffer，可用 getChannelData
+            const channelData = e.inputBuffer.getChannelData(0); // Float32Array
+            audioChunks.push(channelData.slice()); // 深拷贝
+        };
+
+        source.connect(processor);
+        processor.connect(audioContext.destination);
+    } catch (err) {
+        console.error('麦克风权限被拒绝或录音失败:', err);
+        mediaShow.value = false;
+    }
+};
+
+// 停止录音 + 上传
+const stopRecording = () => {
+    // 停止流和上下文
+    if (processor) processor.disconnect();
+    if (mediaStream) mediaStream.getTracks().forEach(t => t.stop());
+    if (audioContext) audioContext.close();
+
+    mediaShow.value = false;
+    // 1. 先合并数据
+    let totalLength = 0;
+    for (const chunk of audioChunks) totalLength += chunk.length;
+    const fullAudio = new Float32Array(totalLength);
+    let offset = 0;
+    for (const chunk of audioChunks) {
+        fullAudio.set(chunk, offset);
+        offset += chunk.length;
+    }
+
+    // 2. 创建真实的 AudioBuffer 实例 (关键!)
+    // 参数: 声道数(1), 长度(totalLength), 采样率(audioContext.sampleRate)
+    const newBuffer = audioContext.createBuffer(1, totalLength, audioContext.sampleRate);
+
+    // 3. 将数据写入 Buffer
+    newBuffer.getChannelData(0).set(fullAudio);
+
+    // 4. 调用转换库 (现在传入的是真正的 Buffer)
+    const wavBuffer = toWav(newBuffer);
+    const wavBlob = new Blob([wavBuffer], { type: 'audio/wav' });
+
+    // 5. 最后再清理资源
+    if (processor) processor.disconnect();
+    if (mediaStream) mediaStream.getTracks().forEach(t => t.stop());
+    // if (audioContext) audioContext.close(); // 放到最后
+
+    // 6. 发送
+    sendAudioToStt(wavBlob);
+};
+
+// 上传到后端
+const sendAudioToStt = async blob => {
+    const formData = new FormData();
+    formData.append('avatar', blob, 'voice.wav');
+    formData.append('is_voice', '1');
+
+    try {
+        // 替换为你实际的 API 调用
+        const res = await proxy.$api.upload(formData);
+
+        // 如果后端直接返回 { text }
+        // inputText.value = res?.data?.text || '';
+        console.log('语音识别结果:', res);
+        // 如果后端需要二次调用 transcribe，请用下面逻辑
+        if (res.data?.id) {
+            const transRes = await proxy.$api.transcribe({ id: res.data.id });
+            inputText.value = transRes?.data?.text || '';
+        }
+
+        sendMessage(); // 假设你有这个函数
+    } catch (error) {
+        console.error('语音上传/识别失败:', error);
+    }
+};
 
 const toggleSidebar = () => {
     isSidebarOpen.value = !isSidebarOpen.value;
@@ -415,52 +539,65 @@ const sendMessage = async e => {
 
     // 处理接收到的数据
     eventSource.onmessage = event => {
-        requestAnimationFrame(() => {
-            // 如果是正常的 AI 回复内容
-            const lastIndex = chatList.value.length - 1;
-            const data = JSON.parse(event.data); // 解码数据
-            if (data.status === 'searching') {
-                // 正在联网搜索中，显示提示信息
-                chatList.value[lastIndex].content = '<i>正在联网搜索中，请稍候...</i>';
-                nextTick(() => {
-                    scrollToBottom();
-                });
-                return;
-            }
-
-            if (data.status === 'search_complete') {
-                // 联网搜索完成，这里可以更新 UI 或者显示提示
-                chatList.value[lastIndex].content = '';
-                chatList.value[lastIndex].content = '<i>联网搜索已完成！</i>';
-                console.log('联网搜索已完成！');
-                return;
-            }
-
-            if (data.status === 'search_failed') {
-                // 联网搜索失败，提示用户
-                chatList.value[lastIndex].content = '<i>联网搜索失败，正在使用本地知识库回答。</i>';
-                nextTick(() => {
-                    scrollToBottom();
-                });
-                return;
-            }
-
-            if (lastIndex >= 0 && chatList.value[lastIndex].role === 'assistant' && chatList.value[lastIndex].content.includes('正在联网搜索中')) {
-                // 找到之前显示的“正在联网搜索中...”的消息并替换
-                chatList.value[lastIndex].content = md.render(data);
-            } else {
-                // 如果不存在“正在联网搜索中...”的消息，则正常添加
-                const renderedContent = md.render(data);
-                chatList.value[lastIndex].content = renderedContent;
-            }
-            // 在 DOM 更新后检查是否需要滚动
+        // requestAnimationFrame(() => {
+        // 如果是正常的 AI 回复内容
+        const lastIndex = chatList.value.length - 1;
+        const data = JSON.parse(event.data); // 解码数据
+        if (data.status === 'searching') {
+            // 正在联网搜索中，显示提示信息
+            chatList.value[lastIndex].content = '<i>正在联网搜索中，请稍候...</i>';
             nextTick(() => {
-                const container = chatContainer.value;
-                if (container && !isUserInteracting.value) {
-                    scrollToBottom();
-                }
+                scrollToBottom();
             });
+            return;
+        }
+
+        if (data.status === 'search_complete') {
+            // 联网搜索完成，这里可以更新 UI 或者显示提示
+            chatList.value[lastIndex].content = '';
+            chatList.value[lastIndex].content = '<i>联网搜索已完成！</i>';
+            console.log('联网搜索已完成！');
+            return;
+        }
+
+        if (data.status === 'search_failed') {
+            // 联网搜索失败，提示用户
+            chatList.value[lastIndex].content = '<i>联网搜索失败，正在使用本地知识库回答。</i>';
+            nextTick(() => {
+                scrollToBottom();
+            });
+            return;
+        }
+        if (data.status === 'thinking') {
+            console.log(data, '3333');
+            // 联网搜索完成，这里可以更新 UI 或者显示提示
+            chatList.value[lastIndex].content = data.message;
+            return;
+        }
+        console.log(data, 'data');
+        if (data.type === 'audio') {
+            // const audioUrl = proxy.$api.img_url + data.audio;
+            //全部进入播放队列！
+            aiAudioPlayer.push(data.audio);
+            return;
+        }
+
+        if (lastIndex >= 0 && chatList.value[lastIndex].role === 'assistant' && chatList.value[lastIndex].content.includes('正在联网搜索中')) {
+            // 找到之前显示的“正在联网搜索中...”的消息并替换
+            chatList.value[lastIndex].content = md.render(data);
+        } else {
+            // 如果不存在“正在联网搜索中...”的消息，则正常添加
+            const renderedContent = md.render(data);
+            chatList.value[lastIndex].content = renderedContent;
+        }
+        // 在 DOM 更新后检查是否需要滚动
+        nextTick(() => {
+            const container = chatContainer.value;
+            if (container && !isUserInteracting.value) {
+                scrollToBottom();
+            }
         });
+        // });
     };
 
     // 错误处理
