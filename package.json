@@ -7,7 +7,7 @@
     "dev:debug": "node --inspect-brk node_modules/vite/bin/vite.js",
     "build:debug": "node --inspect-brk node_modules/vite/bin/vite.js build",
     "serve": "vite",
-    "dev": "vite",
+    "dev": "vite --host",
     "testh": "vite --mode test",
     "springboot": "vite --mode springboot",
     "pro": "vite --mode production",

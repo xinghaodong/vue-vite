@@ -13,20 +13,20 @@ class AudioQueuePlayer {
         this.isPlaying = true;
         const audio = new Audio(nextUrl);
         this.currentAudio = audio;
-
+        // 设置音频结束后的回调
         audio.onended = () => {
             this.isPlaying = false;
             this.currentAudio = null;
             this.playNext(); // ✅ 播放下一个
         };
-
+        // 设置音频播放错误的回调
         audio.onerror = () => {
             console.warn('音频播放失败：', nextUrl);
             this.isPlaying = false;
             this.currentAudio = null;
             this.playNext(); // 失败也继续播后面的
         };
-
+        // 尝试播放音频，并捕获可能的播放错误
         audio.play().catch(err => {
             console.warn('播放被拦截：', err);
             this.isPlaying = false;
