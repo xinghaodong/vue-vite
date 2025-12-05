@@ -1,41 +1,50 @@
 <template>
     <div id="cesiumContainer" class="cesium-drone-simulator">
-        <!--        <div class="control-panel">-->
-        <!--            <el-button @click="startDrawing" :disabled="isDrawing || idkey ? true : false">开始规划</el-button>-->
-        <!--            <div class="status-info">-->
-        <!--                <span>当前相机高度：{{ currentHeight.toFixed(1) }}米</span>-->
-        <!--                <span>当前无人机高度：{{ airRoute.globalheight.toFixed(1) }}米</span>-->
-        <!--                <span>航点数量：{{ airRoute.waypoints.length }}</span>-->
-        <!--                <span>朝向：{{ frustumcurrentHeading }}°</span>-->
-        <!--            </div>-->
-        <!--            <el-form ref="ruleFormRef" :rules="rules" :model="airRoute" label-width="100px" style="max-width: 260px">-->
-        <!--                <el-form-item label="航线名称">-->
-        <!--                    <el-input v-model="airRoute.name" maxlength="20" prop="name" />-->
-        <!--                </el-form-item>-->
-        <!--                <el-form-item label="航线速度">-->
-        <!--                    <el-space>-->
-        <!--                        <el-input-number style="width: 100%" v-model="airRoute.speed" :min="1" :max="15" @change="handleChange">-->
-        <!--                            <template #suffix>km/h</template>-->
-        <!--                        </el-input-number>-->
-        <!--                    </el-space>-->
-        <!--                </el-form-item>-->
-        <!--                <el-form-item label="航线预估时间">-->
-        <!--                    <el-input v-model="airRoute.trackduration_ms" disabled />-->
-        <!--                </el-form-item>-->
-        <!--                <el-form-item label="航线长">-->
-        <!--                    <el-input v-model="airRoute.trackmileage" disabled prop="trackmileage">-->
-        <!--                        <template #append>米</template>-->
-        <!--                    </el-input>-->
-        <!--                </el-form-item>-->
-        <!--                <el-button type="primary" @click="onSubmit(ruleFormRef)" style="width: 100%">保存</el-button>-->
-        <!--                &lt;!&ndash; <div class="status-info">-->
-        <!--                    <span>当前相机高度：{{ currentHeight.toFixed(1) }}米</span>-->
-        <!--                    <span>当前无人机高度：{{ airRoute.globalheight.toFixed(1) }}米</span>-->
-        <!--                    <span>航点数量：{{ airRoute.waypoints.length }}</span>-->
-        <!--                    <span>朝向：{{ frustumcurrentHeading }}°</span>-->
-        <!--                </div> &ndash;&gt;-->
-        <!--            </el-form>-->
-        <!--        </div>-->
+        <div class="control-panel">
+            <!-- <el-button @click="startDrawing" :disabled="isDrawing || idkey ? true : false">开始规划</el-button>
+            <div class="status-info">
+                <span>当前相机高度：{{ currentHeight.toFixed(1) }}米</span>
+                <span>当前无人机高度：{{ airRoute.globalheight.toFixed(1) }}米</span>
+                <span>航点数量：{{ airRoute.waypoints.length }}</span>
+                <span>朝向：{{ frustumcurrentHeading }}°</span>
+            </div> -->
+            <el-form ref="ruleFormRef" :rules="rules" :model="airRoute" label-width="80px" style="max-width: 260px">
+                <!-- <el-form-item label="航线名称">
+                    <el-input v-model="airRoute.name" maxlength="20" prop="name" />
+                </el-form-item>
+                <el-form-item label="航线速度">
+                    <el-space>
+                        <el-input-number style="width: 100%" v-model="airRoute.speed" :min="1" :max="15" @change="handleChange">
+                            <template #suffix>km/h</template>
+                        </el-input-number>
+                    </el-space>
+                </el-form-item>
+                <el-form-item label="航线预估时间">
+                    <el-input v-model="airRoute.trackduration_ms" disabled />
+                </el-form-item>
+                <el-form-item label="航线长">
+                    <el-input v-model="airRoute.trackmileage" disabled prop="trackmileage">
+                        <template #append>米</template>
+                    </el-input>
+                </el-form-item>
+                <el-button type="primary" @click="onSubmit(ruleFormRef)" style="width: 100%">保存</el-button> -->
+
+                <!-- <div class="status-info">
+                    <span>当前相机高度：{{ currentHeight.toFixed(1) }}米</span>
+                    <span>当前无人机高度：{{ airRoute.globalheight.toFixed(1) }}米</span>
+                    <span>航点数量：{{ airRoute.waypoints.length }}</span>
+                    <span>朝向：{{ frustumcurrentHeading }}°</span>
+                </div> -->
+
+                <el-form-item label="经纬度">
+                    <el-input style="width: 100%" v-model="targetLon" placeholder="经度" />
+
+                    <el-input style="width: 100%" v-model="targetLat" placeholder="纬度" />
+
+                    <el-button type="primary" @click="flyToAndAddPoint" :disabled="!targetLon || !targetLat"> 查询 </el-button>
+                </el-form-item>
+            </el-form>
+        </div>
 
         <div class="virtual-keyboard">
             <div class="keyboard-row">
@@ -95,6 +104,9 @@ import jt1Image from '@/assets/jt1.png';
 const { proxy } = getCurrentInstance();
 import { useRoute } from 'vue-router';
 import { createFlowLineMaterial } from '@/utils/cesiumMaterials.js';
+const TIANDITU_TOKEN = '959c9868a67971f32236533362422954';
+const TIANDITU_TOKEN1 = 'e79aa17ec84f6336a17a688c018da4f8';
+const TIANDITU_TOKEN2 = '242483665fa18dda32c41b7e397f12dd';
 
 // 配置Cesium基础URL
 window.CESIUM_BASE_URL = './Cesium';
@@ -142,6 +154,8 @@ const keyStates = ref({
     c: false,
 });
 
+const tiandituToken = ref(TIANDITU_TOKEN);
+
 const followDrone = ref(true);
 const animationFrameId = ref(null);
 // 无人机实体
@@ -179,6 +193,55 @@ const terrainHeight = ref(0);
 // 模型
 const modelList = ref([{ url: 'http://192.168.8.111:9002/tileset.json' }]);
 
+// 响应式数据
+const targetLon = ref(null);
+const targetLat = ref(null);
+
+// 获取 Cesium Viewer 实例（假设你已通过 ref 或全局变量暴露 viewer）
+// 通常你可能有类似：const viewer = window.viewer 或从组件/状态中获取
+// 如果你在 setup 中创建了 viewer，确保能访问到它
+
+const flyToAndAddPoint = () => {
+    if (!targetLon.value || !targetLat.value) return;
+
+    const lon = Number(targetLon.value);
+    const lat = Number(targetLat.value);
+    const height = 800; // 飞行高度，可自定义，比如 currentHeight 或固定值
+    console.log(lon, lat);
+    // 1. 飞到目标位置
+    viewer.value.camera.flyTo({
+        destination: Cesium.Cartesian3.fromDegrees(lon, lat, height + 50), // 稍高一点俯视
+        duration: 1.5,
+        orientation: {
+            heading: Cesium.Math.toRadians(0), // 朝北
+            pitch: Cesium.Math.toRadians(-90), // 俯视角
+            roll: 0,
+        },
+    });
+
+    // 2. 添加一个点 Entity
+    const pointId = `manual-point-${Date.now()}`;
+    viewer.value.entities.add({
+        id: pointId,
+        position: Cesium.Cartesian3.fromDegrees(lon, lat, height),
+        point: {
+            pixelSize: 10,
+            color: Cesium.Color.RED,
+            outlineColor: Cesium.Color.WHITE,
+            outlineWidth: 2,
+            heightReference: Cesium.HeightReference.CLAMP_TO_GROUND,
+        },
+        // 可选：添加 label
+        label: {
+            text: `(${lon}, ${lat})`,
+            pixelOffset: new Cesium.Cartesian2(0, -20),
+            style: Cesium.LabelStyle.FILL_AND_OUTLINE,
+            outlineWidth: 2,
+            verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
+            heightReference: Cesium.HeightReference.CLAMP_TO_GROUND,
+        },
+    });
+};
 const handleChange = value => {
     getCalculateRouteInfo();
 };
@@ -1076,8 +1139,37 @@ const stopAnimationLoop = () => {
         animationFrameId.value = null;
     }
 };
+const tiMapCia = () => {
+    viewer.value.imageryLayers.addImageryProvider(
+        new Cesium.WebMapTileServiceImageryProvider({
+            url: 'http://t0.tianditu.gov.cn/cva_w/wmts?tk=' + tiandituToken.value,
+            layer: 'cva',
+            style: 'default',
+            tileMatrixSetID: 'w',
+            format: 'tiles',
+            maximumLevel: 18,
+        }),
+    );
+};
+
+const tiMapImg = () => {
+    viewer.value.imageryLayers.addImageryProvider(
+        new Cesium.WebMapTileServiceImageryProvider({
+            url: 'http://t0.tianditu.gov.cn/img_w/wmts?tk=' + tiandituToken.value,
+            layer: 'img',
+            style: 'default',
+            tileMatrixSetID: 'w',
+            format: 'tiles',
+            maximumLevel: 18,
+        }),
+    );
+};
 // 生命周期钩子
 onMounted(async () => {
+    const tokens = [TIANDITU_TOKEN, TIANDITU_TOKEN1, TIANDITU_TOKEN2];
+    tiandituToken.value = tokens[Math.floor(Math.random() * tokens.length)];
+    console.log(tiandituToken.value, 'tiandituToken');
+
     // 初始化
     viewer.value = new Cesium.Viewer('cesiumContainer', {
         infoBox: false,
@@ -1093,16 +1185,19 @@ onMounted(async () => {
         shouldAnimate: true,
         requestRenderMode: true, // 启用按需渲染
         maximumRenderTimeChange: Infinity, // 确保仅在需要时渲染
-        // terrainProvider: new Cesium.EllipsoidTerrainProvider(),
-        terrainProvider: await Cesium.createWorldTerrainAsync(), // 添加地形
+        terrainProvider: new Cesium.EllipsoidTerrainProvider(),
+        // terrainProvider: await Cesium.createWorldTerrainAsync(), // 添加地形
         // vrButton: true, //开启VR
         sceneMode: Cesium.SceneMode.SCENE3D,
     });
+    viewer.value.imageryLayers.remove(viewer.value.imageryLayers.get(0));
     let target = Cesium.Cartesian3.fromDegrees(116.4074, 39.9042, 16500000);
     // 开启高分辨率
     viewer.value.resolutionScale = window.devicePixelRatio || 1.25;
     // 开启cesium 帧率
     viewer.value.scene.debugShowFramesPerSecond = true;
+    tiMapImg();
+    tiMapCia();
     // 使用flyTo方法飞向目标点
     viewer.value.camera.flyTo({
         destination: target,
@@ -1113,9 +1208,22 @@ onMounted(async () => {
         },
         duration: 1, // 飞行持续时间，单位为秒
     });
+    // setTimeout(() => {
+    //     let target1 = Cesium.Cartesian3.fromDegrees(112.85672871086203, 37.91567125017228, 1500);
+    //     viewer.value.camera.flyTo({
+    //         destination: target1,
+    //         orientation: {
+    //             heading: Cesium.Math.toRadians(0), // 方向角，例如向东为0度
+    //             pitch: Cesium.Math.toRadians(-90), // 俯仰角，例如垂直向下为-90度
+    //             roll: 0.0, // 翻滚角
+    //         },
+    //         duration: 0, // 飞行持续时间，单位为秒
+    //     });
+    // }, 2000);
     // viewer.value.scene.globe.depthTestAgainstTerrain = true;
     // viewer.value.canvas.addEventListener('wheel', handleMouseWheel);
     setTimeout(() => {
+        return;
         load3DTilesModels();
     }, 1500);
 
