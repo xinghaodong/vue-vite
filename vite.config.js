@@ -95,6 +95,12 @@ export default defineConfig(({ mode, command }) => {
                     changeOrigin: true,
                     rewrite: path => path.replace(/^\/api/, ''),
                 },
+                // ✅ 新增：GeoServer WMS 代理
+                '/geoserver': {
+                    target: 'http://47.104.178.54:8060',
+                    changeOrigin: true,
+                    // 不 rewrite，保持 /geoserver 前缀
+                },
             },
         },
     };

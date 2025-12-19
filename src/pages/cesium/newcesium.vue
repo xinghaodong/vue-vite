@@ -103,7 +103,7 @@
                 </div>
             </div>
         </div>
-        <!-- <div id="cesiumContainer1"></div> -->
+        <div id="cesiumContainer1"></div>
     </div>
 </template>
 
@@ -1344,19 +1344,59 @@ onMounted(async () => {
     tiandituToken.value = tokens[Math.floor(Math.random() * tokens.length)];
     console.log(tiandituToken.value, 'tiandituToken');
 
-    // const wmsLayer = viewer1.value.imageryLayers.addImageryProvider(wmsProvider);
-    // // 设置透明度，例如半透明
-    // wmsLayer.alpha = 1; // 值越小越透明，可以动态修改
+    viewer1.value = new Cesium.Viewer('cesiumContainer1', {
+        infoBox: false,
+        animation: false,
+        baseLayerPicker: false,
+        fullscreenButton: false,
+        geocoder: false,
+        homeButton: false,
+        sceneModePicker: false,
+        selectionIndicator: false,
+        timeline: false,
+        navigationHelpButton: false,
+        shouldAnimate: true,
+        requestRenderMode: true, // 启用按需渲染
+        maximumRenderTimeChange: Infinity, // 确保仅在需要时渲染
+        terrainProvider: new Cesium.EllipsoidTerrainProvider(),
+        // terrainProvider: await Cesium.createWorldTerrainAsync(), // 添加地形
+        // vrButton: true, //开启VR
+        sceneMode: Cesium.SceneMode.SCENE3D,
+    });
+    viewer1.value.imageryLayers.remove(viewer1.value.imageryLayers.get(0));
+    let target1 = Cesium.Cartesian3.fromDegrees(116.4074, 39.9042, 16500000);
+    // 开启高分辨率
+    viewer1.value.resolutionScale = window.devicePixelRatio || 1.25;
+    // 开启cesium 帧率
+    viewer1.value.scene.debugShowFramesPerSecond = true;
+    // 添加 GeoServer WMS 影像层
+    const wmsProvider = new Cesium.WebMapServiceImageryProvider({
+        url: '/geoserver/sihedk/wms', // 走 Vite 代理
+        layers: 'sihedk:世界底图',
+        parameters: {
+            service: 'WMS',
+            transparent: true,
+            format: 'image/png',
+            version: '1.1.0',
+            tiled: true,
+            // srs: 'EPSG:4326', // 请确认 GeoServer 支持此投影！
+        },
+        // tilingScheme: new Cesium.GeographicTilingScheme(), // 对应 EPSG:4326
+    });
 
-    // viewer1.value.camera.flyTo({
-    //     destination: Cesium.Cartesian3.fromDegrees(105, 35, 20000000),
-    //     orientation: {
-    //         heading: 0,
-    //         pitch: Cesium.Math.toRadians(-90),
-    //         roll: 0,
-    //     },
-    //     duration: 1.5,
-    // });
+    const wmsLayer = viewer1.value.imageryLayers.addImageryProvider(wmsProvider);
+    // 设置透明度，例如半透明
+    wmsLayer.alpha = 1; // 值越小越透明，可以动态修改
+
+    viewer1.value.camera.flyTo({
+        destination: Cesium.Cartesian3.fromDegrees(105, 35, 20000000),
+        orientation: {
+            heading: 0,
+            pitch: Cesium.Math.toRadians(-90),
+            roll: 0,
+        },
+        duration: 1.5,
+    });
 
     // 初始化
     viewer.value = new Cesium.Viewer('cesiumContainer', {
@@ -1384,25 +1424,8 @@ onMounted(async () => {
     viewer.value.resolutionScale = window.devicePixelRatio || 1.25;
     // 开启cesium 帧率
     viewer.value.scene.debugShowFramesPerSecond = true;
-    // tiMapImg();
-    // tiMapCia();
-
-    const wmsProvider1 = new Cesium.WebMapServiceImageryProvider({
-        url: '/geoserver/sihedk/wms', // 走 Vite 代理
-        layers: 'sihedk:wordMapL2',
-        parameters: {
-            service: 'WMS',
-            transparent: true,
-            format: 'image/png',
-            version: '1.1.0',
-            tiled: true,
-        },
-    });
-
-    const wmsLayer = viewer.value.imageryLayers.addImageryProvider(wmsProvider1);
-    // 设置透明度，例如半透明
-    wmsLayer.alpha = 0.5; // 值越小越透明，可以动态修改
-
+    tiMapImg();
+    tiMapCia();
     // 使用flyTo方法飞向目标点
     // viewer.value.camera.flyTo({
     //     destination: target,

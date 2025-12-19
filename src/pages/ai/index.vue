@@ -355,7 +355,7 @@ const stopRecording = () => {
     if (audioContext) audioContext.close();
 
     mediaShow.value = false;
-    // 1. 先合并数据
+    // 先合并数据
     let totalLength = 0;
     for (const chunk of audioChunks) totalLength += chunk.length;
     const fullAudio = new Float32Array(totalLength);
@@ -365,23 +365,22 @@ const stopRecording = () => {
         offset += chunk.length;
     }
 
-    // 2. 创建真实的 AudioBuffer 实例 (关键!)
+    //  创建真实的 AudioBuffer 实例
     // 参数: 声道数(1), 长度(totalLength), 采样率(audioContext.sampleRate)
     const newBuffer = audioContext.createBuffer(1, totalLength, audioContext.sampleRate);
 
-    // 3. 将数据写入 Buffer
+    // 将数据写入 Buffer
     newBuffer.getChannelData(0).set(fullAudio);
 
-    // 4. 调用转换库 (现在传入的是真正的 Buffer)
+    // 调用转换库 现在传入的是真正的 Buffer
     const wavBuffer = toWav(newBuffer);
     const wavBlob = new Blob([wavBuffer], { type: 'audio/wav' });
 
-    // 5. 最后再清理资源
+    // 最后再清理资源
     if (processor) processor.disconnect();
     if (mediaStream) mediaStream.getTracks().forEach(t => t.stop());
     // if (audioContext) audioContext.close(); // 放到最后
 
-    // 6. 发送
     sendAudioToStt(wavBlob);
 };
 
@@ -392,19 +391,14 @@ const sendAudioToStt = async blob => {
     formData.append('is_voice', '1');
 
     try {
-        // 替换为你实际的 API 调用
         const res = await proxy.$api.upload(formData);
-
-        // 如果后端直接返回 { text }
-        // inputText.value = res?.data?.text || '';
         console.log('语音识别结果:', res);
-        // 如果后端需要二次调用 transcribe，请用下面逻辑
         if (res.data?.id) {
             const transRes = await proxy.$api.transcribe({ id: res.data.id });
             inputText.value = transRes?.data?.text || '';
         }
 
-        sendMessage(); // 假设你有这个函数
+        sendMessage();
     } catch (error) {
         console.error('语音上传/识别失败:', error);
     }
