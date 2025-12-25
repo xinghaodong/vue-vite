@@ -497,6 +497,19 @@ const getConversation = item => {
     conversationId.value = item.conversation_id;
     getHistory(conversationId.value);
 };
+
+// 🛠 工具函数：修复流式 Markdown（确保代码块临时闭合）
+function fixMarkdownForStreaming(markdown) {
+    // 计算反引号出现次数（不包括代码块内的）
+    const backtickCount = (markdown.match(/```/g) || []).length;
+
+    // 如果是奇数（代码块未闭合），临时加上闭合符 + 占位符
+    if (backtickCount % 2 === 1) {
+        return markdown + '\n```\n> ...'; // 添加闭合 + “加载中”提示
+    }
+
+    return markdown;
+}
 // 发送消息
 const sendMessage = async e => {
     if (!inputText.value) return;
@@ -531,67 +544,43 @@ const sendMessage = async e => {
     // 重置按钮显示
     isBtn.value = false;
 
-    // 处理接收到的数据
+    let currentAssistantContent = '';
+
     eventSource.onmessage = event => {
-        // requestAnimationFrame(() => {
-        // 如果是正常的 AI 回复内容
         const lastIndex = chatList.value.length - 1;
-        const data = JSON.parse(event.data); // 解码数据
-        if (data.status === 'searching') {
-            // 正在联网搜索中，显示提示信息
-            chatList.value[lastIndex].content = '<i>正在联网搜索中，请稍候...</i>';
-            nextTick(() => {
-                scrollToBottom();
-            });
-            return;
-        }
+        if (lastIndex < 0 || chatList.value[lastIndex].role !== 'assistant') return;
 
-        if (data.status === 'search_complete') {
-            // 联网搜索完成，这里可以更新 UI 或者显示提示
-            chatList.value[lastIndex].content = '';
-            chatList.value[lastIndex].content = '<i>联网搜索已完成！</i>';
-            console.log('联网搜索已完成！');
-            return;
-        }
+        try {
+            const payload = JSON.parse(event.data);
 
-        if (data.status === 'search_failed') {
-            // 联网搜索失败，提示用户
-            chatList.value[lastIndex].content = '<i>联网搜索失败，正在使用本地知识库回答。</i>';
-            nextTick(() => {
-                scrollToBottom();
-            });
-            return;
-        }
-        if (data.status === 'thinking') {
-            console.log(data, '3333');
-            // 联网搜索完成，这里可以更新 UI 或者显示提示
-            chatList.value[lastIndex].content = data.message;
-            return;
-        }
-        console.log(data, 'data');
-        if (data.type === 'audio') {
-            // const audioUrl = proxy.$api.img_url + data.audio;
-            //全部进入播放队列！
-            aiAudioPlayer.push(data.audio);
-            return;
-        }
-
-        if (lastIndex >= 0 && chatList.value[lastIndex].role === 'assistant' && chatList.value[lastIndex].content.includes('正在联网搜索中')) {
-            // 找到之前显示的“正在联网搜索中...”的消息并替换
-            chatList.value[lastIndex].content = md.render(data);
-        } else {
-            // 如果不存在“正在联网搜索中...”的消息，则正常添加
-            const renderedContent = md.render(data);
-            chatList.value[lastIndex].content = renderedContent;
-        }
-        // 在 DOM 更新后检查是否需要滚动
-        nextTick(() => {
-            const container = chatContainer.value;
-            if (container && !isUserInteracting.value) {
-                scrollToBottom();
+            // ====== 处理特殊状态======
+            if (payload.status) {
+                // 处理 searching / thinking 等...
+                return;
             }
-        });
-        // });
+
+            if (payload.type === 'audio') {
+                aiAudioPlayer.push(payload.audio);
+                return;
+            }
+
+            // ====== 处理普通内容 ======
+            if (payload.type === 'content') {
+                currentAssistantContent += payload.text;
+
+                // 智能渲染 Markdown（修复未闭合代码块）
+                const safeMarkdown = fixMarkdownForStreaming(currentAssistantContent);
+                chatList.value[lastIndex].content = md.render(safeMarkdown);
+
+                nextTick(() => {
+                    if (chatContainer.value && !isUserInteracting.value) {
+                        scrollToBottom();
+                    }
+                });
+            }
+        } catch (e) {
+            console.error('SSE 解析失败:', event.data);
+        }
     };
 
     // 错误处理
