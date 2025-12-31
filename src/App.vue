@@ -1,10 +1,10 @@
 <template>
-    <div id="app1">
+    <div id="app">
         <router-view></router-view>
         <!-- 聊天机器人 -->
         <div style="position: absolute; bottom: 0; right: 0" @click="jq">机器人</div>
         <el-drawer v-model="drawer" title="AI" :destroy-on-close="true" class="drawer1" @close="hclose" :with-header="false">
-            <!-- 嵌入子应用 -->
+            <!-- 嵌入子应用  -->
             <div v-if="drawer">
                 <!-- 参数 alive 保活子应用 -->
                 <WujieVue
@@ -52,14 +52,14 @@ const jq = () => {
 }
 html,
 body,
-#app1 {
+#app {
     margin: 0;
     padding: 0;
     height: 100%;
     position: relative;
 }
 
-#app1 {
+#app {
     width: 100%;
 }
 .mb-4 {
