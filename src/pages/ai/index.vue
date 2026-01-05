@@ -245,7 +245,7 @@
 
 <script setup>
 import { getCurrentInstance, ref, onMounted, nextTick, computed, watchEffect } from 'vue';
-const { VITE_STATIC_URL } = import.meta.env;
+const { VITE_PROXY_DOMAIN_REAL } = import.meta.env;
 const { proxy } = getCurrentInstance();
 import { aiAudioPlayer } from '@/utils/audioQueuePlayer';
 import toWav from 'audiobuffer-to-wav'; // 轻量 WAV 编码器
@@ -530,7 +530,7 @@ const sendMessage = async e => {
     chatList.value[lastIndex].content = renderedContent;
     let prompt = inputText.value;
     const eventSource = new EventSource(
-        `${VITE_STATIC_URL}ai/stream?prompt=${encodeURIComponent(prompt)}&conversationId=${encodeURIComponent(conversationId.value)}&model=${
+        `${VITE_PROXY_DOMAIN_REAL}/ai/stream?prompt=${encodeURIComponent(prompt)}&conversationId=${encodeURIComponent(conversationId.value)}&model=${
             selectedModel.value
         }&enableInternetSearch=${isSwitchOn.value ? '1' : '0'}`,
     );
