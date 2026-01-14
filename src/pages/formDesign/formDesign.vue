@@ -8,22 +8,19 @@
             </div>
             <div class="section-content">
                 <!-- 栅格布局组件 -->
-                <draggable
-                    :list="[gridLayoutComponent]"
-                    :group="{ name: 'form-items', pull: 'clone', put: false }"
-                    :sort="false"
-                    :clone="cloneComponent"
-                    item-key="type"
-                    :animation="200"
-                >
+                <draggable :list="[gridLayoutComponent]" :group="{ name: 'form-items', pull: 'clone', put: false }"
+                    :sort="false" :clone="cloneComponent" item-key="type" :animation="200">
                     <template #item="{ element }">
                         <div class="component-item" @click="addComponent(element)">
-                            <el-icon><Grid /></el-icon>
+                            <el-icon>
+                                <Grid />
+                            </el-icon>
                             <span>{{ element.label }}</span>
                         </div>
                     </template>
                 </draggable>
-                <draggable :list="componentList" :group="{ name: 'form-items', pull: 'clone', put: false }" :sort="false" :clone="cloneComponent" item-key="type" :animation="200">
+                <draggable :list="componentList" :group="{ name: 'form-items', pull: 'clone', put: false }"
+                    :sort="false" :clone="cloneComponent" item-key="type" :animation="200">
                     <template #item="{ element }">
                         <div class="component-item" @click="addComponent(element)">
                             <el-icon>
@@ -48,83 +45,75 @@
             </div>
             <div class="section-content">
                 <div class="form-canvas">
-                    <el-form
-                        style="height: 100%; width: 100%"
-                        :label-position="formConfig.labelPosition"
-                        :size="formConfig.size"
-                        :model="formData"
-                        :label-width="formConfig.labelWidth + 'px'"
-                    >
-                        <draggable
-                            style="width: 100%; height: 100%"
-                            v-model="formItems"
-                            item-key="id"
-                            ghost-class="ghost"
-                            handle=".drag-handle"
-                            @end="onDragEnd"
-                            :animation="200"
-                            @drop="onDrop"
-                            @dragover.prevent
-                            group="form-items"
-                        >
+                    <el-form style="height: 100%; width: 100%" :label-position="formConfig.labelPosition"
+                        :size="formConfig.size" :model="formData" :label-width="formConfig.labelWidth + 'px'">
+                        <draggable style="width: 100%; height: 100%" v-model="formItems" item-key="id"
+                            ghost-class="ghost" handle=".drag-handle" @end="onDragEnd" :animation="200" @drop="onDrop"
+                            @dragover.prevent group="form-items">
                             <template #item="{ element, index }">
                                 <div>
                                     <!-- 栅格布局组件 -->
-                                    <div
-                                        v-if="element.type === 'grid'"
-                                        class="form-item-wrapper grid-container"
+                                    <div v-if="element.type === 'grid'" class="form-item-wrapper grid-container"
                                         :class="{ active: currentItem?.id === element.id }"
-                                        @click="selectItem(element)"
-                                    >
-                                        <el-icon class="drag-handle"><Rank /></el-icon>
+                                        @click="selectItem(element)">
+                                        <el-icon class="drag-handle">
+                                            <Rank />
+                                        </el-icon>
                                         <el-row :gutter="element.props.gutter">
-                                            <el-col v-for="(col, colIndex) in element.props.columns" :key="colIndex" :span="col.span">
-                                                <div
-                                                    class="grid-col-content"
+                                            <el-col v-for="(col, colIndex) in element.props.columns" :key="colIndex"
+                                                :span="col.span">
+                                                <div class="grid-col-content"
                                                     :class="{ 'grid-col-active': currentGridCol?.colIndex === colIndex && currentItem?.id === element.id }"
-                                                    @click.stop="selectGridCol(element, colIndex)"
-                                                >
-                                                    <draggable
-                                                        v-model="col.list"
-                                                        item-key="id"
-                                                        ghost-class="ghost"
-                                                        group="form-items"
-                                                        :animation="200"
-                                                        style="min-height: 50px; height: 100%"
-                                                    >
-                                                        <template #item="{ element: colElement, index: colElementIndex }">
-                                                            <div
-                                                                class="form-item-wrapper"
+                                                    @click.stop="selectGridCol(element, colIndex)">
+                                                    <draggable v-model="col.list" item-key="id" ghost-class="ghost"
+                                                        group="form-items" :animation="200"
+                                                        style="min-height: 50px; height: 100%">
+                                                        <template
+                                                            #item="{ element: colElement, index: colElementIndex }">
+                                                            <div class="form-item-wrapper"
                                                                 :class="{ active: currentColItem?.id === colElement.id }"
-                                                                @click.stop="selectColItem(colElement, element, colIndex)"
-                                                            >
-                                                                <el-form-item :label="colElement.props.label" :required="colElement.props.required" style="width: 100%">
-                                                                    <component :is="colElement.component" v-bind="colElement.props" v-model="formData[colElement.id]">
+                                                                @click.stop="selectColItem(colElement, element, colIndex)">
+                                                                <el-form-item :label="colElement.props.label"
+                                                                    :required="colElement.props.required"
+                                                                    style="width: 100%">
+                                                                    <component :is="colElement.component"
+                                                                        v-bind="colElement.props"
+                                                                        v-model="formData[colElement.id]">
                                                                         <template v-if="colElement.type === 'select'">
                                                                             <el-option
                                                                                 v-for="option in colElement.props.options"
                                                                                 :key="option.value"
                                                                                 :label="option.label"
-                                                                                :value="option.value"
-                                                                            ></el-option>
+                                                                                :value="option.value"></el-option>
                                                                         </template>
                                                                         <template v-if="colElement.type === 'radio'">
-                                                                            <el-radio v-for="option in colElement.props.options" :key="option.value" :value="option.value">{{
-                                                                                option.label
-                                                                            }}</el-radio>
+                                                                            <el-radio
+                                                                                v-for="option in colElement.props.options"
+                                                                                :key="option.value"
+                                                                                :value="option.value">{{
+                                                                                    option.label
+                                                                                }}</el-radio>
                                                                         </template>
                                                                         <template v-if="colElement.type === 'checkbox'">
-                                                                            <el-checkbox v-for="option in colElement.props.options" :key="option.value" :value="option.value">{{
-                                                                                option.label
-                                                                            }}</el-checkbox>
+                                                                            <el-checkbox
+                                                                                v-for="option in colElement.props.options"
+                                                                                :key="option.value"
+                                                                                :value="option.value">{{
+                                                                                    option.label
+                                                                                }}</el-checkbox>
                                                                         </template>
                                                                     </component>
                                                                 </el-form-item>
-                                                                <el-icon class="delete-icon" @click.stop="deleteColItem(colIndex, colElementIndex, element)"><Delete /></el-icon>
+                                                                <el-icon class="delete-icon"
+                                                                    @click.stop="deleteColItem(colIndex, colElementIndex, element)">
+                                                                    <Delete />
+                                                                </el-icon>
                                                             </div>
                                                         </template>
                                                         <template #footer>
-                                                            <div v-if="col.list.length === 0" class="empty-tip grid-empty-tip" style="text-align: center; padding: 10px">
+                                                            <div v-if="col.list.length === 0"
+                                                                class="empty-tip grid-empty-tip"
+                                                                style="text-align: center; padding: 10px">
                                                                 拖拽组件到此处
                                                             </div>
                                                         </template>
@@ -133,25 +122,41 @@
                                                 </div>
                                             </el-col>
                                         </el-row>
-                                        <el-icon class="delete-icon" @click.stop="deleteItem(index)"><Delete /></el-icon>
+                                        <el-icon class="delete-icon" @click.stop="deleteItem(index)">
+                                            <Delete />
+                                        </el-icon>
                                     </div>
                                     <!-- 普通组件 -->
-                                    <div v-else class="form-item-wrapper" :class="{ active: currentItem?.id === element.id }" @click="selectItem(element)">
-                                        <el-icon class="drag-handle"><Rank /></el-icon>
-                                        <el-form-item :label="element.props.label" :required="element.props.required" style="width: 100%">
-                                            <component :is="element.component" v-bind="element.props" v-model="formData[element.id]">
+                                    <div v-else class="form-item-wrapper"
+                                        :class="{ active: currentItem?.id === element.id }"
+                                        @click="selectItem(element)">
+                                        <el-icon class="drag-handle">
+                                            <Rank />
+                                        </el-icon>
+                                        <el-form-item :label="element.props.label" :required="element.props.required"
+                                            style="width: 100%">
+                                            <component :is="element.component" v-bind="element.props"
+                                                v-model="formData[element.id]">
                                                 <template v-if="element.type === 'select'">
-                                                    <el-option v-for="option in element.props.options" :key="option.value" :label="option.label" :value="option.value"></el-option>
+                                                    <el-option v-for="option in element.props.options"
+                                                        :key="option.value" :label="option.label"
+                                                        :value="option.value"></el-option>
                                                 </template>
                                                 <template v-if="element.type === 'radio'">
-                                                    <el-radio v-for="option in element.props.options" :key="option.value" :value="option.value">{{ option.label }}</el-radio>
+                                                    <el-radio v-for="option in element.props.options"
+                                                        :key="option.value" :value="option.value">{{ option.label
+                                                        }}</el-radio>
                                                 </template>
                                                 <template v-if="element.type === 'checkbox'">
-                                                    <el-checkbox v-for="option in element.props.options" :key="option.value" :value="option.value">{{ option.label }}</el-checkbox>
+                                                    <el-checkbox v-for="option in element.props.options"
+                                                        :key="option.value" :value="option.value">{{ option.label
+                                                        }}</el-checkbox>
                                                 </template>
                                             </component>
                                         </el-form-item>
-                                        <el-icon class="delete-icon" @click.stop="deleteItem(index)"><Delete /></el-icon>
+                                        <el-icon class="delete-icon" @click.stop="deleteItem(index)">
+                                            <Delete />
+                                        </el-icon>
                                     </div>
                                 </div>
                             </template>
@@ -170,7 +175,8 @@
                 <el-tabs v-model="activeTab">
                     <el-tab-pane label="表单配置" name="form"></el-tab-pane>
                     <el-tab-pane label="组件配置" name="component"></el-tab-pane>
-                    <el-tab-pane label="栅格配置" name="grid" v-if="currentItem && currentItem.type === 'grid'"></el-tab-pane>
+                    <el-tab-pane label="栅格配置" name="grid"
+                        v-if="currentItem && currentItem.type === 'grid'"></el-tab-pane>
                 </el-tabs>
             </div>
             <div class="section-content">
@@ -230,20 +236,28 @@
                                 </el-form-item>
                             </template>
 
-                            <template v-if="currentItem.type === 'select' || currentItem.type === 'checkbox' || currentItem.type === 'radio'">
+                            <template
+                                v-if="currentItem.type === 'select' || currentItem.type === 'checkbox' || currentItem.type === 'radio'">
                                 <el-form-item label="选项">
-                                    <div v-for="(option, idx) in currentItem.props.options" :key="idx" class="option-item">
-                                        <el-input v-model="option.label" placeholder="选项名称" class="option-input"></el-input>
-                                        <el-input v-model="option.value" placeholder="选项值" class="option-input"></el-input>
+                                    <div v-for="(option, idx) in currentItem.props.options" :key="idx"
+                                        class="option-item">
+                                        <el-input v-model="option.label" placeholder="选项名称"
+                                            class="option-input"></el-input>
+                                        <el-input v-model="option.value" placeholder="选项值"
+                                            class="option-input"></el-input>
                                         <el-button @click="removeOption(idx)" type="danger" size="small" circle>
-                                            <el-icon><Delete /></el-icon>
+                                            <el-icon>
+                                                <Delete />
+                                            </el-icon>
                                         </el-button>
                                     </div>
                                     <el-button @click="addOption" type="primary" size="small">添加选项</el-button>
                                 </el-form-item>
                                 <el-form-item label="数据源API">
-                                    <el-input v-model="currentItem.props.apiUrl" placeholder="如: /api/employees 或 /api/enums/leaveType" />
-                                    <div style="font-size: 12px; color: #999; margin-top: 5px">留空则使用静态选项，填写后将动态加载数据</div>
+                                    <el-input v-model="currentItem.props.apiUrl"
+                                        placeholder="如: /api/employees 或 /api/enums/leaveType" />
+                                    <div style="font-size: 12px; color: #999; margin-top: 5px">留空则使用静态选项，填写后将动态加载数据
+                                    </div>
                                 </el-form-item>
                                 <el-form-item label="多选" v-if="currentItem.type !== 'radio'">
                                     <el-switch v-model="currentItem.props.multiple"></el-switch>
@@ -261,7 +275,8 @@
                                     <el-input v-model="currentItem.props.format" placeholder="例如 YYYY-MM-DD"></el-input>
                                 </el-form-item>
                                 <el-form-item label="绑定值格式">
-                                    <el-input v-model="currentItem.props.valueFormat" placeholder="例如 YYYY-MM-DD"></el-input>
+                                    <el-input v-model="currentItem.props.valueFormat"
+                                        placeholder="例如 YYYY-MM-DD"></el-input>
                                 </el-form-item>
                             </template>
 
@@ -275,7 +290,8 @@
                             </template>
 
                             <el-form-item label="绑定字段" v-if="currentItem && currentItem.type !== 'grid'">
-                                <el-input v-model="currentItem.id" placeholder="如: username, email" clearable="true"></el-input>
+                                <el-input v-model="currentItem.id" placeholder="如: username, email"
+                                    clearable="true"></el-input>
                             </el-form-item>
 
                             <!-- 计算字段配置，仅对 input 类型 -->
@@ -285,11 +301,13 @@
                             </el-form-item>
                             <el-form-item label="依赖字段" v-if="currentItem.props.isComputed">
                                 <el-select v-model="currentItem.props.dependencies" multiple placeholder="选择依赖字段">
-                                    <el-option v-for="field in getAvailableFields()" :key="field.id" :label="field.props.label" :value="field.id" />
+                                    <el-option v-for="field in getAvailableFields()" :key="field.id"
+                                        :label="field.props.label" :value="field.id" />
                                 </el-select>
                             </el-form-item>
                             <el-form-item label="计算表达式" v-if="currentItem.props.isComputed">
-                                <el-input v-model="currentItem.props.computedExpression" placeholder="如: (endDate - startDate) / (1000*60*60*24)" />
+                                <el-input v-model="currentItem.props.computedExpression"
+                                    placeholder="如: (endDate - startDate) / (1000*60*60*24)" />
                                 <div style="font-size: 12px; color: #999">支持 JS 表达式，引用字段 ID</div>
                             </el-form-item>
                             <!-- </template> -->
@@ -302,14 +320,18 @@
                 <div v-if="activeTab === 'grid' && currentItem && currentItem.type === 'grid'" class="grid-config">
                     <el-form label-width="80px" size="small" label-position="left">
                         <el-form-item label="栅格间隔">
-                            <el-input-number v-model="currentItem.props.gutter" :min="0" :max="40" :step="5"></el-input-number>
+                            <el-input-number v-model="currentItem.props.gutter" :min="0" :max="40"
+                                :step="5"></el-input-number>
                         </el-form-item>
                         <el-form-item label="列配置">
                             <div v-for="(col, idx) in currentItem.props.columns" :key="idx" class="column-config">
                                 <div class="column-header">
                                     <span>列 {{ idx + 1 }}</span>
-                                    <el-button @click="removeGridColumn(idx)" type="danger" size="small" circle v-if="currentItem.props.columns.length > 1">
-                                        <el-icon><Delete /></el-icon>
+                                    <el-button @click="removeGridColumn(idx)" type="danger" size="small" circle
+                                        v-if="currentItem.props.columns.length > 1">
+                                        <el-icon>
+                                            <Delete />
+                                        </el-icon>
                                     </el-button>
                                 </div>
                                 <el-form-item label="宽度占比">
@@ -317,7 +339,8 @@
                                     <div class="span-display">{{ col.span }}/24</div>
                                 </el-form-item>
                             </div>
-                            <el-button @click="addGridColumn" type="primary" size="small" :disabled="currentItem.props.columns.length >= 4">添加列</el-button>
+                            <el-button @click="addGridColumn" type="primary" size="small"
+                                :disabled="currentItem.props.columns.length >= 4">添加列</el-button>
                         </el-form-item>
                     </el-form>
                 </div>
@@ -326,7 +349,11 @@
         <!-- 生成代码对话框 -->
         <el-dialog v-model="showCodeDialog" title="生成的 Vue 代码" width="70%" top="5vh" custom-class="code-dialog">
             <div style="height: 70vh; overflow: auto; padding: 10px; border-radius: 4px">
-                <pre><code class="language-html" style="white-space: pre-wrap; word-wrap: break-word;">{{ generatedVueCode }}</code></pre>
+
+                <MarkdownRender :is-dark="false" :content="'```vue\n' + generatedVueCode + '\n```'" />
+                <!-- {{ generatedVueCode }} -->
+                <!-- <pre><code class="language-html" style="white-space: pre-wrap; word-wrap: break-word;">{{ generatedVueCode
+                }}</code></pre> -->
             </div>
             <template #footer>
                 <span class="dialog-footer">
@@ -339,11 +366,14 @@
 </template>
 
 <script setup>
-import MarkdownIt from 'markdown-it';
-import hljs from 'highlight.js';
-import 'highlight.js/styles/atom-one-dark.css';
-import xml from 'highlight.js/lib/languages/xml';
-hljs.registerLanguage('vue', xml);
+// import MarkdownIt from 'markdown-it';
+// import hljs from 'highlight.js';
+// import 'highlight.js/styles/atom-one-dark.css';
+// import xml from 'highlight.js/lib/languages/xml';
+// hljs.registerLanguage('vue', xml);
+import { MarkdownRender } from 'markstream-vue';
+import 'markstream-vue/index.css';
+import 'katex/dist/katex.min.css';
 
 import { ref, reactive, computed, nextTick, getCurrentInstance, onMounted } from 'vue';
 import { ElMessage, ElDialog, ElButton } from 'element-plus';
@@ -356,17 +386,17 @@ import { copyText } from '@/utils/copy';
 import draggable from 'vuedraggable/src/vuedraggable';
 import { Delete, Rank, Edit, Select, Switch, Calendar, Document, List, Menu, Grid } from '@element-plus/icons-vue';
 // 初始化 markdown-it
-const md = new MarkdownIt({
-    html: true,
-    highlight: function (str, lang) {
-        if (lang && hljs.getLanguage(lang)) {
-            try {
-                return hljs.highlight(str, { language: lang }).value;
-            } catch (__) {}
-        }
-        return '';
-    },
-});
+// const md = new MarkdownIt({
+//     html: true,
+//     highlight: function (str, lang) {
+//         if (lang && hljs.getLanguage(lang)) {
+//             try {
+//                 return hljs.highlight(str, { language: lang }).value;
+//             } catch (__) {}
+//         }
+//         return '';
+//     },
+// });
 onMounted(() => {
     if (idkey) {
         getDesignQuery();
@@ -562,22 +592,22 @@ const generateVueCode = () => {
     label-position="${formConfig.labelPosition}"
     size="${formConfig.size}">
 ${formItems.value
-    .map(item => {
-        if (item.type === 'grid') {
-            return `      <el-row :gutter="${item.props.gutter || 0}">
+            .map(item => {
+                if (item.type === 'grid') {
+                    return `      <el-row :gutter="${item.props.gutter || 0}">
 ${item.props.columns
-    .map(
-        col =>
-            `        <el-col :span="${col.span}">
+                            .map(
+                                col =>
+                                    `        <el-col :span="${col.span}">
 ${generateGridColumn(col)}
       </el-col>`,
-    )
-    .join('\n')}
+                            )
+                            .join('\n')}
     </el-row>`;
-        }
-        return generateFormItem(item);
-    })
-    .join('\n')}
+                }
+                return generateFormItem(item);
+            })
+            .join('\n')}
   </el-form>
 </template>`;
 
@@ -1041,6 +1071,7 @@ const removeOption = index => {
 .option-input {
     margin-right: 10px;
 }
+
 .config-panel .el-form-item {
     margin-bottom: 10px;
 }

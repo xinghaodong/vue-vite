@@ -5,7 +5,7 @@
         <!-- 左侧边栏 -->
         <div
             :class="[
-                'bg-gray-50 border-r border-gray-200 flex flex-col transition-all duration-300 ease-in-out',
+                'border-r border-gray-200 flex flex-col transition-all duration-300 ease-in-out',
                 isSidebarOpen ? 'w-64' : 'w-0',
                 isMobile ? 'fixed top-0 left-0 bottom-0 z-50' : '',
             ]"
@@ -18,7 +18,7 @@
                     </div>
                     <div class="flex items-center space-x-2">
                         <svg
-                            class="cursor-pointer h-6 w-6 flex items-center justify-center rounded-md hover:bg-gray-100"
+                            class="cursor-pointer h-6 w-6 flex items-center justify-center rounded-md"
                             @click="toggleSidebar"
                             fill="none"
                             stroke="currentColor"
@@ -31,6 +31,7 @@
                             <line x1="3" y1="18" x2="21" y2="18"></line>
                         </svg>
                         <svgicon @click="newConversation" />
+                        <button @click="newConversation">新增</button>
                     </div>
                 </div>
                 <!-- 可滚动的历史记录部分 -->
@@ -46,8 +47,8 @@
                                 v-for="(item, index) in sidebarList"
                                 :key="index"
                                 :class="[
-                                    'truncate text-sm p-2 hover:bg-gray-100 rounded cursor-pointer',
-                                    item.conversation_id == conversationId ? 'bg-gradient-to-r from-cyan-500 to-blue-500 text-white' : 'text-gray-800',
+                                    'truncate text-sm p-2 rounded cursor-pointer',
+                                    item.conversation_id == conversationId ? 'bg-gradient-to-r from-cyan-500 to-blue-500 ' : '',
                                 ]"
                             >
                                 <span>
@@ -66,7 +67,7 @@
             <div class="h-16 border-b border-gray-200 flex items-center px-2 flex-shrink-0">
                 <svg
                     v-if="!isSidebarOpen"
-                    class="cursor-pointer h-6 w-6 flex items-center justify-center rounded-md hover:bg-gray-100"
+                    class="cursor-pointer h-6 w-6 flex items-center justify-center rounded-md"
                     @click="toggleSidebar"
                     fill="none"
                     stroke="currentColor"
@@ -84,10 +85,7 @@
                 </div>
                 <!-- 下拉选择大模型 -->
                 <div class="relative">
-                    <select
-                        v-model="selectedModel"
-                        class="appearance-none bg-white border border-gray-300 rounded-md py-2 px-4 pr-8 leading-tight focus:outline-none focus:border-blue-500"
-                    >
+                    <select v-model="selectedModel" class="appearance-none border rounded-md py-2 px-4 pr-8 leading-tight focus:outline-none focus:border-blue-500">
                         <option v-for="model in modelList" :key="model.model" :value="model.model">{{ model.name }}</option>
                     </select>
                     <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700">
@@ -104,13 +102,17 @@
                 <div v-for="(message, index) in chatList" :key="index" class="w-full max-w-5xl mx-auto mb-5 overflow-auto rounded-lg">
                     <div :class="['flex', 'relative', message.role === 'user' ? 'justify-end' : 'justify-start']">
                         <div
+                            v-if="message.role === 'user'"
                             v-html="message.content"
-                            :class="['overflow-hidden p-3 text-sm py-0', message.role === 'user' ? 'bg-blue-500 text-white rounded-lg' : 'bg-gray-100 w-full pt-3 pb-3']"
+                            :class="['overflow-hidden p-3 text-sm py-0', message.role === 'user' ? 'bg-blue-500  rounded-lg' : 'w-full pt-3 pb-3']"
                         ></div>
+
+                        <div v-else>
+                            <MarkdownRender :is-dark="false" :content="message.content" />
+                        </div>
                     </div>
                     <!-- 如果是AI的消息，显示操作按钮 -->
-                    <div v-if="message.role === 'assistant' && message.isCompleted" class="top-2 right-2 flex gap-2 bg-gray-100 pl-2 pb-2">
-                        <!-- 复制按钮 -->
+                    <!-- <div v-if="message.role === 'assistant' && message.isCompleted" class="top-2 right-2 flex gap-2 bg-gray-100 pl-2 pb-2">
                         <button @click="copyMessage(message.content)" class="text-gray-500 hover:text-gray-700 cursor-pointer" style="all: unset; cursor: pointer">
                             <svg t="1742692441761" class="icon" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" p-id="6848" width="26" height="26">
                                 <path
@@ -121,7 +123,6 @@
                             </svg>
                         </button>
 
-                        <!-- 重新生成按钮 -->
                         <button @click="regenerateMessage(index)" class="text-gray-500 hover:text-gray-700 cursor-pointer" style="all: unset; cursor: pointer">
                             <svg t="1742692388521" class="icon" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" p-id="5551" width="24" height="24">
                                 <path
@@ -130,14 +131,14 @@
                                 ></path>
                             </svg>
                         </button>
-                    </div>
+                    </div> -->
                 </div>
             </div>
 
-            <div class="border-t border-gray-200 bg-white p-4">
+            <div class="border-t p-4">
                 <h1 v-if="chatList.length == 0" class="text-3xl font-semibold mb-8 text-center">有什么可以帮忙的?</h1>
-                <div class="w-full max-w-5xl mx-auto">
-                    <div class="relative max-w-5xl mx-auto border-solid border-black border-4 rounded-2xl p-4 pb-1.5">
+                <div class="w-full max-w-5xl mx-auto my-container">
+                    <div class="relative max-w-5xl mx-auto border-solid rounded-2xl p-4 pb-1.5">
                         <svgbot v-if="showScrollToBottomButton" @click="scrollToBottom" />
                         <textarea
                             @keydown.enter="handleEnter"
@@ -145,7 +146,7 @@
                             rows="3"
                             placeholder="你想问什么呢"
                             class="max-h-48 w-full p-1 focus:outline-none resize-none overflow-auto custom-scrollbar"
-                            style="width: -webkit-fill-available; font-size: 18px; border: none"
+                            style="width: -webkit-fill-available; font-size: 18px; border: none; background: transparent"
                         ></textarea>
                         <!-- @input="adjustTextareaHeight" -->
                         <div class="flex items-center justify-between mt-2">
@@ -168,6 +169,27 @@
                                     ></path>
                                 </svg>
                                 <!-- 上传图片按钮 -->
+                                <label for="pdf-upload" class="cursor-pointer pl-2">
+                                    <svg
+                                        t="1742268872076"
+                                        class="icon"
+                                        viewBox="0 0 1024 1024"
+                                        version="1.1"
+                                        xmlns="http://www.w3.org/2000/svg"
+                                        p-id="3394"
+                                        width="24"
+                                        height="24"
+                                        style="fill: #333"
+                                    >
+                                        <!-- 你可以替换为 PDF 专用图标，这里先复用现有图标 -->
+                                        <path
+                                            d="M520.4 884.9H214c-49.6 0-90-40.4-90-90v-580c0-49.6 40.4-90 90-90h580c49.6 0 90 40.4 90 90v303.3c0 16.6-13.4 30-30 30s-30-13.4-30-30V214.9c0-16.5-13.5-30-30-30H214c-16.5 0-30 13.5-30 30v580c0 16.5 13.5 30 30 30h306.4c16.6 0 30 13.4 30 30s-13.4 30-30 30z m325.8-122.8H615.6c-16.6 0-30-13.4-30-30s13.4-30 30-30h230.7c16.6 0 30 13.4 30 30s-13.5 30-30.1 30zM730.9 877.4c-16.6 0-30-13.4-30-30V616.8c0-16.6 13.4-30 30-30s30 13.4 30 30v230.7c0 16.5-13.4 29.9-30 29.9z"
+                                            fill="#333333"
+                                            p-id="3395"
+                                        ></path>
+                                    </svg>
+                                    <input id="pdf-upload" type="file" accept=".pdf" @change="handlePdfUpload" class="hidden" />
+                                </label>
                                 <svg
                                     t="1742268872076"
                                     class="icon cursor-pointer pl-2"
@@ -233,8 +255,8 @@
                                     ></path>
                                 </svg>
                             </div>
-                            <button v-if="isBtn" @click="sendMessage" class="cursor-pointer h-8 px-4 bg-black text-white rounded-lg flex items-center justify-center">发送</button>
-                            <button v-if="!isBtn" @click="sttobFun" class="cursor-pointer h-8 px-4 bg-black text-white rounded-lg flex items-center justify-center">停止</button>
+                            <button v-if="isBtn" @click="sendMessage" class="cursor-pointer h-8 px-4 rounded-lg flex items-center justify-center">发送</button>
+                            <button v-if="!isBtn" @click="sttobFun" class="cursor-pointer h-8 px-4 rounded-lg flex items-center justify-center">停止</button>
                         </div>
                     </div>
                 </div>
@@ -249,50 +271,56 @@ const { VITE_PROXY_DOMAIN_REAL } = import.meta.env;
 const { proxy } = getCurrentInstance();
 import { aiAudioPlayer } from '@/utils/audioQueuePlayer';
 import toWav from 'audiobuffer-to-wav'; // 轻量 WAV 编码器
-import MarkdownIt from 'markdown-it';
-import hljs from 'highlight.js';
-// import 'highlight.js/styles/github.css'; // 引入样式
-import 'highlight.js/styles/atom-one-dark.css';
-import svgicon from './comp/svg.vue';
-import svgbot from './comp/svgbot.vue';
-import xml from 'highlight.js/lib/languages/xml'; // Vue 代码用 XML 高亮
-hljs.registerLanguage('vue', xml);
+// import MarkdownIt from 'markdown-it';
+// import hljs from 'highlight.js';
+// // import 'highlight.js/styles/github.css'; // 引入样式
+// import 'highlight.js/styles/atom-one-dark.css';
+// import svgicon from './comp/svg.vue';
+// import svgbot from './comp/svgbot.vue';
+// import xml from 'highlight.js/lib/languages/xml'; // Vue 代码用 XML 高亮
+// hljs.registerLanguage('vue', xml);
+import { MarkdownRender } from 'markstream-vue';
+import 'markstream-vue/index.css';
+import 'katex/dist/katex.min.css';
+
+// enableMermaid();
+// enableKatex();
 
 import { useCodeCopy } from './hooks/useCodeCopy';
 useCodeCopy();
 
 // 初始化 markdown-it 并启用代码高亮
-const md = new MarkdownIt({
-    html: true, // 启用 HTML 渲染
-    linkify: true,
-    typographer: true,
-    highlight: function (str, lang) {
-        let highlightedCode = '';
-        if (lang && hljs.getLanguage(lang)) {
-            try {
-                highlightedCode = hljs.highlight(str, { language: lang }).value;
-            } catch (__) {
-                highlightedCode = md.utils.escapeHtml(str); // 如果高亮失败，转义原始代码
-            }
-        } else {
-            highlightedCode = md.utils.escapeHtml(str); // 无语言指定时，转义代码
-        }
+// const md = new MarkdownIt({
+//     html: true, // 启用 HTML 渲染
+//     linkify: true,
+//     typographer: true,
+//     highlight: function (str, lang) {
+//         let highlightedCode = '';
+//         if (lang && hljs.getLanguage(lang)) {
+//             try {
+//                 highlightedCode = hljs.highlight(str, { language: lang }).value;
+//             } catch (__) {
+//                 highlightedCode = md.utils.escapeHtml(str); // 如果高亮失败，转义原始代码
+//             }
+//         } else {
+//             highlightedCode = md.utils.escapeHtml(str); // 无语言指定时，转义代码
+//         }
 
-        // 返回没有包裹 <pre> 的代码，避免嵌套问题
-        return `<code class="hljs${lang ? ' ' + lang : ''}">${highlightedCode}</code>`;
-    },
-});
+//         // 返回没有包裹 <pre> 的代码，避免嵌套问题
+//         return `<code class="hljs${lang ? ' ' + lang : ''}">${highlightedCode}</code>`;
+//     },
+// });
 
-// 修改代码块渲染，避免重复 <pre> 包裹
-md.renderer.rules.fence = function (tokens, idx) {
-    const token = tokens[idx];
-    // 通过高亮生成的 HTML 渲染，而不使用 MarkdownIt 默认的 <pre><code>
-    const highlightedCode = md.options.highlight(token.content, token.info);
-    return `<pre style="position: relative; padding-top: 20px;">
-                <button class="copy-button" style="position: absolute; top: 4px; right: 4px;">复制</button>
-                ${highlightedCode}
-            </pre>`;
-};
+// // 修改代码块渲染，避免重复 <pre> 包裹
+// md.renderer.rules.fence = function (tokens, idx) {
+//     const token = tokens[idx];
+//     // 通过高亮生成的 HTML 渲染，而不使用 MarkdownIt 默认的 <pre><code>
+//     const highlightedCode = md.options.highlight(token.content, token.info);
+//     return `<pre style="position: relative; padding-top: 20px;">
+//                 <button class="copy-button" style="position: absolute; top: 4px; right: 4px;">复制</button>
+//                 ${highlightedCode}
+//             </pre>`;
+// };
 
 const selectedModel = ref('');
 
@@ -320,6 +348,42 @@ let processor = null;
 let mediaStream = null;
 const audioChunks = []; // 存 Float32Array
 const mediaShow = ref(false);
+
+// PDF 上传处理
+const handlePdfUpload = async event => {
+    const input = event.target;
+    const file = input.files?.[0];
+    if (!file) return;
+
+    // 验证文件类型
+    if (file.type !== 'application/pdf') {
+        proxy.$message.error('请上传 PDF 文件');
+        input.value = ''; // 清空 input
+        return;
+    }
+
+    try {
+        // 1. 先上传文件到 /upload/uploadFile（复用你现有的接口）
+        const formData = new FormData();
+        formData.append('pdfs', file); // 注意：你的 Nest 接口用的是 'pdfs' 字段
+        console.log('上传文件开始', file, formData);
+        const uploadRes = await proxy.$api.uploadPdf(formData); // 假设你有这个 API 封装
+        if (!uploadRes?.id) {
+            throw new Error('文件上传失败');
+        }
+
+        // 2. 调用 RAG 接口，将 fileId 存入知识库
+        // await proxy.$api.ingestPdf({ fileId: uploadRes.id });
+
+        // proxy.$message.success('PDF 已成功加入知识库！');
+    } catch (err) {
+        console.error('PDF 上传失败:', err);
+        proxy.$message.error('PDF 上传或处理失败');
+    } finally {
+        // 清空 input，允许重复上传同名文件
+        input.value = '';
+    }
+};
 
 // 开始录音
 const startRecording = async () => {
@@ -476,9 +540,10 @@ const getHistory = conversationId => {
         // 遍历数据，过滤掉 role 是 tool的数据已经 存在字段 tool_calls的数据
         res.data = res.data.filter(item => item.role !== 'tool' && !item.tool_calls);
         chatList.value = res.data.map(item => {
+            console.log(item.content);
             const fullContent = item.content; // 解码数据
             // 使用 markdown-it 渲染完整的 Markdown 内容
-            const renderedContent = md.render(fullContent);
+            const renderedContent = fullContent;
             return {
                 role: item.role,
                 content: renderedContent,
@@ -526,13 +591,13 @@ const sendMessage = async e => {
         content: '',
     });
     const lastIndex = chatList.value.length - 1;
-    const renderedContent = md.render(inputText.value);
+    const renderedContent = inputText.value;
     chatList.value[lastIndex].content = renderedContent;
     let prompt = inputText.value;
     const eventSource = new EventSource(
         `${VITE_PROXY_DOMAIN_REAL}/ai/stream?prompt=${encodeURIComponent(prompt)}&conversationId=${encodeURIComponent(conversationId.value)}&model=${
             selectedModel.value
-        }&enableInternetSearch=${isSwitchOn.value ? '1' : '0'}`,
+        }&enableInternetSearch=${isSwitchOn.value ? '1' : '0'}&useRag=1`,
     );
 
     // 初始化助手消息
@@ -570,7 +635,7 @@ const sendMessage = async e => {
 
                 // 智能渲染 Markdown（修复未闭合代码块）
                 const safeMarkdown = fixMarkdownForStreaming(currentAssistantContent);
-                chatList.value[lastIndex].content = md.render(safeMarkdown);
+                chatList.value[lastIndex].content = safeMarkdown;
 
                 nextTick(() => {
                     if (chatContainer.value && !isUserInteracting.value) {
@@ -677,5 +742,8 @@ watchEffect(() => {
 
 <style>
 /* 导入样式文件 */
-@import '../../assets/css/ai.css';
+/*@import '../../assets/css/ai.css';*/
+.my-container {
+    background-color: var(--container-secondary-fill);
+}
 </style>

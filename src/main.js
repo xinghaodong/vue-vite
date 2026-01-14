@@ -16,6 +16,10 @@ import 'element-plus/theme-chalk/dark/css-vars.css';
 import '@/assets/css/dark/css-vars.css';
 
 import MyInputNumber from 'element-plus-input-number-thousands';
+import { enableKatex, enableMermaid } from 'markstream-vue';
+
+enableKatex(); // KaTeX 公式
+enableMermaid(); // Mermaid 图表（可选）
 const app = createApp(App);
 app.config.globalProperties.$api = axios;
 app.config.globalProperties.$icon = ElementPlusIconsVue;

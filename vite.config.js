@@ -22,7 +22,7 @@ export default defineConfig(({ mode, command }) => {
     const devServerConfig = {
         server: {
             host: '0.0.0.0',
-            port: 5173,
+            port: 5174,
         },
     };
 
@@ -95,7 +95,7 @@ export default defineConfig(({ mode, command }) => {
                     changeOrigin: true,
                     rewrite: path => path.replace(/^\/api/, ''),
                 },
-                // ✅ 新增：GeoServer WMS 代理
+                // 新增：GeoServer WMS 代理
                 '/geoserver': {
                     target: 'http://47.104.178.54:8060',
                     changeOrigin: true,

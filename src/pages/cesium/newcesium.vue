@@ -1,108 +1,5 @@
 <template>
     <div style="width: 100%; height: 100%; display: flex">
-        <div id="cesiumContainer" class="cesium-drone-simulator">
-            <div class="control-panel">
-                <!-- <el-button @click="startDrawing" :disabled="isDrawing || idkey ? true : false">开始规划</el-button>
-                <div class="status-info">
-                    <span>当前相机高度：{{ currentHeight.toFixed(1) }}米</span>
-                    <span>当前无人机高度：{{ airRoute.globalheight.toFixed(1) }}米</span>
-                    <span>航点数量：{{ airRoute.waypoints.length }}</span>
-                    <span>朝向：{{ frustumcurrentHeading }}°</span>
-                </div> -->
-                <el-form ref="ruleFormRef" :rules="rules" :model="airRoute" label-width="60px" style="max-width: 300px">
-                    <!-- <el-form-item label="航线名称">
-                        <el-input v-model="airRoute.name" maxlength="20" prop="name" />
-                    </el-form-item>
-                    <el-form-item label="航线速度">
-                        <el-space>
-                            <el-input-number style="width: 100%" v-model="airRoute.speed" :min="1" :max="15" @change="handleChange">
-                                <template #suffix>km/h</template>
-                            </el-input-number>
-                        </el-space>
-                    </el-form-item>
-                    <el-form-item label="航线预估时间">
-                        <el-input v-model="airRoute.trackduration_ms" disabled />
-                    </el-form-item>
-                    <el-form-item label="航线长">
-                        <el-input v-model="airRoute.trackmileage" disabled prop="trackmileage">
-                            <template #append>米</template>
-                        </el-input>
-                    </el-form-item>
-                    <el-button type="primary" @click="onSubmit(ruleFormRef)" style="width: 100%">保存</el-button> -->
-
-                    <!-- <div class="status-info">
-                        <span>当前相机高度：{{ currentHeight.toFixed(1) }}米</span>
-                        <span>当前无人机高度：{{ airRoute.globalheight.toFixed(1) }}米</span>
-                        <span>航点数量：{{ airRoute.waypoints.length }}</span>
-                        <span>朝向：{{ frustumcurrentHeading }}°</span>
-                    </div> -->
-
-                    <el-form-item label="经纬度">
-                        <el-input style="width: 100%" v-model="targetLon" placeholder="经度" />
-                        <div style="width: 100%; height: 14px"></div>
-                        <el-input style="width: 100%" v-model="targetLat" placeholder="纬度" />
-                        <!-- 高度 -->
-                        <div style="width: 100%; height: 14px"></div>
-                        <el-input style="width: 100%" v-model="targetHeight" placeholder="高度" />
-                        <div style="width: 100%; height: 14px"></div>
-                        <el-button type="primary" @click="flyToAndAddPoint" :disabled="!targetLon || !targetLat"> 查询 </el-button>
-                        <el-button type="primary" @click="fetchHttp"> 接口 </el-button>
-                    </el-form-item>
-                    <el-form-item label="飞向">
-                        <el-radio-group size="mini" v-model="radio1">
-                            <el-radio-button label="寿阳" value="寿阳" />
-                            <el-radio-button label="古交南" value="古交南" />
-                            <el-radio-button label="武城东" value="武城东" />
-                        </el-radio-group>
-                    </el-form-item>
-                </el-form>
-            </div>
-
-            <div class="virtual-keyboard">
-                <div class="keyboard-row">
-                    <div v-for="key in ['Q', 'W', 'E']" :key="key" class="key" :class="{ active: keyStates[key.toLowerCase()] }">
-                        {{ key }}
-                    </div>
-                </div>
-                <div class="keyboard-row">
-                    <div v-for="key in ['A', 'S', 'D']" :key="key" class="key" :class="{ active: keyStates[key.toLowerCase()] }">
-                        {{ key }}
-                    </div>
-                </div>
-                <div class="keyboard-row">
-                    <div class="key spacer"></div>
-                    <div v-for="key in ['Z', 'C']" :key="key" class="key" :class="{ active: keyStates[key.toLowerCase()] }">
-                        {{ key }}
-                    </div>
-                    <div class="key spacer"></div>
-                </div>
-            </div>
-
-            <!-- 陀螺仪仪表盘（仅在开始规划后显示） -->
-            <div v-if="isDrawing" class="gyroscope-overlay">
-                <div class="gyro-compass">
-                    <div class="compass-outer">
-                        <div class="compass-inner" :style="{ transform: `rotate(${-frustumcurrentHeading}deg)` }">
-                            <div class="compass-n">N</div>
-                            <div class="compass-e">E</div>
-                            <div class="compass-s">S</div>
-                            <div class="compass-w">W</div>
-                        </div>
-                        <div class="compass-pointer"></div>
-                    </div>
-                    <div class="gyro-info">
-                        <div class="gyro-item">
-                            <label>航向</label>
-                            <span>{{ frustumcurrentHeading }}°</span>
-                        </div>
-                        <div class="gyro-item">
-                            <label>俯仰</label>
-                            <span>{{ currentPitch.toFixed(1) }}°</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
         <div id="cesiumContainer1"></div>
     </div>
 </template>
@@ -118,6 +15,7 @@ import jt1Image from '@/assets/jt1.png';
 const { proxy } = getCurrentInstance();
 import { useRoute } from 'vue-router';
 import { createFlowLineMaterial } from '@/utils/cesiumMaterials.js';
+import { settings } from 'nprogress';
 const TIANDITU_TOKEN = '959c9868a67971f32236533362422954';
 const TIANDITU_TOKEN1 = 'e79aa17ec84f6336a17a688c018da4f8';
 const TIANDITU_TOKEN2 = '242483665fa18dda32c41b7e397f12dd';
@@ -207,15 +105,15 @@ const terrainHeight = ref(0);
 
 // 模型
 const modelList = ref([
-    { url: 'http://192.168.8.111:9003/tileset.json', name: '寿阳' },
-    {
-        url: 'http://hjdk.sxsihe.com:8090/tilesAll/tiles1/tileset.json',
-        name: '古交南',
-    },
-    {
-        url: 'http://222.133.57.250:8000/tilesAll/3d/wcdsfz/models/pc/0/terra_b3dms/tileset.json',
-        name: '武城东',
-    },
+    { url: 'http://192.168.8.111:9009/tileset.json', name: '寿阳' },
+    // {
+    //     url: 'http://hjdk.sxsihe.com:8090/tilesAll/tiles1/tileset.json',
+    //     name: '古交南',
+    // },
+    // {
+    //     url: 'http://222.133.57.250:8000/tilesAll/3d/wcdsfz/models/pc/0/terra_b3dms/tileset.json',
+    //     name: '武城东',
+    // },
 ]);
 
 // 响应式数据
@@ -549,14 +447,15 @@ const modelTilesetsRef = ref(new Map());
 // 加载建筑模型
 const load3DTilesModels = async () => {
     try {
-        const hasTerrain = !(viewer.value.terrainProvider instanceof Cesium.EllipsoidTerrainProvider);
+        const hasTerrain = !(viewer1.value.terrainProvider instanceof Cesium.EllipsoidTerrainProvider);
         const loadedTilesets = [];
         for (const model of modelList.value) {
             if (!model.url) continue;
             try {
                 const tileset = await create3DTileset({ url: model.url });
-                viewer.value.scene.primitives.add(tileset);
+                viewer1.value.scene.primitives.add(tileset);
                 loadedTilesets.push(tileset);
+                tileset.debugShowBoundingVolume = true;
                 if (model.name && tileset.boundingSphere?.radius > 0) {
                     modelBoundingSpheres[model.name] = tileset.boundingSphere;
                     console.log(`模型 ${model.name} 加载完成!`);
@@ -592,12 +491,13 @@ const load3DTilesModels = async () => {
             }
         }
         if (loadedTilesets.length > 0) {
-            flyToCombinedBoundingSphere(viewer.value, loadedTilesets);
+            flyToCombinedBoundingSphere(viewer1.value, loadedTilesets);
         }
     } catch (error) {
         console.error('3D Tiles加载失败:', error);
     }
 };
+
 // 重新定义加载函数，支持按需加载+记录
 // const load3DTilesModels = async () => {
 //     try {
@@ -1327,7 +1227,7 @@ const tiMapCia = () => {
 };
 
 const tiMapImg = () => {
-    viewer.value.imageryLayers.addImageryProvider(
+    viewer1.value.imageryLayers.addImageryProvider(
         new Cesium.WebMapTileServiceImageryProvider({
             url: 'http://t0.tianditu.gov.cn/img_w/wmts?tk=' + tiandituToken.value,
             layer: 'img',
@@ -1338,6 +1238,58 @@ const tiMapImg = () => {
         }),
     );
 };
+
+const loadTMSWithUrlTemplate = async serviceBaseUrl => {
+    try {
+        // Step 1: 用 TMS 加载元数据（不加到图层）
+        const tempProvider = await Cesium.TileMapServiceImageryProvider.fromUrl(serviceBaseUrl);
+
+        console.log(tempProvider, '6666');
+        // Step 2: 直接复用 tempProvider 的关键属性
+        const realProvider = new Cesium.UrlTemplateImageryProvider({
+            url: `${tempProvider.url}`, // 直接拼接根
+            tilingScheme: tempProvider.tilingScheme, // 自动匹配 mercator/geodetic
+            rectangle: tempProvider.rectangle, // 动态边界
+            minimumLevel: tempProvider.minimumLevel || 12,
+            maximumLevel: tempProvider.maximumLevel || 22,
+            tileWidth: tempProvider.tileWidth || 256,
+            tileHeight: tempProvider.tileHeight || 256,
+            credit: tempProvider.credit || 'TMS Layer',
+        });
+
+        // 加到图层
+        viewer1.value.imageryLayers.removeAll();
+        viewer1.value.imageryLayers.addImageryProvider(realProvider);
+
+        // 动态飞往
+        const center = Cesium.Rectangle.center(tempProvider.rectangle);
+        const centerLon = Cesium.Math.toDegrees(center.longitude);
+        const centerLat = Cesium.Math.toDegrees(center.latitude);
+
+        // 高度估算（小区域用 1000-2000m）
+        const widthDeg = Cesium.Math.toDegrees(tempProvider.rectangle.east - tempProvider.rectangle.west);
+        const heightDeg = Cesium.Math.toDegrees(tempProvider.rectangle.north - tempProvider.rectangle.south);
+        const diagonalDeg = Math.sqrt(widthDeg ** 2 + heightDeg ** 2);
+        let height = diagonalDeg * 100000; // 经验系数
+        height = Math.max(600, Math.min(3000, height));
+
+        viewer1.value.camera.flyTo({
+            destination: Cesium.Cartesian3.fromDegrees(centerLon, centerLat, height),
+            duration: 0,
+            orientation: {
+                heading: Cesium.Math.toRadians(0),
+                pitch: Cesium.Math.toRadians(-90),
+                roll: 0,
+            },
+        });
+
+        console.log('加载成功，使用了动态 rectangle 和 tilingScheme');
+    } catch (error) {
+        console.error('TMS 元数据加载失败:', error);
+        // fallback: 可以硬编码 rectangle 或提示
+    }
+};
+
 // 生命周期钩子
 onMounted(async () => {
     const tokens = [TIANDITU_TOKEN, TIANDITU_TOKEN1, TIANDITU_TOKEN2];
@@ -1358,8 +1310,8 @@ onMounted(async () => {
         shouldAnimate: true,
         requestRenderMode: true, // 启用按需渲染
         maximumRenderTimeChange: Infinity, // 确保仅在需要时渲染
-        terrainProvider: new Cesium.EllipsoidTerrainProvider(),
-        // terrainProvider: await Cesium.createWorldTerrainAsync(), // 添加地形
+        // terrainProvider: new Cesium.EllipsoidTerrainProvider(),
+        terrainProvider: await Cesium.createWorldTerrainAsync(), // 添加地形
         // vrButton: true, //开启VR
         sceneMode: Cesium.SceneMode.SCENE3D,
     });
@@ -1369,25 +1321,89 @@ onMounted(async () => {
     viewer1.value.resolutionScale = window.devicePixelRatio || 1.25;
     // 开启cesium 帧率
     viewer1.value.scene.debugShowFramesPerSecond = true;
-    // 添加 GeoServer WMS 影像层
-    const wmsProvider = new Cesium.WebMapServiceImageryProvider({
-        url: '/geoserver/sihedk/wms', // 走 Vite 代理
-        layers: 'sihedk:世界底图',
-        parameters: {
-            service: 'WMS',
-            transparent: true,
-            format: 'image/png',
-            version: '1.1.0',
-            tiled: true,
-            // srs: 'EPSG:4326', // 请确认 GeoServer 支持此投影！
-        },
-        // tilingScheme: new Cesium.GeographicTilingScheme(), // 对应 EPSG:4326
+    tiMapImg();
+    // cesium 开启光照
+    viewer1.value.scene.globe.enableLighting = true;
+    // 定义瓦片服务
+    // const provider = await Cesium.TileMapServiceImageryProvider.fromUrl('http://192.168.8.111:9003/', {
+    //     // 层级
+    //     minimumLevel: 14,
+    //     maximumLevel: 18,
+    // });
+    // console.log(provider);
+    // viewer1.value.imageryLayers.addImageryProvider(provider);
+
+    // await loadTMSWithUrlTemplate('http://192.168.8.111:9003/');
+
+    // await loadTMSWithUrlTemplate('http://192.168.8.111:9003/');
+    // await loadTMSWithUrlTemplate('http://192.168.8.111:9004/');
+    setTimeout(async () => {
+        // await load3DTilesModels();
+    }, 5500);
+    return;
+
+    const tempProvider = await Cesium.TileMapServiceImageryProvider.fromUrl('http://192.168.8.111:9003/', {
+        minimumLevel: 14,
+        maximumLevel: 18,
+        credit: 'TMS',
     });
 
-    const wmsLayer = viewer1.value.imageryLayers.addImageryProvider(wmsProvider);
-    // 设置透明度，例如半透明
-    wmsLayer.alpha = 1; // 值越小越透明，可以动态修改
+    // 到这里 tempProvider 已经 ready，可以直接用 rectangle
+    const rect = tempProvider.rectangle;
+    // console.log(tempProvider);
+    // return;
+    // // return;
+    // const urlTemplateProvider = new Cesium.UrlTemplateImageryProvider({
+    //     url: tempProvider.url, // 注意 z/x/y 顺序是 TMS 标准
+    //     // tilingScheme: new Cesium.GeographicTilingScheme(), // 必须用 Geographic（EPSG:4326）
+    //     tilingScheme: new tempProvider.tilingScheme(), // 必须用 WebMercator（EPSG:3857）
+    //     rectangle: rect,
+    //     minimumLevel: 10,
+    //     maximumLevel: 18,
+    // });
+    viewer1.value.imageryLayers.addImageryProvider(tempProvider);
+    // tiMapImg();
+    // 现在 provider.rectangle 已经可用了
+    // const rect = urlTemplateProvider.rectangle; // Cesium.Rectangle 对象，单位：弧度
+    // 转换为度数（Cesium.Math.toDegrees）
+    const west = Cesium.Math.toDegrees(rect.west);
+    const east = Cesium.Math.toDegrees(rect.east);
+    const south = Cesium.Math.toDegrees(rect.south);
+    const north = Cesium.Math.toDegrees(rect.north);
 
+    // 计算中心点（最常用）
+    const centerLon = (west + east) / 2;
+    const centerLat = (south + north) / 2;
+
+    // 计算跨度（用于估算合适高度）
+    const lonSpan = east - west;
+    const latSpan = north - south;
+
+    // 动态估算相机高度（经验公式，适合大多数正射影像）
+    let height = 1500; // 默认值
+
+    if (lonSpan > 0 && latSpan > 0) {
+        // 粗略：跨度越大，高度越高；小区域建议 800～3000m
+        // 这里用对角线角度估算（约 2.5～3.5 倍对角线距离）
+        const diagonalDeg = Math.sqrt(lonSpan ** 2 + latSpan ** 2);
+        height = diagonalDeg * 80000; // 经验系数：小区域约 80000～120000 合适
+        height = Math.max(800, Math.min(4000, height)); // 限制范围，避免太近/太远
+    }
+
+    // 飞过去（动态版）
+    viewer1.value.camera.setView({
+        destination: Cesium.Cartesian3.fromDegrees(centerLon, centerLat, height),
+        duration: 0,
+        orientation: {
+            heading: Cesium.Math.toRadians(0.0),
+            pitch: Cesium.Math.toRadians(-90.0),
+            roll: 0.0,
+        },
+    });
+    setTimeout(() => {
+        load3DTilesModels();
+    }, 5500);
+    return;
     viewer1.value.camera.flyTo({
         destination: Cesium.Cartesian3.fromDegrees(105, 35, 20000000),
         orientation: {
@@ -1506,9 +1522,6 @@ onMounted(async () => {
     // }, 2000);
     // viewer.value.scene.globe.depthTestAgainstTerrain = true;
     // viewer.value.canvas.addEventListener('wheel', handleMouseWheel);
-    setTimeout(() => {
-        // load3DTilesModels();
-    }, 1500);
 
     // 编辑回显
     if (idkey) {

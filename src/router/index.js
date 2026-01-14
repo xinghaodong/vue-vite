@@ -26,6 +26,11 @@ const router = createRouter({
             redirect: '/home',
         },
         {
+            path: '/aaa',
+            name: 'aaa',
+            component: () => import('@/pages/aaa.vue'),
+        },
+        {
             path: '/home',
             name: 'home',
             component: home,
@@ -178,7 +183,7 @@ router.beforeEach(async (to, from, next) => {
     };
 
     // 如果是ai界面直接放行 无需登录
-    if (to.path === '/ai' || to.path === '/cesium' || to.path === '/cesium2d' || to.path === '/newcesium') {
+    if (to.path === '/ai' || to.path === '/cesium' || to.path === '/cesium2d' || to.path === '/newcesium' || to.path === '/aaa') {
         next();
         return;
     }

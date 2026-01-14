@@ -16,9 +16,11 @@
 .hljs-keyword {
     color: rgb(220, 198, 224);
 }
+
 .hljs-title.function_ {
     color: rgb(0, 224, 224);
 }
+
 .hljs-string {
     color: #a6e22e !important;
 }
@@ -29,7 +31,8 @@
 }
 
 pre {
-    position: relative; /* 确保复制按钮定位正确 */
+    position: relative;
+    /* 确保复制按钮定位正确 */
     border-radius: 5px;
     overflow-x: auto;
     display: inline-flex;
@@ -49,10 +52,12 @@ code {
     font-family: 'Courier New', monospace;
     font-size: 0.9rem;
 }
+
 code.hljs {
     padding-top: 0px !important;
     padding-bottom: 0px !important;
 }
+
 .copy-button {
     background: #fff;
     color: #333;
@@ -67,6 +72,7 @@ code.hljs {
 .copy-button:hover {
     background: rgba(254, 251, 251, 0.2);
 }
+
 .custom-scrollbar::-webkit-scrollbar {
     width: 8px;
 }

@@ -240,19 +240,6 @@ const handleCurrentChange = val => {
     currentPage.value = val;
     // getDataList();
 };
-// 修改
-const handleEdit = row => {
-    //proxy.$router.push({
-    //    path: '/home/newcesium',
-    //    query: { idkey: row ? row.id : '' },
-    //});
-    // const routeData = proxy.$router.resolve({
-    //     path: '/cesium2d',
-    //     query: { idkey: row ? row.id : '', token: sessionStorage.getItem('token') }, // 添加查询参数
-    // });
-    // // 打开新标签页，并保存引用
-    // window.open(routeData.href, '_blank');
-};
 // 删除
 const handleDelete = row => {
     proxy.$messageBox

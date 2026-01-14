@@ -469,6 +469,10 @@ export default {
     transcribe(params) {
         return oPost(baseUrl + '/ai/transcribe', params);
     },
+    // 上传pdf
+    uploadPdf(params) {
+        return oPost(baseUrl + '/ai/upload-pdfs', params);
+    },
 };
 
 //封装post/get请求

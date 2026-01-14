@@ -1,4 +1,11 @@
 html.dark {
     /* 自定义深色背景颜色 */
     --el-bg-color: rgb(24.4, 33.8, 43.5);
+    /* ai输入框颜色 */
+    --container-secondary-fill: #2e2e33;
+}
+
+html.light {
+    /* ai输入框颜色 */
+    --container-secondary-fill: #f7f8fc;
 }
