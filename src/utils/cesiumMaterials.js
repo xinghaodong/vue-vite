@@ -17,20 +17,19 @@ export function createFlowLineMaterial(options) {
                     mixColor: options.mixColor || Cesium.Color.BLUE.withAlpha(1.0),
                     mixRatio: options.mixRatio || 0.7,
                     textureRepeat: options.textureRepeat || 100.0,
-                    textureAspectRatio: options.textureAspectRatio || 1.0,
                 },
                 source: `
                     uniform float flowSpeed;
                     uniform float mixRatio;
                     uniform sampler2D image;
                     uniform float textureRepeat;
-                    uniform float textureAspectRatio;
                     czm_material czm_getMaterial(czm_materialInput materialInput) {
                         czm_material material = czm_getDefaultMaterial(materialInput);
                         vec2 st = materialInput.st;
                         float time = czm_frameNumber / 240.0;
-                        vec2 scaledSt = vec2(st.s * textureRepeat, st.t * textureRepeat * textureAspectRatio);
-                        vec2 animatedSt = vec2(fract(scaledSt.s - time * flowSpeed), st.t);
+                        // st.s 在 0~1 之间覆盖整条线，乘以 textureRepeat 实现重复
+                        float repeatedS = fract(st.s * textureRepeat - time * flowSpeed);
+                        vec2 animatedSt = vec2(repeatedS, st.t);
                         vec4 color = texture(image, animatedSt);
                         material.alpha = max(color.a, mixColor.a);
                         material.diffuse = mix(mixColor.rgb, color.rgb, color.a * mixRatio);
@@ -50,14 +49,18 @@ export function createFlowLineMaterial(options) {
         this._mixColor = undefined;
         this._mixRatio = undefined;
         this._textureRepeat = undefined;
-        this._textureAspectRatio = undefined;
 
         this.image = options.image;
         this.flowSpeed = options.flowSpeed;
         this.mixColor = options.mixColor;
         this.mixRatio = options.mixRatio;
-        this.textureRepeat = options.textureRepeat;
-        this.textureAspectRatio = options.textureAspectRatio;
+        this.textureRepeat = options.textureRepeat || 35;
+
+        // 动态距离计算
+        this._getDistance = options.getDistance || null; // 回调函数，返回总距离（米）
+        this._arrowSpacing = options.arrowSpacing || 30; // 基准箭头间距（米）
+        this._viewer = options.viewer || null; // viewer 引用，用于获取相机高度
+        this._baseCameraHeight = options.baseCameraHeight || 800; // 基准相机高度（米）
     }
 
     FlowLineMaterialProperty.prototype.getType = function () {
@@ -70,8 +73,30 @@ export function createFlowLineMaterial(options) {
         result.flowSpeed = Cesium.Property.getValueOrUndefined(this._flowSpeed, time) || this.flowSpeed;
         result.mixColor = Cesium.Property.getValueOrUndefined(this._mixColor, time) || this.mixColor;
         result.mixRatio = Cesium.Property.getValueOrUndefined(this._mixRatio, time) || this.mixRatio;
-        result.textureRepeat = Cesium.Property.getValueOrUndefined(this._textureRepeat, time) || this.textureRepeat;
-        result.textureAspectRatio = Cesium.Property.getValueOrUndefined(this._textureAspectRatio, time) || this.textureAspectRatio;
+
+        // 核心：动态计算 textureRepeat = 总距离 / 动态箭头间距
+        if (this._getDistance) {
+            const distance = this._getDistance();
+            if (distance > 0) {
+                let arrowSpacing = this._arrowSpacing;
+
+                // 根据相机高度动态缩放箭头间距
+                // 相机越近 → arrowSpacing 越小 → textureRepeat 越大 → 箭头越多越密
+                // 相机越远 → arrowSpacing 越大 → textureRepeat 越小 → 箭头越少越稀
+                if (this._viewer && this._viewer.camera) {
+                    const cameraHeight = this._viewer.camera.positionCartographic.height;
+                    const scale = Math.max(0.05, cameraHeight / this._baseCameraHeight);
+                    arrowSpacing = this._arrowSpacing * scale;
+                }
+
+                result.textureRepeat = Math.max(1, Math.round(distance / arrowSpacing));
+            } else {
+                result.textureRepeat = 1;
+            }
+        } else {
+            result.textureRepeat = Cesium.Property.getValueOrUndefined(this._textureRepeat, time) || this.textureRepeat;
+        }
+
         return result;
     };
 
@@ -91,7 +116,6 @@ export function createFlowLineMaterial(options) {
         mixColor: Cesium.createPropertyDescriptor('mixColor'),
         mixRatio: Cesium.createPropertyDescriptor('mixRatio'),
         textureRepeat: Cesium.createPropertyDescriptor('textureRepeat'),
-        textureAspectRatio: Cesium.createPropertyDescriptor('textureAspectRatio'),
     });
 
     FlowLineMaterialProperty.prototype.equals = function (other) {
@@ -102,8 +126,7 @@ export function createFlowLineMaterial(options) {
                 Cesium.Property.equals(this._flowSpeed, other._flowSpeed) &&
                 Cesium.Property.equals(this._mixColor, other._mixColor) &&
                 Cesium.Property.equals(this._mixRatio, other._mixRatio) &&
-                Cesium.Property.equals(this._textureRepeat, other._textureRepeat) &&
-                Cesium.Property.equals(this._textureAspectRatio, other._textureAspectRatio))
+                Cesium.Property.equals(this._textureRepeat, other._textureRepeat))
         );
     };
 

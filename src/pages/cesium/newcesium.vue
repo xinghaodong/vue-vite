@@ -1,11 +1,39 @@
 <template>
-    <div style="width: 100%; height: 100%; display: flex">
+    <div style="width: 100%; height: 100%; display: flex; position: relative">
         <div id="cesiumContainer1"></div>
+        <!-- 底部海拔信息栏 -->
+        <div class="altitude-info-bar">
+            <div class="altitude-info-item">
+                <span class="altitude-info-label">经度</span>
+                <span class="altitude-info-value">{{ cursorLon }}</span>
+            </div>
+            <div class="altitude-info-divider"></div>
+            <div class="altitude-info-item">
+                <span class="altitude-info-label">纬度</span>
+                <span class="altitude-info-value">{{ cursorLat }}</span>
+            </div>
+            <div class="altitude-info-divider"></div>
+            <div class="altitude-info-item">
+                <span class="altitude-info-label">相机高度</span>
+                <span class="altitude-info-value">{{ cameraHeight }} m</span>
+            </div>
+            <div class="altitude-info-divider"></div>
+            <div class="altitude-info-item">
+                <span class="altitude-info-label">HAE</span>
+                <span class="altitude-info-value hae">{{ cursorHAE }} m</span>
+            </div>
+            <div class="altitude-info-divider"></div>
+            <div class="altitude-info-item">
+                <span class="altitude-info-label">ASL</span>
+                <span class="altitude-info-value asl">{{ cursorASL }} m</span>
+            </div>
+        </div>
     </div>
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted, getCurrentInstance, watch } from 'vue';
+import { ref, onMounted, onUnmounted, getCurrentInstance, watch, onBeforeUnmount } from 'vue';
+import * as egm96 from 'egm96-universal';
 import * as Cesium from 'cesium';
 import 'cesium/Build/Cesium/Widgets/widgets.css';
 import { createDroneFrustum, calculateRouteInfo } from '@/assets/js/common';
@@ -53,7 +81,6 @@ const route = useRoute();
 const { idkey } = route.query;
 // 响应式状态
 const viewer = ref(null);
-const viewer1 = ref(null);
 const isDrawing = ref(false);
 const currentHeight = ref(800);
 const keyStates = ref({
@@ -102,6 +129,14 @@ const frustumcurrentGimbalPitch = ref(null); // 存储当前视椎体俯仰角
 
 // 获取当前地形高度变量
 const terrainHeight = ref(0);
+
+// 底部信息栏：鼠标位置的经纬度、HAE、ASL、相机高度
+const cursorLon = ref('--');
+const cursorLat = ref('--');
+const cursorHAE = ref('--');
+const cursorASL = ref('--');
+const cameraHeight = ref('--');
+let altitudeHandler = null; // ScreenSpaceEventHandler 引用
 
 // 模型
 const modelList = ref([
@@ -208,7 +243,7 @@ const flyToAndAddPoint = () => {
         },
     });
 
-    viewer1.value.camera.flyTo({
+    viewer.value.camera.flyTo({
         destination: Cesium.Cartesian3.fromDegrees(lon, lat, height + 5000), // 稍高一点俯视
         duration: 1.5,
         orientation: {
@@ -220,7 +255,7 @@ const flyToAndAddPoint = () => {
 
     // 2. 添加一个点 Entity
     const pointId1 = `manual-point-${Date.now()}`;
-    viewer1.value.entities.add({
+    viewer.value.entities.add({
         id: pointId1,
         position: Cesium.Cartesian3.fromDegrees(lon, lat, height),
         point: {
@@ -447,13 +482,13 @@ const modelTilesetsRef = ref(new Map());
 // 加载建筑模型
 const load3DTilesModels = async () => {
     try {
-        const hasTerrain = !(viewer1.value.terrainProvider instanceof Cesium.EllipsoidTerrainProvider);
+        const hasTerrain = !(viewer.value.terrainProvider instanceof Cesium.EllipsoidTerrainProvider);
         const loadedTilesets = [];
         for (const model of modelList.value) {
             if (!model.url) continue;
             try {
                 const tileset = await create3DTileset({ url: model.url });
-                viewer1.value.scene.primitives.add(tileset);
+                viewer.value.scene.primitives.add(tileset);
                 loadedTilesets.push(tileset);
                 tileset.debugShowBoundingVolume = true;
                 if (model.name && tileset.boundingSphere?.radius > 0) {
@@ -491,7 +526,7 @@ const load3DTilesModels = async () => {
             }
         }
         if (loadedTilesets.length > 0) {
-            flyToCombinedBoundingSphere(viewer1.value, loadedTilesets);
+            flyToCombinedBoundingSphere(viewer.value, loadedTilesets);
         }
     } catch (error) {
         console.error('3D Tiles加载失败:', error);
@@ -632,43 +667,92 @@ const createWaypoint = (position, point, jp, event) => {
     updatePath();
 };
 
+/**
+ * 计算航线总距离（米），用于动态计算箭头纹理重复次数
+ */
+const getTotalFlightDistance = () => {
+    const waypoints = airRoute.value.waypoints;
+    if (!waypoints || waypoints.length < 2) return 0;
+    let totalDistance = 0;
+    for (let i = 1; i < waypoints.length; i++) {
+        totalDistance += Cesium.Cartesian3.distance(waypoints[i - 1].position, waypoints[i].position);
+    }
+    return totalDistance;
+};
+
+/**
+ * 对航线进行细分插值，在长线段中间插入中间点
+ * 细分间距随相机高度动态调整：相机越近，细分越密，箭头越不会拉伸
+ */
+const getInterpolatedPositions = () => {
+    const waypoints = airRoute.value.waypoints;
+    if (!waypoints || waypoints.length < 2) return waypoints.map(wp => wp.position);
+
+    // 根据相机高度动态计算细分间距
+    let maxSegLen = 15; // 默认 15 米
+    if (viewer.value && viewer.value.camera) {
+        const camHeight = viewer.value.camera.positionCartographic.height;
+        // 相机越低 → 细分越密（最小 2m，最大 30m）
+        maxSegLen = Math.max(2, Math.min(30, camHeight * 0.02));
+    }
+
+    const result = [waypoints[0].position];
+
+    for (let i = 1; i < waypoints.length; i++) {
+        const start = waypoints[i - 1].position;
+        const end = waypoints[i].position;
+        const distance = Cesium.Cartesian3.distance(start, end);
+
+        if (distance > maxSegLen) {
+            const numSubs = Math.ceil(distance / maxSegLen);
+            for (let j = 1; j <= numSubs; j++) {
+                const t = j / numSubs;
+                const point = Cesium.Cartesian3.lerp(start, end, t, new Cesium.Cartesian3());
+                result.push(point);
+            }
+        } else {
+            result.push(end);
+        }
+    }
+
+    return result;
+};
+
 const updatePath = () => {
     const flightPathEntity = viewer.value.entities.getById('flightPath');
     const positions = airRoute.value?.waypoints?.map(wp => wp.position) || [];
 
     if (positions.length >= 2) {
         if (flightPathEntity) {
-            // 更新已有实体的 positions
+            // 更新已有实体的 positions（使用插值后的位置）
             flightPathEntity.polyline.positions = new Cesium.CallbackProperty(() => {
-                return airRoute.value.waypoints.map(wp => wp.position);
+                return getInterpolatedPositions();
             }, false);
         } else {
-            // 创建带流动效果的新航线，传入viewer引用
+            // 创建带流动效果的新航线
             const material = createFlowLineMaterial({
-                viewer: viewer.value, // 新增：传入viewer引用
+                viewer: viewer.value,
                 image: jt1Image,
                 flowSpeed: 2.0,
                 mixColor: Cesium.Color.fromCssColorString('#6495ED').withAlpha(1.0),
-                mixRatio: 0.7,
-                textureRepeat: 35, // 调整基准重复率
-                textureAspectRatio: 1.0, // 根据实际纹理调整
+                mixRatio: 0.9,
+                arrowSpacing: 36, // 每个箭头占 30 米物理距离
+                getDistance: getTotalFlightDistance,
             });
 
             viewer.value.entities.add({
                 id: 'flightPath',
                 polyline: {
                     positions: new Cesium.CallbackProperty(() => {
-                        return airRoute.value.waypoints.map(wp => wp.position);
+                        return getInterpolatedPositions(); // 使用插值后的位置
                     }, false),
-                    width: 14,
+                    width: 10,
                     material: material,
-                    distanceDisplayCondition: new Cesium.DistanceDisplayCondition(0.0, 5000.0),
                 },
             });
         }
     } else {
         if (flightPathEntity) {
-            // 移除实体前清理事件监听
             if (flightPathEntity.polyline.material.destroy) {
                 flightPathEntity.polyline.material.destroy();
             }
@@ -849,7 +933,7 @@ const startDrawing = async () => {
         },
         complete: () => {
             initKeyboardControl();
-            startGyroscope(); //
+            // startGyroscope(); //
         },
     });
 };
@@ -1070,7 +1154,7 @@ const handleKeyUp = e => {
                 animationFrameId.value = null;
             }
             followDrone.value = false;
-            viewer.value.scene.camera.lookAtTransform(Cesium.Matrix4.IDENTITY);
+            viewer.value?.scene?.camera.lookAtTransform(Cesium.Matrix4.IDENTITY);
         }
     }
 };
@@ -1227,7 +1311,7 @@ const tiMapCia = () => {
 };
 
 const tiMapImg = () => {
-    viewer1.value.imageryLayers.addImageryProvider(
+    viewer.value.imageryLayers.addImageryProvider(
         new Cesium.WebMapTileServiceImageryProvider({
             url: 'http://t0.tianditu.gov.cn/img_w/wmts?tk=' + tiandituToken.value,
             layer: 'img',
@@ -1258,8 +1342,8 @@ const loadTMSWithUrlTemplate = async serviceBaseUrl => {
         });
 
         // 加到图层
-        viewer1.value.imageryLayers.removeAll();
-        viewer1.value.imageryLayers.addImageryProvider(realProvider);
+        viewer.value.imageryLayers.removeAll();
+        viewer.value.imageryLayers.addImageryProvider(realProvider);
 
         // 动态飞往
         const center = Cesium.Rectangle.center(tempProvider.rectangle);
@@ -1273,7 +1357,7 @@ const loadTMSWithUrlTemplate = async serviceBaseUrl => {
         let height = diagonalDeg * 100000; // 经验系数
         height = Math.max(600, Math.min(3000, height));
 
-        viewer1.value.camera.flyTo({
+        viewer.value.camera.flyTo({
             destination: Cesium.Cartesian3.fromDegrees(centerLon, centerLat, height),
             duration: 0,
             orientation: {
@@ -1296,7 +1380,7 @@ onMounted(async () => {
     tiandituToken.value = tokens[Math.floor(Math.random() * tokens.length)];
     console.log(tiandituToken.value, 'tiandituToken');
 
-    viewer1.value = new Cesium.Viewer('cesiumContainer1', {
+    viewer.value = new Cesium.Viewer('cesiumContainer1', {
         infoBox: false,
         animation: false,
         baseLayerPicker: false,
@@ -1308,22 +1392,72 @@ onMounted(async () => {
         timeline: false,
         navigationHelpButton: false,
         shouldAnimate: true,
-        requestRenderMode: true, // 启用按需渲染
-        maximumRenderTimeChange: Infinity, // 确保仅在需要时渲染
-        // terrainProvider: new Cesium.EllipsoidTerrainProvider(),
-        terrainProvider: await Cesium.createWorldTerrainAsync(), // 添加地形
+        requestRenderMode: false, // 启用按需渲染
+        // maximumRenderTimeChange: Infinity, // 确保仅在需要时渲染
+        terrainProvider: new Cesium.EllipsoidTerrainProvider(),
+        // terrainProvider: await Cesium.createWorldTerrainAsync(), // 添加地形
         // vrButton: true, //开启VR
         sceneMode: Cesium.SceneMode.SCENE3D,
     });
-    viewer1.value.imageryLayers.remove(viewer1.value.imageryLayers.get(0));
+
+    // viewer.value.terrainProvider = await Cesium.CesiumTerrainProvider.fromUrl('https://data.mars3d.cn/terrain', {
+    //     requestWaterMask: true, // 请求水面掩膜
+    //     requestVertexNormals: true, // 请求顶点法线用于光照效果
+    // });
+    viewer.value.imageryLayers.remove(viewer.value.imageryLayers.get(0));
     let target1 = Cesium.Cartesian3.fromDegrees(116.4074, 39.9042, 16500000);
     // 开启高分辨率
-    viewer1.value.resolutionScale = window.devicePixelRatio || 1.25;
+    viewer.value.resolutionScale = window.devicePixelRatio || 1.25;
     // 开启cesium 帧率
-    viewer1.value.scene.debugShowFramesPerSecond = true;
+    viewer.value.scene.debugShowFramesPerSecond = true;
     tiMapImg();
     // cesium 开启光照
-    viewer1.value.scene.globe.enableLighting = true;
+    viewer.value.scene.globe.enableLighting = true;
+    startDrawing();
+
+    // ========== 实时海拔高度检测（HAE & ASL） ==========
+    altitudeHandler = new Cesium.ScreenSpaceEventHandler(viewer.value.scene.canvas);
+    altitudeHandler.setInputAction(movement => {
+        // 1. 更新相机高度
+        const camCartographic = viewer.value.camera.positionCartographic;
+        cameraHeight.value = camCartographic ? camCartographic.height.toFixed(1) : '--';
+
+        // 2. 获取鼠标所在位置的经纬度
+        const ray = viewer.value.camera.getPickRay(movement.endPosition);
+        if (!ray) return;
+        const cartesian = viewer.value.scene.globe.pick(ray, viewer.value.scene);
+        if (!cartesian) return;
+
+        // 从 Cartesian3 提取经纬度（度）
+        const tmpCartographic = Cesium.Cartographic.fromCartesian(cartesian);
+        const lon = Cesium.Math.toDegrees(tmpCartographic.longitude);
+        const lat = Cesium.Math.toDegrees(tmpCartographic.latitude);
+
+        cursorLon.value = lon.toFixed(6);
+        cursorLat.value = lat.toFixed(6);
+
+        // 3. 用 fromDegrees 创建干净的 cartographic，再采样地形 HAE
+        const cartographic = Cesium.Cartographic.fromDegrees(lon, lat);
+        // HAE: globe.getHeight 返回的是地形在 WGS84 椭球面以上的高度
+        const hae = viewer.value.scene.globe.getHeight(cartographic);
+        if (hae !== undefined && hae !== null) {
+            cursorHAE.value = hae.toFixed(2);
+
+            // 4. 获取大地水准面差距 N（EGM96 Geoid Undulation）
+            //    N = 大地水准面相对于 WGS84 椭球面的高度
+            //    ASL = HAE - N（海拔 = 椭球面高 - 大地水准面差距）
+            try {
+                const N = egm96.meanSeaLevel(lat, lon); // 单位：米
+                const asl = hae - N;
+                cursorASL.value = asl.toFixed(2);
+            } catch (e) {
+                cursorASL.value = '--';
+            }
+        } else {
+            cursorHAE.value = '--';
+            cursorASL.value = '--';
+        }
+    }, Cesium.ScreenSpaceEventType.MOUSE_MOVE);
     // 定义瓦片服务
     // const provider = await Cesium.TileMapServiceImageryProvider.fromUrl('http://192.168.8.111:9003/', {
     //     // 层级
@@ -1331,7 +1465,7 @@ onMounted(async () => {
     //     maximumLevel: 18,
     // });
     // console.log(provider);
-    // viewer1.value.imageryLayers.addImageryProvider(provider);
+    // viewer.value.imageryLayers.addImageryProvider(provider);
 
     // await loadTMSWithUrlTemplate('http://192.168.8.111:9003/');
 
@@ -1340,188 +1474,6 @@ onMounted(async () => {
     setTimeout(async () => {
         // await load3DTilesModels();
     }, 5500);
-    return;
-
-    const tempProvider = await Cesium.TileMapServiceImageryProvider.fromUrl('http://192.168.8.111:9003/', {
-        minimumLevel: 14,
-        maximumLevel: 18,
-        credit: 'TMS',
-    });
-
-    // 到这里 tempProvider 已经 ready，可以直接用 rectangle
-    const rect = tempProvider.rectangle;
-    // console.log(tempProvider);
-    // return;
-    // // return;
-    // const urlTemplateProvider = new Cesium.UrlTemplateImageryProvider({
-    //     url: tempProvider.url, // 注意 z/x/y 顺序是 TMS 标准
-    //     // tilingScheme: new Cesium.GeographicTilingScheme(), // 必须用 Geographic（EPSG:4326）
-    //     tilingScheme: new tempProvider.tilingScheme(), // 必须用 WebMercator（EPSG:3857）
-    //     rectangle: rect,
-    //     minimumLevel: 10,
-    //     maximumLevel: 18,
-    // });
-    viewer1.value.imageryLayers.addImageryProvider(tempProvider);
-    // tiMapImg();
-    // 现在 provider.rectangle 已经可用了
-    // const rect = urlTemplateProvider.rectangle; // Cesium.Rectangle 对象，单位：弧度
-    // 转换为度数（Cesium.Math.toDegrees）
-    const west = Cesium.Math.toDegrees(rect.west);
-    const east = Cesium.Math.toDegrees(rect.east);
-    const south = Cesium.Math.toDegrees(rect.south);
-    const north = Cesium.Math.toDegrees(rect.north);
-
-    // 计算中心点（最常用）
-    const centerLon = (west + east) / 2;
-    const centerLat = (south + north) / 2;
-
-    // 计算跨度（用于估算合适高度）
-    const lonSpan = east - west;
-    const latSpan = north - south;
-
-    // 动态估算相机高度（经验公式，适合大多数正射影像）
-    let height = 1500; // 默认值
-
-    if (lonSpan > 0 && latSpan > 0) {
-        // 粗略：跨度越大，高度越高；小区域建议 800～3000m
-        // 这里用对角线角度估算（约 2.5～3.5 倍对角线距离）
-        const diagonalDeg = Math.sqrt(lonSpan ** 2 + latSpan ** 2);
-        height = diagonalDeg * 80000; // 经验系数：小区域约 80000～120000 合适
-        height = Math.max(800, Math.min(4000, height)); // 限制范围，避免太近/太远
-    }
-
-    // 飞过去（动态版）
-    viewer1.value.camera.setView({
-        destination: Cesium.Cartesian3.fromDegrees(centerLon, centerLat, height),
-        duration: 0,
-        orientation: {
-            heading: Cesium.Math.toRadians(0.0),
-            pitch: Cesium.Math.toRadians(-90.0),
-            roll: 0.0,
-        },
-    });
-    setTimeout(() => {
-        load3DTilesModels();
-    }, 5500);
-    return;
-    viewer1.value.camera.flyTo({
-        destination: Cesium.Cartesian3.fromDegrees(105, 35, 20000000),
-        orientation: {
-            heading: 0,
-            pitch: Cesium.Math.toRadians(-90),
-            roll: 0,
-        },
-        duration: 1.5,
-    });
-
-    // 初始化
-    viewer.value = new Cesium.Viewer('cesiumContainer', {
-        infoBox: false,
-        animation: false,
-        baseLayerPicker: false,
-        fullscreenButton: false,
-        geocoder: false,
-        homeButton: false,
-        sceneModePicker: false,
-        selectionIndicator: false,
-        timeline: false,
-        navigationHelpButton: false,
-        shouldAnimate: true,
-        requestRenderMode: true, // 启用按需渲染
-        maximumRenderTimeChange: Infinity, // 确保仅在需要时渲染
-        terrainProvider: new Cesium.EllipsoidTerrainProvider(),
-        // terrainProvider: await Cesium.createWorldTerrainAsync(), // 添加地形
-        // vrButton: true, //开启VR
-        sceneMode: Cesium.SceneMode.SCENE3D,
-    });
-    viewer.value.imageryLayers.remove(viewer.value.imageryLayers.get(0));
-    // let target = Cesium.Cartesian3.fromDegrees(116.4074, 39.9042, 16500000);
-    // 开启高分辨率
-    viewer.value.resolutionScale = window.devicePixelRatio || 1.25;
-    // 开启cesium 帧率
-    viewer.value.scene.debugShowFramesPerSecond = true;
-    tiMapImg();
-    tiMapCia();
-    // 使用flyTo方法飞向目标点
-    // viewer.value.camera.flyTo({
-    //     destination: target,
-    //     orientation: {
-    //         heading: Cesium.Math.toRadians(0), // 方向角，例如向东为0度
-    //         pitch: Cesium.Math.toRadians(-90), // 俯仰角，例如垂直向下为-90度
-    //         roll: 0.0, // 翻滚角
-    //     },
-    //     duration: 1, // 飞行持续时间，单位为秒
-    // });
-
-    // 添加 WMS 图层
-    // const wmsProvider = new Cesium.WebMapServiceImageryProvider({
-    //     url: 'http://47.104.178.54:8060/geoserver/sihedk/wms',
-    //     layers: 'sihedk:wordMapL2',
-    //     parameters: {
-    //         service: 'WMS',
-    //         version: '1.1.0',
-    //         request: 'GetMap',
-    //         format: 'image/png',
-    //         transparent: true,
-    //     },
-    //     // rectangle: Cesium.Rectangle.fromDegrees(73, 18, 135, 54),
-    //     // tilingScheme: new Cesium.WebMercatorTilingScheme(), // 必须匹配 EPSG:3857
-    //     // maximumLevel: 16, // 避免请求过高缩放（GeoServer 可能不支持）
-    // });
-
-    // viewer.value.imageryLayers.addImageryProvider(singleTileProvider);
-
-    // viewer.value.imageryLayers.addImageryProvider(wmsProvider);
-
-    // const wmsLayer = new Cesium.WebMapServiceImageryProvider({
-    //     url: 'http://47.104.178.54:8060/geoserver/sihedk/wms',
-    //     layers: 'sihedk:wordMapL2',
-    //     parameters: {
-    //         service: 'WMS',
-    //         version: '1.1.0',
-    //         request: 'GetMap',
-    //         styles: '',
-    //         format: 'image/png',
-    //         transparent: true,
-    //         // srs: 'EPSG:3857', // 和服务一致
-    //     },
-    // });
-
-    // // 添加到 Cesium
-    // viewer.value.imageryLayers.addImageryProvider(wmsLayer);
-
-    viewer.value.camera.flyTo({
-        destination: Cesium.Cartesian3.fromDegrees(105, 35, 20000000),
-        orientation: {
-            heading: 0,
-            pitch: Cesium.Math.toRadians(-90),
-            roll: 0,
-        },
-        duration: 1.5,
-    });
-
-    viewer1.value.scene.globe.enableLighting = false;
-    viewer1.value.scene.debugShowFramesPerSecond = true;
-    viewer1.value.scene.globe.show = true;
-
-    // 打开经纬网
-    viewer1.value.scene.globe.showGroundAtmosphere = false;
-    viewer1.value.scene.globe.depthTestAgainstTerrain = false;
-
-    // setTimeout(() => {
-    //     let target1 = Cesium.Cartesian3.fromDegrees(112.85672871086203, 37.91567125017228, 1500);
-    //     viewer.value.camera.flyTo({
-    //         destination: target1,
-    //         orientation: {
-    //             heading: Cesium.Math.toRadians(0), // 方向角，例如向东为0度
-    //             pitch: Cesium.Math.toRadians(-90), // 俯仰角，例如垂直向下为-90度
-    //             roll: 0.0, // 翻滚角
-    //         },
-    //         duration: 0, // 飞行持续时间，单位为秒
-    //     });
-    // }, 2000);
-    // viewer.value.scene.globe.depthTestAgainstTerrain = true;
-    // viewer.value.canvas.addEventListener('wheel', handleMouseWheel);
 
     // 编辑回显
     if (idkey) {
@@ -1535,6 +1487,12 @@ onUnmounted(() => {
     stopAnimationLoop();
     document.removeEventListener('keydown', handleKeyDown);
     document.removeEventListener('keyup', handleKeyUp);
+
+    // 清理海拔检测 handler
+    if (altitudeHandler) {
+        altitudeHandler.destroy();
+        altitudeHandler = null;
+    }
 
     if (viewer.value && !viewer.value.isDestroyed()) {
         viewer.value.destroy();
@@ -1772,5 +1730,62 @@ button:disabled {
     font-size: 16px;
     font-weight: bold;
     color: #4fc3f7;
+}
+/* ========== 底部海拔信息栏 ========== */
+.altitude-info-bar {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0;
+    height: 36px;
+    background: linear-gradient(180deg, rgba(0, 0, 0, 0.65) 0%, rgba(0, 0, 0, 0.85) 100%);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    padding: 0 24px;
+    font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+    user-select: none;
+}
+
+.altitude-info-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0 16px;
+}
+
+.altitude-info-label {
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.5);
+    letter-spacing: 0.5px;
+    white-space: nowrap;
+}
+
+.altitude-info-value {
+    font-size: 13px;
+    color: #e0e0e0;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+    min-width: 80px;
+    text-align: right;
+}
+
+.altitude-info-value.hae {
+    color: #4fc3f7;
+}
+
+.altitude-info-value.asl {
+    color: #81c784;
+}
+
+.altitude-info-divider {
+    width: 1px;
+    height: 18px;
+    background: rgba(255, 255, 255, 0.12);
 }
 </style>

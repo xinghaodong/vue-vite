@@ -32,6 +32,7 @@
     "axios": "^1.7.2",
     "cesium": "^1.127.0",
     "dompurify": "^3.2.4",
+    "egm96-universal": "^1.1.1",
     "element-plus": "^2.7.4",
     "element-plus-input-number-thousands": "^1.1.6",
     "gsap": "^3.13.0",
