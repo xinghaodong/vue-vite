@@ -1,6 +1,8 @@
+// 这是  utils/cesiumMaterials.js
+
 import * as Cesium from 'cesium';
 
-export function createFlowLineMaterial(options = {}) {
+export function createFlowLineMaterial(options) {
     const materialType = 'FlowLineMaterialType';
 
     if (!Cesium.Material[materialType]) {
@@ -15,26 +17,22 @@ export function createFlowLineMaterial(options = {}) {
                     mixColor: options.mixColor || Cesium.Color.BLUE.withAlpha(1.0),
                     mixRatio: options.mixRatio || 0.7,
                     textureRepeat: options.textureRepeat || 100.0,
-                    flowOffset: 0.0,
                 },
                 source: `
-                    uniform sampler2D image;
+                    uniform float flowSpeed;
                     uniform float mixRatio;
+                    uniform sampler2D image;
                     uniform float textureRepeat;
-                    uniform float flowOffset;
-                    uniform vec4 mixColor;
-
                     czm_material czm_getMaterial(czm_materialInput materialInput) {
                         czm_material material = czm_getDefaultMaterial(materialInput);
                         vec2 st = materialInput.st;
-
-                        // Continuous repeat/offset keeps zooming and panning visually smooth.
-                        float repeatedS = fract(st.s * textureRepeat - flowOffset);
+                        float time = czm_frameNumber / 240.0;
+                        // st.s 在 0~1 之间覆盖整条线，乘以 textureRepeat 实现重复
+                        float repeatedS = fract(st.s * textureRepeat - time * flowSpeed);
                         vec2 animatedSt = vec2(repeatedS, st.t);
-
-                        vec4 texColor = texture(image, animatedSt);
-                        material.alpha = max(texColor.a, mixColor.a);
-                        material.diffuse = mix(mixColor.rgb, texColor.rgb, texColor.a * mixRatio);
+                        vec4 color = texture(image, animatedSt);
+                        material.alpha = max(color.a, mixColor.a);
+                        material.diffuse = mix(mixColor.rgb, color.rgb, color.a * mixRatio);
                         return material;
                     }
                 `,
@@ -43,35 +41,26 @@ export function createFlowLineMaterial(options = {}) {
         });
     }
 
-    function FlowLineMaterialProperty(opts) {
+    // 自定义 MaterialProperty
+    function FlowLineMaterialProperty(options) {
         this._definitionChanged = new Cesium.Event();
         this._image = undefined;
         this._flowSpeed = undefined;
         this._mixColor = undefined;
         this._mixRatio = undefined;
         this._textureRepeat = undefined;
-        this._flowOffset = undefined;
 
-        this.image = opts.image;
-        this.flowSpeed = opts.flowSpeed ?? 1.0;
-        this.mixColor = opts.mixColor || Cesium.Color.BLUE.withAlpha(1.0);
-        this.mixRatio = opts.mixRatio ?? 0.7;
-        this.textureRepeat = opts.textureRepeat || 35;
-        this.flowOffset = 0.0;
+        this.image = options.image;
+        this.flowSpeed = options.flowSpeed;
+        this.mixColor = options.mixColor;
+        this.mixRatio = options.mixRatio;
+        this.textureRepeat = options.textureRepeat || 35;
 
-        this._getDistance = opts.getDistance || null;
-        this._arrowSpacing = opts.arrowSpacing || 30;
-        this._viewer = opts.viewer || null;
-        this._baseCameraHeight = opts.baseCameraHeight || 800;
-
-        this._minScale = opts.minScale || 0.12;
-        this._maxScale = opts.maxScale || 8.0;
-        this._zoomExponent = opts.zoomExponent || 0.85;
-        this._repeatSmoothing = opts.repeatSmoothing || 0.22;
-
-        this._lastTextureRepeat = undefined;
-        this._lastTickTime = undefined;
-        this._offsetAccum = 0.0;
+        // 动态距离计算
+        this._getDistance = options.getDistance || null; // 回调函数，返回总距离（米）
+        this._arrowSpacing = options.arrowSpacing || 30; // 基准箭头间距（米）
+        this._viewer = options.viewer || null; // viewer 引用，用于获取相机高度
+        this._baseCameraHeight = options.baseCameraHeight || 800; // 基准相机高度（米）
     }
 
     FlowLineMaterialProperty.prototype.getType = function () {
@@ -80,48 +69,33 @@ export function createFlowLineMaterial(options = {}) {
 
     FlowLineMaterialProperty.prototype.getValue = function (time, result) {
         if (!result) result = {};
-
         result.image = Cesium.Property.getValueOrUndefined(this._image, time) || this.image;
+        result.flowSpeed = Cesium.Property.getValueOrUndefined(this._flowSpeed, time) || this.flowSpeed;
         result.mixColor = Cesium.Property.getValueOrUndefined(this._mixColor, time) || this.mixColor;
         result.mixRatio = Cesium.Property.getValueOrUndefined(this._mixRatio, time) || this.mixRatio;
 
-        const flowSpeed = Cesium.Property.getValueOrUndefined(this._flowSpeed, time) || this.flowSpeed;
-        result.flowSpeed = flowSpeed;
-
+        // 核心：动态计算 textureRepeat = 总距离 / 动态箭头间距
         if (this._getDistance) {
             const distance = this._getDistance();
             if (distance > 0) {
                 let arrowSpacing = this._arrowSpacing;
 
+                // 根据相机高度动态缩放箭头间距
+                // 相机越近 → arrowSpacing 越小 → textureRepeat 越大 → 箭头越多越密
+                // 相机越远 → arrowSpacing 越大 → textureRepeat 越小 → 箭头越少越稀
                 if (this._viewer && this._viewer.camera) {
                     const cameraHeight = this._viewer.camera.positionCartographic.height;
-                    const normalized = Math.max(1e-6, cameraHeight / this._baseCameraHeight);
-                    const scale = Cesium.Math.clamp(Math.pow(normalized, this._zoomExponent), this._minScale, this._maxScale);
+                    const scale = Math.max(0.05, cameraHeight / this._baseCameraHeight);
                     arrowSpacing = this._arrowSpacing * scale;
                 }
 
-                const targetRepeat = Math.max(1.0, distance / Math.max(0.1, arrowSpacing));
-                if (this._lastTextureRepeat === undefined) {
-                    this._lastTextureRepeat = targetRepeat;
-                } else {
-                    this._lastTextureRepeat += (targetRepeat - this._lastTextureRepeat) * this._repeatSmoothing;
-                }
-                result.textureRepeat = this._lastTextureRepeat;
+                result.textureRepeat = Math.max(1, Math.round(distance / arrowSpacing));
             } else {
-                result.textureRepeat = 1.0;
+                result.textureRepeat = 1;
             }
         } else {
             result.textureRepeat = Cesium.Property.getValueOrUndefined(this._textureRepeat, time) || this.textureRepeat;
         }
-
-        const currentSeconds = Cesium.JulianDate.toDate(time).getTime() / 1000;
-        if (this._lastTickTime === undefined) {
-            this._lastTickTime = currentSeconds;
-        }
-        const dt = Math.max(0, Math.min(0.1, currentSeconds - this._lastTickTime));
-        this._lastTickTime = currentSeconds;
-        this._offsetAccum = (this._offsetAccum + dt * flowSpeed) % 1.0;
-        result.flowOffset = this._offsetAccum;
 
         return result;
     };
@@ -142,7 +116,6 @@ export function createFlowLineMaterial(options = {}) {
         mixColor: Cesium.createPropertyDescriptor('mixColor'),
         mixRatio: Cesium.createPropertyDescriptor('mixRatio'),
         textureRepeat: Cesium.createPropertyDescriptor('textureRepeat'),
-        flowOffset: Cesium.createPropertyDescriptor('flowOffset'),
     });
 
     FlowLineMaterialProperty.prototype.equals = function (other) {
@@ -153,10 +126,11 @@ export function createFlowLineMaterial(options = {}) {
                 Cesium.Property.equals(this._flowSpeed, other._flowSpeed) &&
                 Cesium.Property.equals(this._mixColor, other._mixColor) &&
                 Cesium.Property.equals(this._mixRatio, other._mixRatio) &&
-                Cesium.Property.equals(this._textureRepeat, other._textureRepeat) &&
-                Cesium.Property.equals(this._flowOffset, other._flowOffset))
+                Cesium.Property.equals(this._textureRepeat, other._textureRepeat))
         );
     };
 
-    return new FlowLineMaterialProperty(options);
+    const materialProperty = new FlowLineMaterialProperty(options);
+
+    return materialProperty;
 }

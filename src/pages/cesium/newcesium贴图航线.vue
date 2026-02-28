@@ -1,4 +1,4 @@
-﻿<template>
+<template>
     <div style="width: 100%; height: 100%; display: flex; position: relative">
         <div id="cesiumContainer1"></div>
         <!-- 底部海拔信息栏 -->
@@ -39,8 +39,10 @@ import 'cesium/Build/Cesium/Widgets/widgets.css';
 import { createDroneFrustum, calculateRouteInfo } from '@/assets/js/common';
 // import droneImage from '@/assets/WRJ.png';
 import droneImage from '@/assets/5cb4d4a54db5bef6.gltf';
+import jt1Image from '@/assets/jt1.png';
 const { proxy } = getCurrentInstance();
 import { useRoute } from 'vue-router';
+import { createFlowLineMaterial } from '@/utils/cesiumMaterials.js';
 import { settings } from 'nprogress';
 const TIANDITU_TOKEN = '959c9868a67971f32236533362422954';
 const TIANDITU_TOKEN1 = 'e79aa17ec84f6336a17a688c018da4f8';
@@ -574,56 +576,6 @@ const flightPathPrimitive = ref(null);
 
 const lastUpdateTime = ref(Date.now());
 const updateFlightPathTimeRef = ref(null); // 用于存储当前的事件处理函数
-const flightPathMaterialRef = ref(null);
-const flightPathFlowTime = ref(0);
-const flightPathRepeat = ref(1);
-
-const FLOW_ARROW_SHADER = `
-uniform vec4 lineColor;
-uniform vec4 arrowColor;
-uniform float repeat;
-uniform float time;
-uniform float flowSpeed;
-uniform float edgeSoftness;
-
-czm_material czm_getMaterial(czm_materialInput materialInput) {
-    czm_material material = czm_getDefaultMaterial(materialInput);
-    vec2 st = materialInput.st;
-
-    // 流动相位，沿线方向重复
-    float phase = fract(st.s * repeat - time * flowSpeed);
-
-    // 将 phase 映射到 [-0.5, 0.5]，箭头尖端在 phase=0.5（右侧/飞行方向）
-    float px = phase - 0.5;
-    // 纵向坐标，0=中心，1=边缘
-    float py = abs(st.t - 0.5) * 2.0;
-
-    // V 形箭头（chevron）：两条斜线组成 ">" 形
-    // arrowWidth 控制箭头沿线方向的宽度（越大箭头越宽）
-    // arrowThickness 控制箭头线条的粗细
-    float arrowWidth = 0.12;
-    float arrowThickness = 0.028;
-
-    // 箭头的 V 形线：distance = |px + py * arrowWidth|
-    // px 向右增大，py 向边缘增大
-    // 上半箭头线：px = -py * arrowWidth （从左上到中心尖端）
-    // 下半箭头线：px = -py * arrowWidth （对称）
-    float vLine = abs(px + py * arrowWidth);
-    float arrowMask = 1.0 - smoothstep(arrowThickness, arrowThickness + edgeSoftness, vLine);
-
-    // 只在箭头区域内显示（限制箭头的水平范围，避免反向延伸）
-    // 箭头尖端在 px=0，箭头尾部在 px=-arrowWidth 方向
-    float arrowRegion = step(-arrowWidth * 1.1, px) * step(px, arrowThickness);
-    arrowMask *= arrowRegion;
-
-    vec3 color = mix(lineColor.rgb, arrowColor.rgb, arrowMask);
-    float alpha = max(lineColor.a, arrowColor.a * arrowMask);
-
-    material.diffuse = color;
-    material.alpha = alpha;
-    return material;
-}
-`;
 
 /**
  * 创建航点
@@ -669,7 +621,7 @@ const createWaypoint = (position, point, jp, event) => {
             pixelOffset: new Cesium.Cartesian2(0, -20),
             zIndex: waypointZIndex,
 
-            // heightReference 必须是 NONE，因为我们手动提供了绝对高度
+            // 【重要】heightReference 必须是 NONE，因为我们手动提供了绝对高度
             heightReference: Cesium.HeightReference.NONE,
             disableDepthTestDistance: Number.POSITIVE_INFINITY,
         },
@@ -767,113 +719,92 @@ const getInterpolatedPositions = () => {
 };
 
 const updatePath = () => {
+    const flightPathEntity = viewer.value.entities.getById('flightPath');
     const positions = airRoute.value?.waypoints?.map(wp => wp.position) || [];
 
-    // 仅移除 Primitive 几何体（轻量操作，不销毁材质和动画监听器）
-    const removePrimitiveOnly = () => {
-        if (flightPathPrimitive.value && viewer.value?.scene) {
-            viewer.value.scene.primitives.remove(flightPathPrimitive.value);
-        }
-        flightPathPrimitive.value = null;
-    };
-
-    // 完全清理：移除 Primitive + 材质 + 动画监听器（仅在航点不足时调用）
-    const removeFlightPathAll = () => {
-        removePrimitiveOnly();
-        flightPathMaterialRef.value = null;
-
-        if (updateFlightPathTimeRef.value && viewer.value?.scene?.preRender) {
-            viewer.value.scene.preRender.removeEventListener(updateFlightPathTimeRef.value);
-            updateFlightPathTimeRef.value = null;
-        }
-    };
-
-    const buildFlowArrowMaterial = () =>
-        new Cesium.Material({
-            fabric: {
-                uniforms: {
-                    lineColor: Cesium.Color.fromCssColorString('#17d89a').withAlpha(0.95),
-                    arrowColor: Cesium.Color.WHITE.withAlpha(1.0),
-                    repeat: 1.0,
-                    time: 0.0,
-                    flowSpeed: 0,
-                    edgeSoftness: 0.02,
-                },
-                source: FLOW_ARROW_SHADER,
-            },
-            translucent: true,
-        });
-
-    const bindFlightPathAnimation = () => {
-        if (!viewer.value || updateFlightPathTimeRef.value) return;
-        lastUpdateTime.value = Date.now();
-
-        updateFlightPathTimeRef.value = () => {
-            if (!viewer.value || !flightPathMaterialRef.value) return;
-
-            const now = Date.now();
-            const dt = Math.min(0.1, Math.max(0, (now - lastUpdateTime.value) / 1000));
-            lastUpdateTime.value = now;
-            flightPathFlowTime.value += dt;
-
-            const distance = getTotalFlightDistance();
-            const cameraHeight = viewer.value.camera.positionCartographic.height;
-            const baseHeight = 1000;
-            const scale = Cesium.Math.clamp(Math.pow(Math.max(1e-6, cameraHeight / baseHeight), 0.85), 0.6, 8.0);
-            const spacing = 90 * scale;
-            // 缓慢平滑插值（0.02），拖动时箭头密度缓慢过渡，不卡顿也不快速流动
-            const targetRepeat = Math.max(1.0, distance / Math.max(0.1, spacing));
-            flightPathRepeat.value += (targetRepeat - flightPathRepeat.value) * 0.02;
-
-            const uniforms = flightPathMaterialRef.value.uniforms;
-            uniforms.time = flightPathFlowTime.value;
-            uniforms.repeat = flightPathRepeat.value;
-        };
-
-        viewer.value.scene.preRender.addEventListener(updateFlightPathTimeRef.value);
-    };
-
     if (positions.length >= 2) {
-        const interpolatedPositions = getInterpolatedPositions();
+        if (flightPathEntity) {
+            // 更新已有实体的 positions（使用插值后的位置）
+            flightPathEntity.polyline.positions = new Cesium.CallbackProperty(() => {
+                return getInterpolatedPositions();
+            }, false);
+        } else {
+            // 创建带流动效果的新航线
+            const material = createFlowLineMaterial({
+                viewer: viewer.value,
+                image: jt1Image,
+                flowSpeed: 2.0,
+                mixColor: Cesium.Color.fromCssColorString('#6495ED').withAlpha(1.0),
+                mixRatio: 0.9,
+                arrowSpacing: 36, // 每个箭头占 30 米物理距离
+                getDistance: getTotalFlightDistance,
+            });
 
-        // 只移除旧的 Primitive 几何体，不销毁材质和监听器
-        removePrimitiveOnly();
-
-        // 如果材质还不存在，才创建（首次或被完全清理后）
-        if (!flightPathMaterialRef.value) {
-            flightPathMaterialRef.value = buildFlowArrowMaterial();
-            flightPathFlowTime.value = 0;
-            flightPathRepeat.value = Math.max(1, getTotalFlightDistance() / 90);
+            viewer.value.entities.add({
+                id: 'flightPath',
+                polyline: {
+                    positions: new Cesium.CallbackProperty(() => {
+                        return getInterpolatedPositions(); // 使用插值后的位置
+                    }, false),
+                    width: 10,
+                    material: material,
+                },
+            });
         }
-
-        const geometry = new Cesium.PolylineGeometry({
-            positions: interpolatedPositions,
-            width: 10,
-            vertexFormat: Cesium.PolylineMaterialAppearance.VERTEX_FORMAT,
-        });
-
-        flightPathPrimitive.value = new Cesium.Primitive({
-            geometryInstances: new Cesium.GeometryInstance({
-                geometry,
-            }),
-            appearance: new Cesium.PolylineMaterialAppearance({
-                material: flightPathMaterialRef.value,
-                translucent: true,
-            }),
-            asynchronous: false,
-            allowPicking: false,
-        });
-
-        viewer.value.scene.primitives.add(flightPathPrimitive.value);
-        // 动画监听器也只绑定一次，已存在则跳过
-        bindFlightPathAnimation();
     } else {
-        // 航点不足 2 个，完全清理
-        removeFlightPathAll();
+        if (flightPathEntity) {
+            if (flightPathEntity.polyline.material.destroy) {
+                flightPathEntity.polyline.material.destroy();
+            }
+            viewer.value.entities.removeById('flightPath');
+        }
     }
 
     getCalculateRouteInfo();
 };
+
+// const updatePath = () => {
+//     // 获取现有的航线实体
+//     const flightPathEntity = viewer.value.entities.getById('flightPath');
+
+//     // 提取航点位置
+//     const positions = airRoute.value?.waypoints?.map(wp => wp.position) || [];
+
+//     if (positions.length >= 2) {
+//         if (flightPathEntity) {
+//             // 已存在，更新 positions
+//             flightPathEntity.polyline.positions = new Cesium.CallbackProperty(() => {
+//                 return airRoute.value.waypoints.map(wp => wp.position);
+//             }, false);
+//         } else {
+//             // 不存在，创建新实体
+//             viewer.value.entities.add({
+//                 id: 'flightPath',
+//                 polyline: {
+//                     positions: new Cesium.CallbackProperty(() => {
+//                         return airRoute.value.waypoints.map(wp => wp.position);
+//                     }, false),
+//                     width: 8,
+//                     material: new Cesium.PolylineOutlineMaterialProperty({
+//                         color: Cesium.Color.fromCssColorString('#0080FF').withAlpha(0.8),
+//                         outlineWidth: 0, // 无边框
+//                     }),
+//                     clampToGround: false,
+//                     heightReference: Cesium.HeightReference.NONE,
+//                     zIndex: 0,
+//                     pickable: false,
+//                 },
+//             });
+//         }
+//     } else {
+//         // 航点不足，删除实体（如果存在）
+//         if (flightPathEntity) {
+//             viewer.value.entities.removeById('flightPath');
+//         }
+//     }
+//     // 更新路线信息
+//     getCalculateRouteInfo();
+// };
 
 // 创建无人机当前位置的航点
 const createDroneWaypoint = () => {
@@ -1461,8 +1392,8 @@ onMounted(async () => {
         timeline: false,
         navigationHelpButton: false,
         shouldAnimate: true,
-        requestRenderMode: true, // 启用按需渲染
-        maximumRenderTimeChange: Infinity, // 确保仅在需要时渲染
+        requestRenderMode: false, // 启用按需渲染
+        // maximumRenderTimeChange: Infinity, // 确保仅在需要时渲染
         terrainProvider: new Cesium.EllipsoidTerrainProvider(),
         // terrainProvider: await Cesium.createWorldTerrainAsync(), // 添加地形
         // vrButton: true, //开启VR
@@ -1554,8 +1485,8 @@ onMounted(async () => {
 onUnmounted(() => {
     console.log('即将离开当前路由，清理 Cesium 资源');
     stopAnimationLoop();
-    window.removeEventListener('keydown', handleKeyDown);
-    window.removeEventListener('keyup', handleKeyUp);
+    document.removeEventListener('keydown', handleKeyDown);
+    document.removeEventListener('keyup', handleKeyUp);
 
     // 清理海拔检测 handler
     if (altitudeHandler) {
@@ -1563,21 +1494,13 @@ onUnmounted(() => {
         altitudeHandler = null;
     }
 
-    // 移除航线动画监听
-    if (updateFlightPathTimeRef.value && viewer.value?.scene?.preRender) {
-        viewer.value.scene.preRender.removeEventListener(updateFlightPathTimeRef.value);
-        updateFlightPathTimeRef.value = null;
-    }
-
-    // 清理航线 Primitive
-    if (flightPathPrimitive.value && viewer.value?.scene) {
-        viewer.value.scene.primitives.remove(flightPathPrimitive.value);
-        flightPathPrimitive.value = null;
-        flightPathMaterialRef.value = null;
-    }
-
     if (viewer.value && !viewer.value.isDestroyed()) {
         viewer.value.destroy();
+    }
+
+    // 移除 postRender 监听器
+    if (updateFlightPathTimeRef.value && viewer.value?.scene?.postRender) {
+        viewer.value.scene.postRender.removeEventListener(updateFlightPathTimeRef.value);
     }
 
     // 销毁容器
