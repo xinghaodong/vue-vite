@@ -103,7 +103,13 @@
                                                                 @click.stop="selectColItem(colElement, element, colIndex)"
                                                             >
                                                                 <el-form-item :label="colElement.props.label" :required="colElement.props.required" style="width: 100%">
-                                                                    <component :is="colElement.component" v-bind="colElement.props" v-model="formData[colElement.id]">
+                                                                    <div v-if="colElement.type === 'upload'" style="padding: 6px 0">
+                                                                        <el-button type="primary" plain size="small">
+                                                                            <el-icon style="margin-right: 4px"><UploadFilled /></el-icon>上传发票/附件
+                                                                        </el-button>
+                                                                        <div style="font-size: 12px; color: #909399; margin-top: 4px">{{ colElement.props.tip || '支持上传发票图片或PDF' }}</div>
+                                                                    </div>
+                                                                    <component v-else :is="colElement.component" v-bind="colElement.props" v-model="formData[colElement.id]">
                                                                         <template v-if="colElement.type === 'select'">
                                                                             <el-option
                                                                                 v-for="option in colElement.props.options"
@@ -149,7 +155,13 @@
                                             <Rank />
                                         </el-icon>
                                         <el-form-item :label="element.props.label" :required="element.props.required" style="width: 100%">
-                                            <component :is="element.component" v-bind="element.props" v-model="formData[element.id]">
+                                            <div v-if="element.type === 'upload'" style="padding: 6px 0">
+                                                <el-button type="primary" plain size="small">
+                                                    <el-icon style="margin-right: 4px"><UploadFilled /></el-icon>上传发票/附件
+                                                </el-button>
+                                                <div style="font-size: 12px; color: #909399; margin-top: 4px">{{ element.props.tip || '支持上传发票图片或PDF' }}</div>
+                                            </div>
+                                            <component v-else :is="element.component" v-bind="element.props" v-model="formData[element.id]">
                                                 <template v-if="element.type === 'select'">
                                                     <el-option v-for="option in element.props.options" :key="option.value" :label="option.label" :value="option.value"></el-option>
                                                 </template>
@@ -288,6 +300,21 @@
                                 </el-form-item>
                             </template>
 
+                            <template v-if="currentItem.type === 'upload'">
+                                <el-form-item label="允许格式">
+                                    <el-input v-model="currentItem.props.accept" placeholder="如 .jpg,.jpeg,.png,.pdf" />
+                                </el-form-item>
+                                <el-form-item label="最大张数">
+                                    <el-input-number v-model="currentItem.props.limit" :min="1" :max="30" />
+                                </el-form-item>
+                                <el-form-item label="大小限制(MB)">
+                                    <el-input-number v-model="currentItem.props.maxSize" :min="1" :max="50" />
+                                </el-form-item>
+                                <el-form-item label="提示文字">
+                                    <el-input v-model="currentItem.props.tip" placeholder="上传说明" />
+                                </el-form-item>
+                            </template>
+
                             <el-form-item label="绑定字段" v-if="currentItem && currentItem.type !== 'grid'">
                                 <el-input v-model="currentItem.id" placeholder="如: username, email" clearable="true"></el-input>
                             </el-form-item>
@@ -376,7 +403,7 @@ const { idkey } = route.query;
 // 例如: export const copyText = (text) => navigator.clipboard.writeText(text);
 import { copyText } from '@/utils/copy';
 import draggable from 'vuedraggable/src/vuedraggable';
-import { Delete, Rank, Edit, Select, Switch, Calendar, Document, List, Menu, Grid } from '@element-plus/icons-vue';
+import { Delete, Rank, Edit, Select, Switch, Calendar, Document, List, Menu, Grid, UploadFilled } from '@element-plus/icons-vue';
 // 初始化 markdown-it
 // const md = new MarkdownIt({
 //     html: true,
@@ -417,11 +444,13 @@ const getDesignQuery = async () => {
 // 组件列表数据
 const componentList = [
     { type: 'input', label: '单行文本', icon: 'Edit', component: 'el-input' },
+    { type: 'textarea', label: '多行文本', icon: 'Document', component: 'el-input' },
     { type: 'select', label: '下拉选择', icon: 'Select', component: 'el-select' },
     { type: 'switch', label: '开关', icon: 'Switch', component: 'el-switch' },
     { type: 'date-picker', label: '日期选择器', icon: 'Calendar', component: 'el-date-picker' },
     { type: 'radio', label: '单选框组', icon: 'List', component: 'el-radio-group' },
     { type: 'checkbox', label: '多选框组', icon: 'Menu', component: 'el-checkbox-group' },
+    { type: 'upload', label: '附件/发票上传', icon: 'UploadFilled', component: 'el-upload' },
 ];
 
 // 栅格布局组件
@@ -532,7 +561,22 @@ const componentTemplates = {
 
     checkbox: (item, formKey) => `
         <el-checkbox-group v-model="formData.${formKey}" ${getProps(item.props)}>
-            ${item.props.options?.map(opt => `<el-checkbox :label="${JSON.stringify(opt.value)}">${opt.label}</el-checkbox>`).join('\n            ')}`,
+            ${item.props.options?.map(opt => `<el-checkbox :label="${JSON.stringify(opt.value)}">${opt.label}</el-checkbox>`).join('\n            ')}
+        </el-checkbox-group>`,
+
+    upload: (item, formKey) => `
+        <el-upload
+            action="/api/upload/uploadFile"
+            name="avatar"
+            :limit="${item.props.limit || 10}"
+            accept="${item.props.accept || '.jpg,.jpeg,.png,.pdf'}"
+            list-type="picture"
+        >
+            <el-button type="primary" size="small">上传发票/附件</el-button>
+            <template #tip>
+                <div class="el-upload__tip">${item.props.tip || '支持jpg/png/pdf格式'}</div>
+            </template>
+        </el-upload>`,
 };
 
 // 属性处理函数
@@ -610,11 +654,13 @@ ${generateGridColumn(col)}
 const collectFormDataDefaults = items => {
     const defaults = {
         input: '',
+        textarea: '',
         select: props => (props.multiple ? [] : null),
         switch: false,
         'date-picker': null,
         radio: null,
         checkbox: [],
+        upload: [],
     };
 
     return items.reduce((acc, item) => {
@@ -685,7 +731,7 @@ const createComponentConfig = item => {
         let defaultValue = null;
         if (item.type === 'switch') {
             defaultValue = false;
-        } else if (item.type === 'checkbox') {
+        } else if (item.type === 'checkbox' || item.type === 'upload') {
             defaultValue = [];
         } else if (item.type === 'input' || item.type === 'textarea') {
             defaultValue = '';
@@ -736,6 +782,12 @@ const createComponentConfig = item => {
         case 'switch':
             baseConfig.props.activeText = '';
             baseConfig.props.inactiveText = '';
+            break;
+        case 'upload':
+            baseConfig.props.accept = '.jpg,.jpeg,.png,.pdf';
+            baseConfig.props.limit = 10;
+            baseConfig.props.maxSize = 10;
+            baseConfig.props.tip = '支持上传 jpg/png/pdf 格式发票附件，单文件不超过 10MB';
             break;
         case 'grid':
             baseConfig.props.gutter = 20;

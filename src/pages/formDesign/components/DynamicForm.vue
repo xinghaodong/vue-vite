@@ -18,7 +18,91 @@
                         <div class="grid-col-content">
                             <template v-for="(colItem, colItemIndex) in col.list" :key="colItem.id">
                                 <el-form-item :label="colItem.props.label" :prop="colItem.id" :required="colItem.props.required" style="margin-bottom: 16px">
+                                    <!-- 附件/发票上传组件 -->
+                                    <template v-if="colItem.type === 'upload'">
+                                        <div style="width: 100%">
+                                            <el-upload
+                                                v-if="!noApproval"
+                                                :action="uploadUrl"
+                                                name="avatar"
+                                                :headers="uploadHeaders"
+                                                :accept="colItem.props.accept || '.jpg,.jpeg,.png,.pdf'"
+                                                :limit="colItem.props.limit || 10"
+                                                :show-file-list="false"
+                                                :on-success="(res, file) => handleUploadSuccess(res, file, colItem.id)"
+                                                :before-upload="(file) => beforeUploadCheck(file, colItem.props)"
+                                            >
+                                                <el-button type="primary" plain size="small">
+                                                    <el-icon style="margin-right: 4px"><UploadFilled /></el-icon>
+                                                    上传发票/凭证
+                                                </el-button>
+                                                <template #tip>
+                                                    <div class="el-upload__tip" style="font-size: 12px; color: #909399; margin-top: 4px">
+                                                        {{ colItem.props.tip || '支持jpg/png/pdf格式发票附件，单文件不超过10MB' }}
+                                                    </div>
+                                                </template>
+                                            </el-upload>
+
+                                            <!-- 自定义稳定发票附件卡片列表 (无闪烁、支持PDF专属徽标) -->
+                                            <div v-if="innerData[colItem.id] && innerData[colItem.id].length > 0" class="custom-file-list">
+                                                <div
+                                                    v-for="(file, fIdx) in innerData[colItem.id]"
+                                                    :key="file.id || file.fileName || fIdx"
+                                                    class="custom-file-item"
+                                                >
+                                                    <!-- 左侧图标/缩略图 -->
+                                                    <div class="file-icon-box" :class="{ 'is-pdf': isPdf(file) }">
+                                                        <template v-if="isPdf(file)">
+                                                            <div class="pdf-badge">
+                                                                <el-icon :size="16"><Document /></el-icon>
+                                                                <span class="pdf-tag">PDF</span>
+                                                            </div>
+                                                        </template>
+                                                        <template v-else-if="isImage(file)">
+                                                            <img :src="getFileUrl(file)" class="img-thumb" @error="(e) => e.target.style.display = 'none'" />
+                                                            <el-icon :size="20" color="#409EFF" class="img-fallback"><Picture /></el-icon>
+                                                        </template>
+                                                        <template v-else>
+                                                            <el-icon :size="22" color="#409EFF"><Document /></el-icon>
+                                                        </template>
+                                                    </div>
+
+                                                    <!-- 中间文件详情 -->
+                                                    <div class="file-info-box">
+                                                        <div class="file-name" :title="getFileName(file)">{{ getFileName(file) }}</div>
+                                                        <div class="file-meta">
+                                                            <span v-if="file.size || file.fileSize" class="file-size">{{ formatFileSize(file.size || file.fileSize) }}</span>
+                                                            <span class="file-status-tag">
+                                                                <el-icon color="#67C23A" :size="12"><CircleCheckFilled /></el-icon>
+                                                                已上传
+                                                            </span>
+                                                        </div>
+                                                    </div>
+
+                                                    <!-- 右侧操作按钮 -->
+                                                    <div class="file-actions-box">
+                                                        <el-tooltip content="在新窗口查看/下载" placement="top">
+                                                            <el-button link type="primary" size="small" @click="handlePreviewFile(file)">
+                                                                <el-icon :size="16"><View /></el-icon>
+                                                            </el-button>
+                                                        </el-tooltip>
+                                                        <el-tooltip content="移除文件" placement="top" v-if="!noApproval">
+                                                            <el-button link type="danger" size="small" @click="handleRemoveFile(file, colItem.id)">
+                                                                <el-icon :size="16"><Delete /></el-icon>
+                                                            </el-button>
+                                                        </el-tooltip>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <div v-else-if="noApproval" style="color: #909399; font-size: 13px; padding: 4px 0">
+                                                未上传发票/附件
+                                            </div>
+                                        </div>
+                                    </template>
+
                                     <component
+                                        v-else
                                         :is="colItem.component"
                                         v-model="innerData[colItem.id]"
                                         v-bind="getComponentProps(colItem)"
@@ -51,7 +135,90 @@
 
             <!-- 普通组件 -->
             <el-form-item v-else :label="item.props.label" :prop="item.id" :required="item.props.required" style="margin-bottom: 16px">
-                <component :is="item.component" v-model="innerData[item.id]" v-bind="getComponentProps(item)" :placeholder="item.props.placeholder" :loading="item.loading">
+                <!-- 附件/发票上传组件 -->
+                <template v-if="item.type === 'upload'">
+                    <div style="width: 100%">
+                        <el-upload
+                            v-if="!noApproval"
+                            :action="uploadUrl"
+                            name="avatar"
+                            :headers="uploadHeaders"
+                            :accept="item.props.accept || '.jpg,.jpeg,.png,.pdf'"
+                            :limit="item.props.limit || 10"
+                            :show-file-list="false"
+                            :on-success="(res, file) => handleUploadSuccess(res, file, item.id)"
+                            :before-upload="(file) => beforeUploadCheck(file, item.props)"
+                        >
+                            <el-button type="primary" plain size="small">
+                                <el-icon style="margin-right: 4px"><UploadFilled /></el-icon>
+                                上传发票/凭证
+                            </el-button>
+                            <template #tip>
+                                <div class="el-upload__tip" style="font-size: 12px; color: #909399; margin-top: 4px">
+                                    {{ item.props.tip || '支持jpg/png/pdf格式发票附件，单文件不超过10MB' }}
+                                </div>
+                            </template>
+                        </el-upload>
+
+                        <!-- 自定义稳定发票附件卡片列表 (无闪烁、支持PDF专属徽标) -->
+                        <div v-if="innerData[item.id] && innerData[item.id].length > 0" class="custom-file-list">
+                            <div
+                                v-for="(file, fIdx) in innerData[item.id]"
+                                :key="file.id || file.fileName || fIdx"
+                                class="custom-file-item"
+                            >
+                                <!-- 左侧图标/缩略图 -->
+                                <div class="file-icon-box" :class="{ 'is-pdf': isPdf(file) }">
+                                    <template v-if="isPdf(file)">
+                                        <div class="pdf-badge">
+                                            <el-icon :size="16"><Document /></el-icon>
+                                            <span class="pdf-tag">PDF</span>
+                                        </div>
+                                    </template>
+                                    <template v-else-if="isImage(file)">
+                                        <img :src="getFileUrl(file)" class="img-thumb" @error="(e) => e.target.style.display = 'none'" />
+                                        <el-icon :size="20" color="#409EFF" class="img-fallback"><Picture /></el-icon>
+                                    </template>
+                                    <template v-else>
+                                        <el-icon :size="22" color="#409EFF"><Document /></el-icon>
+                                    </template>
+                                </div>
+
+                                <!-- 中间文件详情 -->
+                                <div class="file-info-box">
+                                    <div class="file-name" :title="getFileName(file)">{{ getFileName(file) }}</div>
+                                    <div class="file-meta">
+                                        <span v-if="file.size || file.fileSize" class="file-size">{{ formatFileSize(file.size || file.fileSize) }}</span>
+                                        <span class="file-status-tag">
+                                            <el-icon color="#67C23A" :size="12"><CircleCheckFilled /></el-icon>
+                                            已上传
+                                        </span>
+                                    </div>
+                                </div>
+
+                                <!-- 右侧操作按钮 -->
+                                <div class="file-actions-box">
+                                    <el-tooltip content="在新窗口查看/下载" placement="top">
+                                        <el-button link type="primary" size="small" @click="handlePreviewFile(file)">
+                                            <el-icon :size="16"><View /></el-icon>
+                                        </el-button>
+                                    </el-tooltip>
+                                    <el-tooltip content="移除文件" placement="top" v-if="!noApproval">
+                                        <el-button link type="danger" size="small" @click="handleRemoveFile(file, item.id)">
+                                            <el-icon :size="16"><Delete /></el-icon>
+                                        </el-button>
+                                    </el-tooltip>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div v-else-if="noApproval" style="color: #909399; font-size: 13px; padding: 4px 0">
+                            未上传发票/附件
+                        </div>
+                    </div>
+                </template>
+
+                <component v-else :is="item.component" v-model="innerData[item.id]" v-bind="getComponentProps(item)" :placeholder="item.props.placeholder" :loading="item.loading">
                     <!-- 下拉选项（支持动态加载） -->
                     <template v-if="item.type === 'select'">
                         <el-option v-for="option in item.options" :key="option.value" :label="option.label" :value="option.value" />
@@ -77,8 +244,99 @@
 <script setup>
 import { oGet } from '@/utils/request';
 import { ref, reactive, watch, onMounted, getCurrentInstance, computed, nextTick } from 'vue';
+import { UploadFilled, Document, Picture, Delete, View, CircleCheckFilled } from '@element-plus/icons-vue';
+import { ElMessage } from 'element-plus';
 const { proxy } = getCurrentInstance();
 const formRef = ref(null);
+
+const uploadUrl = computed(() => `${proxy?.$api?.baseUrl || 'http://127.0.0.1:3001/api'}/upload/uploadFile`);
+const uploadHeaders = computed(() => {
+    const token = sessionStorage.getItem('token');
+    return token ? { Authorization: `Bearer ${token}` } : {};
+});
+
+// 文件类型与预览辅助
+const isPdf = file => {
+    const name = file?.name || file?.fileName || file?.url || '';
+    return name.toLowerCase().endsWith('.pdf') || (file?.contentType && file.contentType.includes('pdf'));
+};
+
+const isImage = file => {
+    const name = file?.name || file?.fileName || file?.url || '';
+    return /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(name) || (file?.contentType && file.contentType.startsWith('image/'));
+};
+
+const formatFileSize = bytes => {
+    if (!bytes || isNaN(bytes)) return '';
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+};
+
+const getFileName = file => {
+    return file?.name || file?.fileName || '发票凭证附件';
+};
+
+const getFileUrl = file => {
+    if (!file) return '';
+    if (file.url && file.url.startsWith('http')) return file.url;
+    // 优先使用环境变量中配置的静态服务地址 (默认 3001)
+    const staticBase = import.meta.env.VITE_STATIC_URL || proxy?.$api?.img_url || 'http://127.0.0.1:3001/api/';
+    const filePath = file.filePath || file.path;
+    if (filePath) {
+        const cleanPath = filePath.replace(/\\/g, '/').replace(/^\/+/, '');
+        return `${staticBase.replace(/\/+$/, '')}/${cleanPath}`;
+    }
+    if (file.fileName) {
+        return `${staticBase.replace(/\/+$/, '')}/uploads/${file.fileName}`;
+    }
+    return file.url || '';
+};
+
+const handlePreviewFile = file => {
+    const url = getFileUrl(file);
+    if (url) {
+        window.open(url, '_blank');
+    } else {
+        ElMessage.warning('暂无可用预览地址');
+    }
+};
+
+const handleRemoveFile = (targetFile, fieldId) => {
+    if (!Array.isArray(innerData.value[fieldId])) return;
+    innerData.value[fieldId] = innerData.value[fieldId].filter(
+        f => f !== targetFile && (f.id ? f.id !== targetFile.id : f.fileName !== targetFile.fileName)
+    );
+    ElMessage.info('已移除该附件');
+};
+
+const beforeUploadCheck = (file, props) => {
+    const maxSize = (props?.maxSize || 10) * 1024 * 1024;
+    if (file.size > maxSize) {
+        ElMessage.error(`上传文件大小不能超过 ${props?.maxSize || 10}MB`);
+        return false;
+    }
+    return true;
+};
+
+const handleUploadSuccess = (response, file, fieldId) => {
+    console.log('发票附件上传成功:', response);
+    const fileData = response?.data || response;
+    const itemInfo = {
+        id: fileData?.id,
+        name: file.name || fileData?.fileName,
+        fileName: fileData?.fileName,
+        filePath: fileData?.filePath,
+        contentType: fileData?.contentType || file?.raw?.type || (file.name?.toLowerCase().endsWith('.pdf') ? 'application/pdf' : ''),
+        size: file.size || fileData?.fileSize,
+        url: getFileUrl(fileData),
+    };
+    if (!Array.isArray(innerData.value[fieldId])) {
+        innerData.value[fieldId] = [];
+    }
+    innerData.value[fieldId].push(itemInfo);
+    ElMessage.success(`${file.name} 上传成功`);
+};
 
 const props = defineProps({
     schema: {
@@ -362,4 +620,120 @@ defineExpose({
     min-height: 40px;
     padding: 2px 0;
 }
+
+/* 🌟 高性能发票/附件卡片列表 (杜绝闪烁、支持PDF专属图标) */
+.custom-file-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 10px;
+    width: 100%;
+}
+
+.custom-file-item {
+    display: flex;
+    align-items: center;
+    padding: 8px 12px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    transition: all 0.2s ease;
+    box-sizing: border-box;
+}
+
+.custom-file-item:hover {
+    background: #ffffff;
+    border-color: #cbd5e1;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.file-icon-box {
+    width: 44px;
+    height: 44px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #eff6ff;
+    margin-right: 12px;
+    flex-shrink: 0;
+    overflow: hidden;
+    position: relative;
+    border: 1px solid #dbeafe;
+}
+
+.file-icon-box.is-pdf {
+    background: #fef2f2;
+    border: 1px solid #fee2e2;
+}
+
+.pdf-badge {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: #ef4444;
+}
+
+.pdf-tag {
+    font-size: 10px;
+    font-weight: 700;
+    line-height: 1;
+    margin-top: 2px;
+    letter-spacing: 0.5px;
+}
+
+.img-thumb {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.img-fallback {
+    display: none;
+}
+
+.file-info-box {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.file-name {
+    font-size: 13px;
+    font-weight: 500;
+    color: #1e293b;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    line-height: 22px;
+}
+
+.file-meta {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 12px;
+    color: #94a3b8;
+    line-height: 22px;
+}
+
+.file-status-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    color: #16a34a;
+    font-size: 11px;
+}
+
+.file-actions-box {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-left: 10px;
+    flex-shrink: 0;
+}
+
 </style>

@@ -396,6 +396,10 @@ export default {
     logicdelete(params) {
         return oPost(baseUrl + '/logic-flow/remove', params);
     },
+    // 按表单 ID 查询其绑定的流程列表(放开一对一后,发起审批时选择流程)
+    logicFindByFormId(params) {
+        return oGet(baseUrl + '/logic-flow/findByFormId', params);
+    },
 
     // 新增动态表单
     designAdd(params) {

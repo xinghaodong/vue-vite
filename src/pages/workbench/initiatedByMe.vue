@@ -8,12 +8,17 @@
             <el-table-column prop="title" label="流程名称"> </el-table-column>
             <!-- <el-table-column prop="code" label="code"> </el-table-column> -->
             <!-- 状态 -->
-            <el-table-column label="状态" width="100">
+            <el-table-column label="状态" width="120">
                 <template #default="scope">
-                    <!-- 1=待审批, 2=通过, 3=驳回, 4=退回 -->
-                    <el-tag v-if="scope.row.status == 1" type="warning">待审批</el-tag>
-                    <el-tag v-if="scope.row.status == 2" type="success">通过</el-tag>
-                    <el-tag v-if="scope.row.status == 3" type="danger">驳回</el-tag>
+                    <el-tag v-if="scope.row.status == 0" type="primary" effect="light">
+                        <el-icon class="is-loading" style="vertical-align: -1px; margin-right: 2px;"><Loading /></el-icon>AI审核中
+                    </el-tag>
+                    <el-tag v-else-if="scope.row.status == 1 && scope.row.formData?._isSuspended" type="warning" effect="dark">
+                        待特批放行
+                    </el-tag>
+                    <el-tag v-else-if="scope.row.status == 1" type="warning">待审批</el-tag>
+                    <el-tag v-else-if="scope.row.status == 2" type="success">通过</el-tag>
+                    <el-tag v-else-if="scope.row.status == 3" type="danger">驳回</el-tag>
                 </template>
             </el-table-column>
             <el-table-column prop="created_at" label="创建时间" width="180"> </el-table-column>
@@ -56,6 +61,7 @@
 
 <script setup>
 import { ref, onMounted, getCurrentInstance, reactive, toRefs, watch } from 'vue';
+import { Loading } from '@element-plus/icons-vue';
 import useUserInfoStore from '@/stortes/user'; //引入仓库
 import ApprovalDrawer from './components/ApprovalDrawer.vue';
 const userInfoStore = useUserInfoStore();
@@ -78,20 +84,26 @@ const workflowId = ref('');
 const govueFlow = async row => {
     rowId.value = row.id;
     workflowId.value = row.workflowId;
-    // 路由跳转
-    // proxy.$router.push({
-    //     path: '/home/logicFlow',
-    //     query: { idkey: row ? row.id : '' },
-    // });
-    // console.log(row);
-    //  根据 formId 查询表单数据
-    const res = await proxy.$api.designDetail({ id: row.formId });
 
-    formData.value = row.formData;
-    formSchema.value = JSON.parse(res.data.schema);
-    uiConfig.value = res.data.ui_config;
-    formName.value = res.data.name;
-    showCodeDialog.value = true;
+    try {
+        // 1. 列表不再冗余返回 formData/form，分别从 form-design/detail 和 /logic-flow/getApprovalHistory 获取
+        const [res, historyRes] = await Promise.all([
+            proxy.$api.designDetail({ id: row.formId }),
+            proxy.$api.getApprovalHistory({ id: row.id }),
+        ]);
+
+        if (res?.data) {
+            formSchema.value = res.data.schema ? JSON.parse(res.data.schema) : {};
+            uiConfig.value = res.data.ui_config || {};
+            formName.value = res.data.name || row.title || '审批详情';
+        }
+
+        formData.value = historyRes?.data?.formData || {};
+        showCodeDialog.value = true;
+    } catch (err) {
+        console.error('获取流程详情失败:', err);
+        proxy.$message.error('加载流程详情失败');
+    }
 };
 
 // const getApprovalHistory = async () => {

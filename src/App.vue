@@ -38,7 +38,12 @@ const microProps = {
     userInfo: sessionStorage.getItem('piniaStore') || '',
 };
 const jq = () => {
+    console.log('[ai-drawer] open', {
+        drawerBefore: drawer.value,
+        microProps,
+    });
     drawer.value = true;
+    console.log('[ai-drawer] opened', { drawerAfter: drawer.value });
 };
 </script>
 

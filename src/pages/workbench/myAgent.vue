@@ -7,13 +7,25 @@
         <el-table :data="tableData" border style="width: 100%">
             <el-table-column prop="title" label="审批名称"> </el-table-column>
             <el-table-column prop="userName" label="发起人/申请人"> </el-table-column>
+            <el-table-column label="任务类型" width="130">
+                <template #default="scope">
+                    <el-tag v-if="scope.row.status == 1 && scope.row.formData?._isSuspended" type="warning" effect="dark">
+                        ⚠️ 待特批放行
+                    </el-tag>
+                    <el-tag v-else type="primary" effect="plain">
+                        常规审批
+                    </el-tag>
+                </template>
+            </el-table-column>
             <!-- <el-table-column prop="code" label="code"> </el-table-column> -->
             <el-table-column prop="created_at" label="创建时间" width="180"> </el-table-column>
             <el-table-column prop="updated_at" label="更新时间" width="180"> </el-table-column>
             <!-- 操作 -->
             <el-table-column label="操作" width="130" fixed="right">
                 <template #default="scope">
-                    <el-button type="primary" link @click="govueFlow(scope.row)">审批</el-button>
+                    <el-button :type="(scope.row.status == 1 && scope.row.formData?._isSuspended) ? 'warning' : 'primary'" link @click="govueFlow(scope.row)">
+                        {{ (scope.row.status == 1 && scope.row.formData?._isSuspended) ? '特批放行' : '审批' }}
+                    </el-button>
                     <!-- <el-button type="primary" link @click="handleDelete(scope.row)">删除</el-button> -->
                 </template>
             </el-table-column>
@@ -170,23 +182,27 @@ const getApprovalHistory = async () => {
 const govueFlow = async row => {
     rowId.value = row.id;
     workflowId.value = row.workflowId;
-    console.log(row, 'row.id');
-    // 路由跳转
-    // proxy.$router.push({
-    //     path: '/home/logicFlow',
-    //     query: { idkey: row ? row.id : '' },
-    // });
-    // console.log(row);
-    //  根据 formId 查询表单数据
-    const res = await proxy.$api.designDetail({ id: row.formId });
 
-    formData.value = row.formData;
-    formSchema.value = JSON.parse(res.data.schema);
-    uiConfig.value = res.data.ui_config;
-    formName.value = res.data.name;
-    console.log(row.formData, '...');
-    activeTab.value = 'form';
-    showCodeDialog.value = true;
+    try {
+        // 1. 列表不再冗余返回 formData/form，分别从 form-design/detail 和 /logic-flow/getApprovalHistory 获取
+        const [res, historyRes] = await Promise.all([
+            proxy.$api.designDetail({ id: row.formId }),
+            proxy.$api.getApprovalHistory({ id: row.id }),
+        ]);
+
+        if (res?.data) {
+            formSchema.value = res.data.schema ? JSON.parse(res.data.schema) : {};
+            uiConfig.value = res.data.ui_config || {};
+            formName.value = res.data.name || row.title || '待办审批';
+        }
+
+        formData.value = historyRes?.data?.formData || {};
+        activeTab.value = 'form';
+        showCodeDialog.value = true;
+    } catch (err) {
+        console.error('获取待办详情失败:', err);
+        proxy.$message.error('加载待办详情失败');
+    }
 };
 const getList = async () => {
     const data = await proxy.$api.getMyTodoInstances({ userId: userInfoStore?.userInfo?.id, page: currentPage.value, pageSize: pageSize.value });

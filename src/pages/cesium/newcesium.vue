@@ -669,7 +669,7 @@ const createWaypoint = (position, point, jp, event) => {
             pixelOffset: new Cesium.Cartesian2(0, -20),
             zIndex: waypointZIndex,
 
-            // heightReference 必须是 NONE，因为我们手动提供了绝对高度
+            // 【重要】heightReference 必须是 NONE，因为我们手动提供了绝对高度
             heightReference: Cesium.HeightReference.NONE,
             disableDepthTestDistance: Number.POSITIVE_INFINITY,
         },
@@ -821,7 +821,7 @@ const updatePath = () => {
             const baseHeight = 1000;
             const scale = Cesium.Math.clamp(Math.pow(Math.max(1e-6, cameraHeight / baseHeight), 0.85), 0.6, 8.0);
             const spacing = 90 * scale;
-            // 缓慢平滑插值（0.02），拖动时箭头密度缓慢过渡，不卡顿也不快速流动
+            // 缓慢平滑插值（0.03），拖动时箭头密度缓慢过渡，不卡顿也不快速流动
             const targetRepeat = Math.max(1.0, distance / Math.max(0.1, spacing));
             flightPathRepeat.value += (targetRepeat - flightPathRepeat.value) * 0.02;
 
@@ -874,6 +874,49 @@ const updatePath = () => {
 
     getCalculateRouteInfo();
 };
+
+// const updatePath = () => {
+//     // 获取现有的航线实体
+//     const flightPathEntity = viewer.value.entities.getById('flightPath');
+
+//     // 提取航点位置
+//     const positions = airRoute.value?.waypoints?.map(wp => wp.position) || [];
+
+//     if (positions.length >= 2) {
+//         if (flightPathEntity) {
+//             // 已存在，更新 positions
+//             flightPathEntity.polyline.positions = new Cesium.CallbackProperty(() => {
+//                 return airRoute.value.waypoints.map(wp => wp.position);
+//             }, false);
+//         } else {
+//             // 不存在，创建新实体
+//             viewer.value.entities.add({
+//                 id: 'flightPath',
+//                 polyline: {
+//                     positions: new Cesium.CallbackProperty(() => {
+//                         return airRoute.value.waypoints.map(wp => wp.position);
+//                     }, false),
+//                     width: 8,
+//                     material: new Cesium.PolylineOutlineMaterialProperty({
+//                         color: Cesium.Color.fromCssColorString('#0080FF').withAlpha(0.8),
+//                         outlineWidth: 0, // 无边框
+//                     }),
+//                     clampToGround: false,
+//                     heightReference: Cesium.HeightReference.NONE,
+//                     zIndex: 0,
+//                     pickable: false,
+//                 },
+//             });
+//         }
+//     } else {
+//         // 航点不足，删除实体（如果存在）
+//         if (flightPathEntity) {
+//             viewer.value.entities.removeById('flightPath');
+//         }
+//     }
+//     // 更新路线信息
+//     getCalculateRouteInfo();
+// };
 
 // 创建无人机当前位置的航点
 const createDroneWaypoint = () => {
@@ -1066,19 +1109,7 @@ const initDrone = () => {
             const hprRotation = Cesium.Transforms.headingPitchRollQuaternion(dronePosition.value, new Cesium.HeadingPitchRoll(heading, pitch, roll));
             return Cesium.Quaternion.multiply(hprRotation, fixRotation, new Cesium.Quaternion());
         }, false),
-        // billboard: {
-        //     image: droneImage,
-        //     width: 40,
-        //     height: 40,
-        //     alignedAxis: Cesium.Cartesian3.UNIT_Z, // 关键修改：设置对齐轴
-        //     rotation: new Cesium.CallbackProperty(() => {
-        //         return Cesium.Math.toRadians(-droneOrientation.value.heading);
-        //     }, false),
-        //     scaleByDistance: new Cesium.NearFarScalar(500, 1.0, 10000000, 0.5),
-        //     distanceDisplayCondition: new Cesium.DistanceDisplayCondition(0, 100000000),
-        //     verticalOrigin: Cesium.VerticalOrigin.CENTER,
-        //     horizontalOrigin: Cesium.HorizontalOrigin.CENTER,
-        // },
+
         model: {
             uri: droneImage,
             scale: new Cesium.CallbackProperty(() => {

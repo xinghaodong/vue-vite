@@ -259,8 +259,15 @@ const handleSelect = (key, keyPath) => {
     }
 };
 const getSocketData = res => {
+    console.log('[ws] getSocketData raw', res);
     let data = JSON.parse(res.detail.data.data);
+    console.log('[ws] getSocketData parsed', data);
     if (data.action == 'logout') {
+        console.log('[ws] logout received', {
+            reason: data.reason,
+            token: sessionStorage.getItem('token'),
+            refreshToken: sessionStorage.getItem('refreshToken'),
+        });
         let mesg = {
             message: data.reason,
             type: 'error',

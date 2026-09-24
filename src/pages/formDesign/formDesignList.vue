@@ -44,6 +44,9 @@
             </div>
             <template #footer>
                 <span class="dialog-footer">
+                    <el-select v-if="isInitiate && workflowList.length > 1" v-model="selectedWorkflowId" placeholder="请选择审批流程" style="width: 240px; margin-right: 12px">
+                        <el-option v-for="w in workflowList" :key="w.id" :label="w.name" :value="w.id" />
+                    </el-select>
                     <el-button @click="showCodeDialog = false">关闭</el-button>
                     <el-button type="primary" @click="handleInitiate" v-if="isInitiate">发起</el-button>
                 </span>
@@ -72,8 +75,10 @@ const formId = ref('');
 const isInitiate = ref(false); // 是否是发起流程
 const noApproval = ref(false);
 const dynamicFormRef = ref(null); // 获取子组件实例
+const workflowList = ref([]); // 该表单绑定的流程列表(放开一对一后可能多个)
+const selectedWorkflowId = ref(null); // 发起时选中的流程 ID
 
-const handlePreview = (row, val) => {
+const handlePreview = async (row, val) => {
     formId.value = row.id;
     isInitiate.value = val ? true : false;
     noApproval.value = val ? false : true;
@@ -83,6 +88,20 @@ const handlePreview = (row, val) => {
     formName.value = row.name;
     // 重置formData
     formData.value = {};
+    // 发起模式: 预加载该表单绑定的流程列表(放开一对一后可能多个)
+    selectedWorkflowId.value = null;
+    workflowList.value = [];
+    if (val) {
+        const data = await proxy.$api.logicFindByFormId({ formId: row.id });
+        if (data.code == 200) {
+            workflowList.value = data.data || [];
+            if (workflowList.value.length === 1) {
+                selectedWorkflowId.value = workflowList.value[0].id;
+            } else if (workflowList.value.length === 0) {
+                proxy.$message.warning('该表单尚未绑定审批流程，请先在流程设计器中绑定');
+            }
+        }
+    }
 };
 
 // 发起流程审批
@@ -90,18 +109,23 @@ const handleInitiate = async () => {
     console.log('发起流程审批', dynamicFormRef.value);
     try {
         await dynamicFormRef.value.validate();
+        // 多流程时必须显式选择一条
+        if (workflowList.value.length > 1 && !selectedWorkflowId.value) {
+            proxy.$message.warning('请先选择审批流程');
+            return;
+        }
         //  只有校验通过才执行
         formData.value.formId = formId.value;
         // 从 store 获取申请人
         formData.value.userId = userInfoStore?.userInfo?.id;
         formData.value.applicantName = userInfoStore?.userInfo?.name;
-        console.log(' 发起审批...', formData.value);
-        console.log('data', formData.value);
         let obj = {
             formId: formId.value,
             formData: formData.value,
             userId: userInfoStore?.userInfo?.id,
         };
+        // 放开一对一后,多流程时显式传 workflowId 决定走哪条;单流程时不传,后端默认取最新
+        if (selectedWorkflowId.value) obj.workflowId = selectedWorkflowId.value;
         console.log('obj', obj);
         const data = await proxy.$api.startWorkflow(obj);
         if (data.code == 200) {

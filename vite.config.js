@@ -22,7 +22,7 @@ export default defineConfig(({ mode, command }) => {
     const devServerConfig = {
         server: {
             host: '0.0.0.0',
-            port: 5174,
+            port: 9001,
         },
     };
 
@@ -88,7 +88,8 @@ export default defineConfig(({ mode, command }) => {
         ...devServerConfig,
         ...appBuildConfig, // 业务构建使用默认配置
         server: {
-            port: VITE_PORT,
+            host: '0.0.0.0',
+            port: Number(VITE_PORT) || 9001,
             proxy: {
                 '/api': {
                     target: `${VITE_PROXY_DOMAIN_REAL}`,
