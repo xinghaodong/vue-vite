@@ -77,7 +77,7 @@
                                 <div class="quick-tags-box">
                                     <span class="quick-tag-label">快捷插入变量：</span>
                                     <el-tag
-                                        v-for="tag in commonVariables"
+                                        v-for="tag in availableVariables"
                                         :key="tag.name"
                                         size="small"
                                         class="quick-tag"
@@ -91,6 +91,9 @@
                                 💡 默认兜底分支：当该网关的其他所有分支条件均不满足时，流程将自动流向此连线目标。
                             </div>
                         </template>
+
+                        
+                        
 
                         <el-form-item label="备注">
                             <el-input type="textarea" v-model="currentEdgeConfig.remark" placeholder="请输入备注" />
@@ -149,6 +152,25 @@
                                     </el-option-group>
                                 </el-select>
                             </el-form-item>
+                            <!-- 🌟 显式绑定当前表单的报销金额字段 -->
+                            <el-form-item label="报销金额字段" required>
+                                <el-select
+                                    v-model="currentNodeConfig.properties.amountField"
+                                    placeholder="请选择对应表单中的报销金额字段"
+                                    clearable
+                                    style="width: 100%"
+                                >
+                                    <el-option
+                                        v-for="field in currentFormFields"
+                                        :key="field.id"
+                                        :label="`${field.label} (${field.id})`"
+                                        :value="field.id"
+                                    />
+                                </el-select>
+                                <span style="font-size: 12px; color: #909399; margin-top: 4px; display: inline-block; line-height: 1.4;">
+                                    💡 明确指定 AI 审查时提取的申报金额字段 Key（如 bxje）
+                                </span>
+                            </el-form-item>
                             <el-form-item label="合规通过分">
                                 <el-input-number v-model="currentNodeConfig.properties.riskThreshold" :min="1" :max="100" />
                             </el-form-item>
@@ -157,10 +179,13 @@
                                     <el-option v-for="item in options" :key="item.id" :label="item.name" :value="item.id" />
                                 </el-select>
                                 <span style="font-size: 12px; color: #e6a23c; margin-top: 4px; display: inline-block; line-height: 1.4;">
-                                    ⚠️ 必填项：当 AI 智能体检测到高危、存疑或需特批放行时（如发票超期、预算异常、合规疑点等），流程将自动挂起转交此人特批复核
+                                    必填项：当 AI 智能体检测到高危、存疑或需特批放行时（如发票超期、预算异常、合规疑点等），流程将自动挂起转交此人特批复核
                                 </span>
                             </el-form-item>
                         </template>
+
+                        
+                        
 
                         <!-- 3. 🌟 条件网关 (diamond) 核心排他多分支卡片列表 -->
                         <template v-if="currentNode?.type === 'diamond'">
@@ -215,7 +240,7 @@
                                                 <el-input v-model="edge.condition" placeholder="如: totalAmount <= 5000" clearable />
                                                 <div class="quick-tags-box mini">
                                                     <el-tag
-                                                        v-for="tag in commonVariables"
+                                                        v-for="tag in availableVariables"
                                                         :key="tag.name"
                                                         size="small"
                                                         class="quick-tag"
@@ -255,7 +280,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, nextTick, reactive, getCurrentInstance, computed } from 'vue';
+import { ref, onMounted, nextTick, reactive, getCurrentInstance, computed, watch } from 'vue';
 import DynamicForm from '@/pages/formDesign/components/DynamicForm.vue';
 const { proxy } = getCurrentInstance();
 import { useRoute } from 'vue-router';
@@ -302,6 +327,63 @@ const route = useRoute();
 const idkey = route.query.idkey || props.workflowId;
 // 表单数据
 const mockFormList = ref([{ id: 'form_leave_001', name: '请假申请表单' }]);
+// 🌟 当前流程关联表单所提取的可用业务字段列表
+const currentFormFields = ref([]);
+
+const extractFieldsFromSchema = (schema) => {
+    const fields = [];
+    const traverse = (items) => {
+        if (!Array.isArray(items)) return;
+        for (const item of items) {
+            if (!item) continue;
+            if (item.type !== 'grid' && item.id) {
+                fields.push({
+                    id: item.id,
+                    label: item.props?.label || item.label || item.id,
+                    type: item.type,
+                });
+            }
+            if (item.props?.columns) {
+                item.props.columns.forEach(col => traverse(col.list));
+            }
+            if (item.list) {
+                traverse(item.list);
+            }
+        }
+    };
+    traverse(schema);
+    return fields;
+};
+
+const loadFormFields = async (formId) => {
+    if (!formId) {
+        currentFormFields.value = [];
+        return;
+    }
+    try {
+        const res = await proxy.$api.designDetail({ id: formId });
+        if (res.code === 200 && res.data?.schema) {
+            const schema = typeof res.data.schema === 'string' ? JSON.parse(res.data.schema) : res.data.schema;
+            currentFormFields.value = extractFieldsFromSchema(schema);
+        }
+    } catch (err) {
+        console.error('加载关联表单字段异常:', err);
+    }
+};
+
+// 监听关联表单变更，自动重新加载表单组件字段
+watch(
+    () => ruleForm.value.formId,
+    (newVal) => {
+        if (newVal) {
+            loadFormFields(newVal);
+        } else {
+            currentFormFields.value = [];
+        }
+    },
+    { immediate: true }
+);
+
 
 // 抽屉与配置状态
 const drawerVisible = ref(false);
@@ -341,12 +423,18 @@ const drawerTitle = computed(() => {
 });
 
 // 常用表单/流程变量快捷 Tag
-const commonVariables = [
-    { label: '报销/申请金额', name: 'totalAmount' },
-    { label: '天数', name: 'days' },
-    { label: '紧急程度', name: 'urgency' },
-    { label: '部门', name: 'department' },
-];
+// 常用表单/流程变量快捷 Tag (优先读取当前表单真实解析出的字段)
+const availableVariables = computed(() => {
+    if (currentFormFields.value.length > 0) {
+        return currentFormFields.value.map(f => ({ label: f.label, name: f.id }));
+    }
+    return [
+        { label: '报销/申请金额', name: 'totalAmount' },
+        { label: '天数', name: 'days' },
+        { label: '紧急程度', name: 'urgency' },
+        { label: '部门', name: 'department' },
+    ];
+});
 
 // 快捷插入变量至表达式输入框
 const insertVariable = (targetObj, varName) => {
@@ -503,6 +591,7 @@ const initLogicFlow = () => {
                 agentRoleName: data.properties?.agentRoleName || agentRoleMap[data.properties?.agentRole] || '',
                 riskThreshold: data.properties?.riskThreshold ?? 80,
                 specialApproverId: data.properties?.specialApproverId || '', // 🌟 回显人机协同特批人
+                amountField: data.properties?.amountField || '',
             },
         };
         // 若点击的是条件网关，加载所有出边供集中配置
@@ -638,6 +727,10 @@ const applyConfig = () => {
         if (currentNode.value.type === 'ai-agent') {
             if (!currentNodeConfig.value.properties.specialApproverId) {
                 ElMessage.warning('人机协同特批人 (HITL) 为必选项，请选择特批复核人员');
+                return;
+            }
+            if (!currentNodeConfig.value.properties.amountField) {
+                ElMessage.warning('报销金额字段为必选项，请选择对应表单中的金额字段');
                 return;
             }
         }
@@ -787,9 +880,15 @@ const saveWorkflow = async () => {
             ElMessage.warning(`审批节点【${nodeName}】未配置审批人，请点击该节点配置审批人！`);
             return;
         }
-        if (node.type === 'ai-agent' && !node.properties?.specialApproverId) {
-            ElMessage.warning(`AI智能审查节点【${nodeName}】必须配置【人机协同特批人 (HITL)】，以防智能体检测异常挂起时无人复核！`);
-            return;
+        if (node.type === 'ai-agent') {
+            if (!node.properties?.specialApproverId) {
+                ElMessage.warning(`AI智能审查节点【${nodeName}】必须配置【人机协同特批人 (HITL)】，以防智能体检测异常挂起时无人复核！`);
+                return;
+            }
+            if (!node.properties?.amountField) {
+                ElMessage.warning(`AI智能审查节点【${nodeName}】必须选择【报销金额字段】，以明确 AI 审查核验的金额来源！`);
+                return;
+            }
         }
     }
 

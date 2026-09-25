@@ -369,7 +369,7 @@
         <!-- 生成代码对话框 -->
         <el-dialog v-model="showCodeDialog" title="生成的 Vue 代码" width="70%" top="5vh" custom-class="code-dialog">
             <div style="height: 70vh; overflow: auto; padding: 10px; border-radius: 4px">
-                <MarkdownRender :is-dark="false" :content="'```vue\n' + generatedVueCode + '\n```'" />
+                <!-- <MarkdownRender :is-dark="false" :content="'```vue\n' + generatedVueCode + '\n```'" /> -->
                 <!-- {{ generatedVueCode }} -->
                 <!-- <pre><code class="language-html" style="white-space: pre-wrap; word-wrap: break-word;">{{ generatedVueCode
                 }}</code></pre> -->
@@ -390,9 +390,9 @@
 // import 'highlight.js/styles/atom-one-dark.css';
 // import xml from 'highlight.js/lib/languages/xml';
 // hljs.registerLanguage('vue', xml);
-import { MarkdownRender } from 'markstream-vue';
-import 'markstream-vue/index.css';
-import 'katex/dist/katex.min.css';
+// import { MarkdownRender } from 'markstream-vue';
+// import 'markstream-vue/index.css';
+// import 'katex/dist/katex.min.css';
 
 import { ref, reactive, computed, nextTick, getCurrentInstance, onMounted } from 'vue';
 import { ElMessage, ElDialog, ElButton } from 'element-plus';
