@@ -31,20 +31,22 @@
                     <!-- <div class="demo-image__preview"> -->
                     <div>
                         <el-image
+                            v-if="scope.row?.avatar?.filePath"
                             preview-teleported
-                            style="width: 30px; height: 30px"
-                            :src="`${proxy.$api.img_url}${scope.row?.avatar?.filePath}`"
+                            style="width: 30px; height: 30px; border-radius: 50%"
+                            :src="formatAvatarUrl(scope.row?.avatar?.filePath)"
                             :zoom-rate="1.2"
                             :max-scale="7"
                             :min-scale="0.2"
                             :initial-index="0"
                             :z-index="999"
                             fit="cover"
-                            :preview-src-list="[`${proxy.$api.img_url}${scope.row?.avatar?.filePath}`]"
+                            :preview-src-list="[formatAvatarUrl(scope.row?.avatar?.filePath)]"
                         />
+                        <el-avatar v-else :size="30">
+                            {{ scope.row?.name ? scope.row.name.slice(0, 1) : scope.row?.username ? scope.row.username.slice(0, 1) : '用' }}
+                        </el-avatar>
                     </div>
-                    <!-- </div> -->
-                    <!-- <img :src="`${proxy.$api.img_url}${scope.row.avatar_url}`" alt="" style="width: 50px; height: 50px" /> -->
                 </template>
             </el-table-column>
             <el-table-column prop="created_at" label="创建时间" width="180"> </el-table-column>
@@ -208,6 +210,13 @@ const handleAvatarSuccess = (res, uploadFile) => {
     ruleForm.avatar = { fileName, filePath, fileSize, id };
 };
 
+const formatAvatarUrl = path => {
+    if (!path) return '';
+    if (path.startsWith('http://') || path.startsWith('https://')) return path;
+    const cleanPath = path.replace(/^[/\\]+/, '').replace(/\\/g, '/');
+    return `${proxy.$api.img_url}${cleanPath}`;
+};
+
 const beforeAvatarUpload = rawFile => {
     // if (rawFile.type != 'image/jpeg' && rawFile.type != 'image/png') {
     //     proxy.$message.error('图片必须是jpg或png格式');
@@ -325,6 +334,9 @@ td.el-table__cell {
     width: 178px;
     height: 178px;
     display: block;
+}
+.el-avatar--circle {
+    background: var(--el-color-primary);
 }
 </style>
 

@@ -21,8 +21,14 @@
                         <el-dropdown trigger="click" @command="handleContextOut">
                             <div style="cursor: pointer">
                                 <span class="absolute -inset-1.5"></span>
-                                <span class="sr-only">Open user menu</span>
-                                <img class="h-9 w-9 rounded-full" style="object-fit: cover;cu" :src="`${proxy.$api.img_url}${userInfo.avatar?.filePath}`" alt="" />
+                                <img
+                                    v-if="userInfo.avatar?.filePath"
+                                    class="h-9 w-9 rounded-full"
+                                    style="object-fit: cover; cursor: pointer"
+                                    :src="`${proxy.$api.img_url}${userInfo.avatar?.filePath.replace(/^[/\\]+/, '')}`"
+                                    alt=""
+                                />
+                                <el-avatar v-else :size="36">{{ userInfo.name ? userInfo.name.slice(0, 1) : userInfo.username ? userInfo.username.slice(0, 1) : '用' }}</el-avatar>
                             </div>
                             <template #dropdown>
                                 <el-dropdown-menu>
@@ -415,7 +421,9 @@ onBeforeUnmount(() => {
 .el-container {
     height: 100%;
 }
-
+.el-avatar--circle {
+    background: var(--el-color-primary);
+}
 .top {
     height: 50px;
     display: flex;

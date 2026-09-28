@@ -34,29 +34,11 @@
                 <div style="padding: 0 16px 20px 16px">
                     <!-- A. 连线（Edge）配置抽屉 -->
                     <el-form label-position="top" v-if="drawerType === 'edge' && currentEdge">
-                        <el-alert
-                            v-if="currentEdgeConfig.isFromDiamond"
-                            title="排他条件网关分支连线"
-                            type="info"
-                            :closable="false"
-                            show-icon
-                            style="margin-bottom: 16px"
-                        >
-                            <template #default>
-                                当前连线从【{{ currentEdgeConfig.sourceNodeName }}】流向【{{ currentEdgeConfig.targetNodeName }}】。
-                            </template>
+                        <el-alert v-if="currentEdgeConfig.isFromDiamond" title="排他条件网关分支连线" type="info" :closable="false" show-icon style="margin-bottom: 16px">
+                            <template #default> 当前连线从【{{ currentEdgeConfig.sourceNodeName }}】流向【{{ currentEdgeConfig.targetNodeName }}】。 </template>
                         </el-alert>
-                        <el-alert
-                            v-else
-                            title="普通流转连线"
-                            type="info"
-                            :closable="false"
-                            show-icon
-                            style="margin-bottom: 16px"
-                        >
-                            <template #default>
-                                当前连线从【{{ currentEdgeConfig.sourceNodeName }}】流向【{{ currentEdgeConfig.targetNodeName }}】。
-                            </template>
+                        <el-alert v-else title="普通流转连线" type="info" :closable="false" show-icon style="margin-bottom: 16px">
+                            <template #default> 当前连线从【{{ currentEdgeConfig.sourceNodeName }}】流向【{{ currentEdgeConfig.targetNodeName }}】。 </template>
                         </el-alert>
 
                         <el-form-item label="连线名称 / 显示文本">
@@ -76,24 +58,13 @@
                                 <el-input v-model="currentEdgeConfig.condition" placeholder="如: totalAmount <= 5000 或 days > 3" clearable />
                                 <div class="quick-tags-box">
                                     <span class="quick-tag-label">快捷插入变量：</span>
-                                    <el-tag
-                                        v-for="tag in availableVariables"
-                                        :key="tag.name"
-                                        size="small"
-                                        class="quick-tag"
-                                        @click="insertVariable(currentEdgeConfig, tag.name)"
-                                    >
+                                    <el-tag v-for="tag in availableVariables" :key="tag.name" size="small" class="quick-tag" @click="insertVariable(currentEdgeConfig, tag.name)">
                                         {{ tag.label }} ({{ tag.name }})
                                     </el-tag>
                                 </div>
                             </el-form-item>
-                            <div v-else class="default-branch-tip">
-                                💡 默认兜底分支：当该网关的其他所有分支条件均不满足时，流程将自动流向此连线目标。
-                            </div>
+                            <div v-else class="default-branch-tip">💡 默认兜底分支：当该网关的其他所有分支条件均不满足时，流程将自动流向此连线目标。</div>
                         </template>
-
-                        
-                        
 
                         <el-form-item label="备注">
                             <el-input type="textarea" v-model="currentEdgeConfig.remark" placeholder="请输入备注" />
@@ -113,7 +84,12 @@
                         <!-- 1. 审批节点 (rect) -->
                         <template v-if="currentNode?.type === 'rect'">
                             <el-form-item label="审批人">
-                                <el-select v-model="currentNodeConfig.properties.assignee" @change="loadApiOptions(currentNodeConfig.properties.assignee)" placeholder="请选择审批人" style="width: 100%">
+                                <el-select
+                                    v-model="currentNodeConfig.properties.assignee"
+                                    @change="loadApiOptions(currentNodeConfig.properties.assignee)"
+                                    placeholder="请选择审批人"
+                                    style="width: 100%"
+                                >
                                     <el-option v-for="item in options" :key="item.id" :label="item.name" :value="item.id" />
                                 </el-select>
                             </el-form-item>
@@ -138,36 +114,17 @@
                                     placeholder="请选择或输入搜索智能体角色"
                                     style="width: 100%"
                                 >
-                                    <el-option-group
-                                        v-for="group in agentRoleGroups"
-                                        :key="group.domain"
-                                        :label="group.domainName"
-                                    >
-                                        <el-option
-                                            v-for="item in group.roles"
-                                            :key="item.value"
-                                            :label="item.label"
-                                            :value="item.value"
-                                        />
+                                    <el-option-group v-for="group in agentRoleGroups" :key="group.domain" :label="group.domainName">
+                                        <el-option v-for="item in group.roles" :key="item.value" :label="item.label" :value="item.value" />
                                     </el-option-group>
                                 </el-select>
                             </el-form-item>
                             <!-- 🌟 显式绑定当前表单的报销金额字段 -->
                             <el-form-item label="报销金额字段" required>
-                                <el-select
-                                    v-model="currentNodeConfig.properties.amountField"
-                                    placeholder="请选择对应表单中的报销金额字段"
-                                    clearable
-                                    style="width: 100%"
-                                >
-                                    <el-option
-                                        v-for="field in currentFormFields"
-                                        :key="field.id"
-                                        :label="`${field.label} (${field.id})`"
-                                        :value="field.id"
-                                    />
+                                <el-select v-model="currentNodeConfig.properties.amountField" placeholder="请选择对应表单中的报销金额字段" clearable style="width: 100%">
+                                    <el-option v-for="field in currentFormFields" :key="field.id" :label="`${field.label} (${field.id})`" :value="field.id" />
                                 </el-select>
-                                <span style="font-size: 12px; color: #909399; margin-top: 4px; display: inline-block; line-height: 1.4;">
+                                <span style="font-size: 12px; color: #909399; margin-top: 4px; display: inline-block; line-height: 1.4">
                                     💡 明确指定 AI 审查时提取的申报金额字段 Key（如 bxje）
                                 </span>
                             </el-form-item>
@@ -175,17 +132,19 @@
                                 <el-input-number v-model="currentNodeConfig.properties.riskThreshold" :min="1" :max="100" />
                             </el-form-item>
                             <el-form-item label="人机协同特批人 (HITL)" required>
-                                <el-select v-model="currentNodeConfig.properties.specialApproverId" placeholder="必选：请指定特批复核人 (遇存疑/异常时挂起)" clearable style="width: 100%">
+                                <el-select
+                                    v-model="currentNodeConfig.properties.specialApproverId"
+                                    placeholder="必选：请指定特批复核人 (遇存疑/异常时挂起)"
+                                    clearable
+                                    style="width: 100%"
+                                >
                                     <el-option v-for="item in options" :key="item.id" :label="item.name" :value="item.id" />
                                 </el-select>
-                                <span style="font-size: 12px; color: #e6a23c; margin-top: 4px; display: inline-block; line-height: 1.4;">
+                                <span style="font-size: 12px; color: #e6a23c; margin-top: 4px; display: inline-block; line-height: 1.4">
                                     必填项：当 AI 智能体检测到高危、存疑或需特批放行时（如发票超期、预算异常、合规疑点等），流程将自动挂起转交此人特批复核
                                 </span>
                             </el-form-item>
                         </template>
-
-                        
-                        
 
                         <!-- 3. 🌟 条件网关 (diamond) 核心排他多分支卡片列表 -->
                         <template v-if="currentNode?.type === 'diamond'">
@@ -206,17 +165,10 @@
                                 </div>
 
                                 <div v-else class="branch-cards-list">
-                                    <el-card
-                                        v-for="(edge, idx) in diamondOutgoingEdges"
-                                        :key="edge.id"
-                                        class="branch-card-item"
-                                        shadow="hover"
-                                    >
+                                    <el-card v-for="(edge, idx) in diamondOutgoingEdges" :key="edge.id" class="branch-card-item" shadow="hover">
                                         <template #header>
                                             <div class="branch-card-header">
-                                                <el-tag size="small" :type="edge.isDefault ? 'warning' : 'primary'">
-                                                    分支 {{ idx + 1 }}
-                                                </el-tag>
+                                                <el-tag size="small" :type="edge.isDefault ? 'warning' : 'primary'"> 分支 {{ idx + 1 }} </el-tag>
                                                 <span class="branch-target-info">
                                                     连向: <strong>{{ edge.targetNodeName }}</strong>
                                                 </span>
@@ -229,11 +181,7 @@
                                             </el-form-item>
 
                                             <el-form-item label="默认分支">
-                                                <el-switch
-                                                    v-model="edge.isDefault"
-                                                    active-text="设为默认兜底 (Else)"
-                                                    @change="handleDefaultBranchChange(edge)"
-                                                />
+                                                <el-switch v-model="edge.isDefault" active-text="设为默认兜底 (Else)" @change="handleDefaultBranchChange(edge)" />
                                             </el-form-item>
 
                                             <el-form-item label="条件表达式" v-if="!edge.isDefault">
@@ -250,9 +198,7 @@
                                                     </el-tag>
                                                 </div>
                                             </el-form-item>
-                                            <div v-else class="default-branch-tip">
-                                                💡 当上方其他分支均不满足时，自动流向此分支
-                                            </div>
+                                            <div v-else class="default-branch-tip">💡 当上方其他分支均不满足时，自动流向此分支</div>
                                         </el-form>
                                     </el-card>
                                 </div>
@@ -330,9 +276,9 @@ const mockFormList = ref([{ id: 'form_leave_001', name: '请假申请表单' }])
 // 🌟 当前流程关联表单所提取的可用业务字段列表
 const currentFormFields = ref([]);
 
-const extractFieldsFromSchema = (schema) => {
+const extractFieldsFromSchema = schema => {
     const fields = [];
-    const traverse = (items) => {
+    const traverse = items => {
         if (!Array.isArray(items)) return;
         for (const item of items) {
             if (!item) continue;
@@ -355,7 +301,7 @@ const extractFieldsFromSchema = (schema) => {
     return fields;
 };
 
-const loadFormFields = async (formId) => {
+const loadFormFields = async formId => {
     if (!formId) {
         currentFormFields.value = [];
         return;
@@ -374,16 +320,15 @@ const loadFormFields = async (formId) => {
 // 监听关联表单变更，自动重新加载表单组件字段
 watch(
     () => ruleForm.value.formId,
-    (newVal) => {
+    newVal => {
         if (newVal) {
             loadFormFields(newVal);
         } else {
             currentFormFields.value = [];
         }
     },
-    { immediate: true }
+    { immediate: true },
 );
-
 
 // 抽屉与配置状态
 const drawerVisible = ref(false);
@@ -469,10 +414,7 @@ const loadDiamondOutgoingEdges = diamondNodeId => {
     const outgoing = edges.filter(e => e.sourceNodeId === diamondNodeId);
     diamondOutgoingEdges.value = outgoing.map(e => {
         const targetNode = nodeMap.get(e.targetNodeId);
-        const targetNodeName =
-            (typeof targetNode?.text === 'string' ? targetNode.text : targetNode?.text?.value) ||
-            targetNode?.id ||
-            '未命名节点';
+        const targetNodeName = (typeof targetNode?.text === 'string' ? targetNode.text : targetNode?.text?.value) || targetNode?.id || '未命名节点';
         const edgeText = typeof e.text === 'string' ? e.text : e.text?.value || '';
         return {
             id: e.id,
@@ -615,14 +557,8 @@ const initLogicFlow = () => {
         const targetNode = nodeMap.get(data.targetNodeId);
 
         const isFromDiamond = sourceNode?.type === 'diamond';
-        const sourceName =
-            (typeof sourceNode?.text === 'string' ? sourceNode.text : sourceNode?.text?.value) ||
-            sourceNode?.id ||
-            '起点';
-        const targetName =
-            (typeof targetNode?.text === 'string' ? targetNode.text : targetNode?.text?.value) ||
-            targetNode?.id ||
-            '终点';
+        const sourceName = (typeof sourceNode?.text === 'string' ? sourceNode.text : sourceNode?.text?.value) || sourceNode?.id || '起点';
+        const targetName = (typeof targetNode?.text === 'string' ? targetNode.text : targetNode?.text?.value) || targetNode?.id || '终点';
 
         currentEdgeConfig.value = {
             text: typeof data.text === 'string' ? data.text : data.text?.value || '',
@@ -791,9 +727,7 @@ const agentRoleGroups = [
     {
         domain: 'hr',
         domainName: '人事领域',
-        roles: [
-            { label: '人事-考勤假勤与工时冲突核验员', value: 'hr:leave_attendance' },
-        ],
+        roles: [{ label: '人事-考勤假勤与工时冲突核验员', value: 'hr:leave_attendance' }],
     },
 ];
 
@@ -1158,4 +1092,3 @@ onMounted(() => {
     margin-bottom: 16px;
 }
 </style>
-
