@@ -170,10 +170,67 @@
                             <el-step
                                 v-for="(step, index) in steps"
                                 :key="step.nodeId"
-                                :title="step.title"
-                                :description="getDescription(step, index)"
                                 :status="getStepStatus(step.status, index)"
-                            />
+                            >
+                                <template #title>
+                                    <div class="step-title-row">
+                                        <span class="step-title-text">{{ step.title }}</span>
+                                        <el-tag
+                                            v-if="step.approvalMode === 'and' && (step.assignees?.length > 1 || step.records?.length > 1)"
+                                            size="small"
+                                            effect="light"
+                                            type="primary"
+                                            class="mode-badge"
+                                        >
+                                            会签
+                                        </el-tag>
+                                        <el-tag
+                                            v-else-if="step.approvalMode === 'or' && (step.assignees?.length > 1 || step.records?.length > 1)"
+                                            size="small"
+                                            effect="light"
+                                            type="warning"
+                                            class="mode-badge"
+                                        >
+                                            或签
+                                        </el-tag>
+                                    </div>
+                                </template>
+                                <template #description>
+                                    <!-- 1. 会签/或签 多人审批记录卡片展示 -->
+                                    <div v-if="step.records && step.records.length > 1" class="multi-approval-box">
+                                        <div
+                                            v-for="(rec, rIdx) in step.records"
+                                            :key="rec.userId || rIdx"
+                                            class="multi-approver-item"
+                                            :class="getRecordClass(rec.status)"
+                                        >
+                                            <div class="approver-head">
+                                                <div class="approver-info">
+                                                    <span class="approver-name">
+                                                        <el-icon class="user-icon"><UserFilled /></el-icon>
+                                                        {{ rec.userName }}
+                                                    </span>
+                                                    <el-tag :type="getRecordTagType(rec.status)" size="small">
+                                                        {{ getRecordStatusText(rec.status) }}
+                                                    </el-tag>
+                                                </div>
+                                                <span v-if="rec.approvedAt" class="approver-time">{{ rec.approvedAt }}</span>
+                                            </div>
+                                            <div v-if="rec.comment" class="approver-comment">
+                                                <span class="comment-prefix">备注:</span>
+                                                <span class="comment-text">{{ rec.comment }}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- 2. 普通单人节点或普通文本模式 -->
+                                    <div v-else class="single-step-desc">
+                                        <div v-for="(line, lineIdx) in getStepLines(step, index)" :key="lineIdx" class="desc-line">
+                                            {{ line }}
+                                        </div>
+                                    </div>
+                                </template>
+                            </el-step>
                         </el-steps>
                     </div>
                 </div>
@@ -187,7 +244,7 @@
 
 <script setup>
 import { ref, computed, watch, getCurrentInstance, onMounted, onUnmounted } from 'vue';
-import { WarningFilled, CircleCheckFilled, Loading } from '@element-plus/icons-vue';
+import { WarningFilled, CircleCheckFilled, Loading, UserFilled } from '@element-plus/icons-vue';
 import DynamicForm from '@/pages/formDesign/components/DynamicForm.vue';
 import LogicFlow from '@/pages/workflowDesigner/logicFlow.vue';
 import useUserInfoStore from '@/stortes/user'; //引入仓库
@@ -547,6 +604,37 @@ const activeStatusTag = computed(() => {
     return 'info';
 });
 
+// 获取每条记录的 tag 类型
+const getRecordTagType = status => {
+    if (status == 2 || status === 'approved') return 'success';
+    if (status == 3 || status === 'rejected') return 'danger';
+    if (status == 1 || status === 'pending') return 'warning';
+    return 'info';
+};
+
+// 获取每条记录的状态文本
+const getRecordStatusText = status => {
+    if (status == 2 || status === 'approved') return '已通过';
+    if (status == 3 || status === 'rejected') return '已驳回';
+    if (status == 1 || status === 'pending') return '审批中';
+    return '待审批';
+};
+
+// 获取卡片类名
+const getRecordClass = status => {
+    if (status == 2 || status === 'approved') return 'status-approved';
+    if (status == 3 || status === 'rejected') return 'status-rejected';
+    if (status == 1 || status === 'pending') return 'status-pending';
+    return 'status-wait';
+};
+
+// 获取单步描述分行
+const getStepLines = (step, index) => {
+    const raw = getDescription(step, index);
+    if (!raw) return [];
+    return raw.split('\n').filter(Boolean);
+};
+
 // 格式化描述信息
 const getDescription = (step, index) => {
     if (index == 0) return `申请人: ${step.userName}\n发起时间: ${step.approvedAt}\n`;
@@ -572,7 +660,23 @@ const getDescription = (step, index) => {
         // 场景 4：正常 AI 初审完成
         return `智能体角色: ${step.userName}\n合规得分: ${step.auditResult.complianceScore} 分\n初审意见: ${step.comment || step.auditResult.summary}\n审查时间: ${step.approvedAt}`;
     }
-    if (step.status == 0) return `审批人: ${step.userName} 待审批...`;
+
+    // 🌟 多审批人场景（会签 / 或签）纯文本兜底
+    if (Array.isArray(step.records) && step.records.length > 1) {
+        return step.records
+            .map(r => {
+                const isPassed = r.status == 2 || r.status === 'approved';
+                const isRejected = r.status == 3 || r.status === 'rejected';
+                const statusLabel = isPassed ? '已通过' : isRejected ? '已驳回' : '待审批';
+                let line = `审批人: ${r.userName} [${statusLabel}]`;
+                if (r.approvedAt) line += `  时间: ${r.approvedAt}`;
+                if (r.comment) line += `  备注: ${r.comment}`;
+                return line;
+            })
+            .join('\n');
+    }
+
+    if (step.status == 0) return `审批人: ${step.userName || '未指定'} 待审批...`;
     if (step.status == 1) return `审批人: ${step.userName} 审批中...`;
     if (step.status == 2) {
         return `审批人: ${step.userName}\n审批时间: ${step.approvedAt}\n备注: ${step.comment || '无'}`;
@@ -954,5 +1058,146 @@ onUnmounted(() => {
     display: flex;
     align-items: center;
     font-size: 14px;
+}
+
+/* 🌟 审批记录与时间轴样式增强 (拉开纵向间距，告别拥挤感) */
+.workflow-content {
+    padding: 16px 20px;
+}
+
+.workflow-steps {
+    max-width: 660px;
+}
+
+/* 🌟 核心：将垂直步骤条的间距由默认几像素拉大至 32px，形成舒适的垂直时间轴连线 */
+.workflow-steps :deep(.el-step.is-vertical .el-step__main) {
+    padding-bottom: 32px;
+}
+
+.workflow-steps :deep(.el-step.is-vertical:last-child .el-step__main) {
+    padding-bottom: 8px;
+}
+
+.workflow-steps :deep(.el-step__title) {
+    font-size: 15px;
+    font-weight: 600;
+    line-height: 1.4;
+    color: #1e293b;
+}
+
+.step-title-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.step-title-text {
+    font-size: 15px;
+    font-weight: 600;
+}
+
+.mode-badge {
+    font-weight: 500;
+}
+
+.workflow-steps :deep(.el-step__description) {
+    margin-top: 8px;
+    font-size: 13px;
+    line-height: 1.6;
+    color: #475569;
+}
+
+/* 🌟 多审批人会签/或签 独立成员卡片容器 */
+.multi-approval-box {
+    margin-top: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.multi-approver-item {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    padding: 10px 14px;
+    transition: all 0.2s ease;
+}
+
+.multi-approver-item.status-approved {
+    background: #f0fdf4;
+    border-color: #bbf7d0;
+}
+
+.multi-approver-item.status-pending {
+    background: #fefce8;
+    border-color: #fef08a;
+}
+
+.multi-approver-item.status-rejected {
+    background: #fef2f2;
+    border-color: #fecaca;
+}
+
+.approver-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 4px;
+}
+
+.approver-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.approver-name {
+    font-weight: 600;
+    font-size: 13px;
+    color: #1e293b;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.user-icon {
+    font-size: 14px;
+    color: #64748b;
+}
+
+.approver-time {
+    font-size: 12px;
+    color: #64748b;
+}
+
+.approver-comment {
+    font-size: 12px;
+    color: #334155;
+    background: rgba(255, 255, 255, 0.7);
+    padding: 4px 8px;
+    border-radius: 4px;
+    margin-top: 4px;
+    line-height: 1.5;
+}
+
+.comment-prefix {
+    font-weight: 500;
+    color: #64748b;
+    margin-right: 4px;
+}
+
+/* 单人节点描述行 */
+.single-step-desc {
+    background: #f8fafc;
+    border: 1px solid #f1f5f9;
+    border-radius: 6px;
+    padding: 8px 12px;
+    margin-top: 6px;
+}
+
+.desc-line {
+    font-size: 13px;
+    color: #334155;
+    line-height: 1.6;
 }
 </style>

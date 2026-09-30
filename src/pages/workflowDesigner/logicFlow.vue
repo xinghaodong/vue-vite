@@ -20,6 +20,12 @@
                         </el-select>
                         <el-button link type="primary" @click="previewForm" style="margin-left: 10px"> 预览 </el-button>
                     </el-form-item>
+                    <!-- 🌟 动态连线风格 (活的 edgeType) -->
+                    <el-form-item label="连线风格">
+                        <el-select v-model="currentEdgeType" @change="handleEdgeTypeChange" placeholder="请选择连线风格">
+                            <el-option v-for="item in EDGE_TYPES" :key="item.value" :label="item.label" :value="item.value" />
+                        </el-select>
+                    </el-form-item>
                 </el-form>
                 <el-button type="primary" @click="saveWorkflow">保存流程</el-button>
             </el-card>
@@ -27,7 +33,7 @@
             <!-- </div> -->
 
             <!-- 2. LogicFlow 画布容器 -->
-            <div id="logic-flow-container" class="canvas"></div>
+            <div ref="containerRef" id="logic-flow-container" class="canvas"></div>
 
             <!-- 节点 / 连线配置抽屉 -->
             <el-drawer v-model="drawerVisible" :title="drawerTitle" :with-header="true" size="480px" direction="rtl">
@@ -85,14 +91,28 @@
                         <template v-if="currentNode?.type === 'rect'">
                             <el-form-item label="审批人">
                                 <el-select
-                                    v-model="currentNodeConfig.properties.assignee"
-                                    @change="loadApiOptions(currentNodeConfig.properties.assignee)"
-                                    placeholder="请选择审批人"
+                                    v-model="currentNodeConfig.properties.assignees"
+                                    multiple
+                                    collapse-tags
+                                    collapse-tags-tooltip
+                                    placeholder="请选择审批人 (支持多选)"
                                     style="width: 100%"
                                 >
                                     <el-option v-for="item in options" :key="item.id" :label="item.name" :value="item.id" />
                                 </el-select>
                             </el-form-item>
+
+                            <!-- 多人审批模式选择 (当选择 2 人及以上时展示) -->
+                            <el-form-item label="多人审批方式" v-if="currentNodeConfig.properties.assignees?.length > 1">
+                                <el-radio-group v-model="currentNodeConfig.properties.approvalMode">
+                                    <el-radio label="or">或签 / 抢办（任意 1 人同意即可）</el-radio>
+                                    <el-radio label="and">会签（所有审批人必须全部同意）</el-radio>
+                                </el-radio-group>
+                                <div class="default-branch-tip" style="margin-top: 8px">
+                                    {{ currentNodeConfig.properties.approvalMode === 'and' ? '💡 会签模式：当前节点将同时发给选中的所有审批人，所有人全部点击同意后流程才推进。' : '💡 或签/抢办：当前节点同时通知选中的所有人，任意一人抢先审批通过，流程即刻流向下一节点。' }}
+                                </div>
+                            </el-form-item>
+
                             <el-form-item label="关联表单">
                                 <div style="display: flex; width: 100%; gap: 10px">
                                     <el-select v-model="currentNodeConfig.properties.formId" placeholder="请选择表单" style="flex: 1">
@@ -230,12 +250,9 @@ import { ref, onMounted, nextTick, reactive, getCurrentInstance, computed, watch
 import DynamicForm from '@/pages/formDesign/components/DynamicForm.vue';
 const { proxy } = getCurrentInstance();
 import { useRoute } from 'vue-router';
-import LogicFlow from '@logicflow/core';
+import { useLogicFlow, EDGE_TYPES } from './hooks/useLogicFlow.js';
+import { useFlowStatus } from './hooks/useFlowStatus.js';
 import { registerCustomNodes } from './customNodes.js';
-// 1. 引入 DndPanel 插件及样式
-import { Menu, Control, ProximityConnect, DndPanel } from '@logicflow/extension';
-import '@logicflow/core/lib/style/index.css';
-import '@logicflow/extension/lib/style/index.css';
 import { ElMessage } from 'element-plus';
 
 const props = defineProps({
@@ -249,16 +266,7 @@ const props = defineProps({
 
 const formSchema = ref([]); // 从接口获取的 schema
 const uiConfig = ref({}); // 从接口获取的 ui_config
-// const formData = ref({}); // 表单数据
 const formName = ref('');
-// 父组件传来的参数
-
-// 2. 注册 DndPanel 插件
-LogicFlow.use(Control);
-if (!props.workflowId) {
-    LogicFlow.use(Menu);
-    LogicFlow.use(DndPanel); // 注册拖拽面板插件
-}
 
 // 原有表单相关逻辑
 const ruleFormRef = ref(null);
@@ -266,11 +274,33 @@ const rules = reactive({
     name: [{ required: true, message: '请输入模板名称', trigger: 'blur' }],
     formId: [{ required: true, message: '请选择关联表单', trigger: 'change' }],
 });
-const ruleForm = ref({ name: '', formId: '', status: 0, description: '' });
+const ruleForm = ref({ name: '', formId: '', edgeType: 'bezier', status: 0, description: '' });
 const options = ref([]);
 
 const route = useRoute();
 const idkey = route.query.idkey || props.workflowId;
+
+// 🌟 引入 LogicFlow 生命周期与动态连线管理 Hook
+const {
+    containerRef,
+    lf: lfRef,
+    currentEdgeType,
+    setEdgeType,
+    createLogicFlow,
+    openEdgeAnimation,
+    closeEdgeAnimation,
+} = useLogicFlow({
+    defaultEdgeType: 'bezier',
+});
+
+// 🌟 引入审批流状态与连线流光 Hook
+const { injectApprovalStatus } = useFlowStatus();
+
+// 连线风格动态切换（活的 edgeType）
+const handleEdgeTypeChange = val => {
+    ruleForm.value.edgeType = val;
+    setEdgeType(val, true); // 切换默认类型并即时同步画布连线
+};
 // 表单数据
 const mockFormList = ref([{ id: 'form_leave_001', name: '请假申请表单' }]);
 // 🌟 当前流程关联表单所提取的可用业务字段列表
@@ -433,19 +463,17 @@ const loadDiamondOutgoingEdges = diamondNodeId => {
 // 原有流程数据
 const dataObj = ref({});
 
-// LogicFlow 实例
+// LogicFlow 实例引用
 let lf = null;
 // 初始化 LogicFlow
 const initLogicFlow = () => {
-    lf = new LogicFlow({
-        container: document.querySelector('#logic-flow-container'),
-        edgeType: 'bezier',
-        grid: true,
-        background: { color: '#f8f9fa' },
-    });
+    // 🌟 通过 useLogicFlow 创建实例（自动绑定 ref 容器与活的 edgeType，并开启连线动画）
+    const lfInstance = createLogicFlow();
+    if (!lfInstance) return;
+    lf = lfInstance;
 
-    // ========== 注册所有自定义节点 ========== //
-    registerCustomNodes(lf, calculateNodeColors, approvalHistoryData);
+    // ========== 注册所有自定义节点 (纯数据驱动，解耦闭包) ========== //
+    registerCustomNodes(lfInstance);
     let nodeData = [
         {
             type: 'circle', // 节点类型：圆形（开始节点）
@@ -458,7 +486,15 @@ const initLogicFlow = () => {
             type: 'rect', // 节点类型：矩形（审批节点）
             text: '审批节点', // 默认文本
             label: '审批节点', // 面板显示名称
-            properties: { assignee: '', assigneeName: '', formId: '', remark: '' }, // 默认属性
+            properties: {
+                assignee: '',
+                assignees: [],
+                assigneeName: '',
+                assigneeNames: [],
+                approvalMode: 'or',
+                formId: '',
+                remark: '',
+            }, // 默认属性
             icon: './jx.png',
             fill: '#87CEFA',
             stroke: '#1E90FF',
@@ -522,10 +558,22 @@ const initLogicFlow = () => {
         if (props.workflowId) return;
         drawerType.value = 'node';
         currentNode.value = data;
+        // 归一化审批人列表 (兼容旧版单人 assignee 与新版多人 assignees 数组)
+        let initialAssignees = [];
+        if (Array.isArray(data.properties?.assignees) && data.properties.assignees.length > 0) {
+            initialAssignees = data.properties.assignees;
+        } else if (data.properties?.assignee) {
+            initialAssignees = [data.properties.assignee];
+        }
+
         currentNodeConfig.value = {
             text: { value: typeof data.text === 'string' ? data.text : data.text?.value || '' },
             properties: {
-                assignee: data.properties?.assignee || '', // 审批节点挂审批人
+                assignee: data.properties?.assignee || (initialAssignees[0] || ''),
+                assignees: initialAssignees,
+                assigneeName: data.properties?.assigneeName || '',
+                assigneeNames: data.properties?.assigneeNames || [],
+                approvalMode: data.properties?.approvalMode || 'or',
                 formId: data.properties?.formId || '',
                 remark: data.properties?.remark || '',
                 condition: data.properties?.condition || '',
@@ -659,6 +707,25 @@ const applyConfig = () => {
             ElMessage.error('当前节点无效');
             return;
         }
+
+        // 🌟 强校验：若为人工审批节点，审批人必选
+        if (currentNode.value.type === 'rect') {
+            const assignees = currentNodeConfig.value.properties.assignees || [];
+            if (!Array.isArray(assignees) || assignees.length === 0) {
+                ElMessage.warning('请至少选择一位审批人');
+                return;
+            }
+            // 批量匹配姓名
+            const selectedItems = options.value.filter(opt => assignees.includes(opt.id));
+            const names = selectedItems.map(item => item.name);
+            currentNodeConfig.value.properties.assigneeNames = names;
+            currentNodeConfig.value.properties.assigneeName = names.join(', ');
+            currentNodeConfig.value.properties.assignee = assignees[0]; // 兼容单人老字段
+            if (!currentNodeConfig.value.properties.approvalMode) {
+                currentNodeConfig.value.properties.approvalMode = 'or';
+            }
+        }
+
         // 🌟 强校验：若为 AI 智能审查节点，特批人必选
         if (currentNode.value.type === 'ai-agent') {
             if (!currentNodeConfig.value.properties.specialApproverId) {
@@ -810,9 +877,12 @@ const saveWorkflow = async () => {
     // 3. 🌟 节点人员必选强校验 (人工审批节点 assignee & AI智能体节点 specialApproverId)
     for (const node of nodes) {
         const nodeName = (typeof node.text === 'string' ? node.text : node.text?.value) || node.id;
-        if (node.type === 'rect' && !node.properties?.assignee) {
-            ElMessage.warning(`审批节点【${nodeName}】未配置审批人，请点击该节点配置审批人！`);
-            return;
+        if (node.type === 'rect') {
+            const hasAssignee = node.properties?.assignee || (Array.isArray(node.properties?.assignees) && node.properties.assignees.length > 0);
+            if (!hasAssignee) {
+                ElMessage.warning(`审批节点【${nodeName}】未配置审批人，请点击该节点配置审批人！`);
+                return;
+            }
         }
         if (node.type === 'ai-agent') {
             if (!node.properties?.specialApproverId) {
@@ -826,7 +896,19 @@ const saveWorkflow = async () => {
         }
     }
 
-    let obj = { ...ruleForm.value, graphData: graphData };
+    // 🌟 将当前选中的连线风格固化到 graphData 及所有 edge 的具体数据中
+    graphData.edgeType = currentEdgeType.value;
+    if (Array.isArray(graphData.edges)) {
+        graphData.edges.forEach(edge => {
+            edge.type = currentEdgeType.value;
+        });
+    }
+
+    let obj = {
+        ...ruleForm.value,
+        edgeType: currentEdgeType.value,
+        graphData: graphData,
+    };
     let res = null;
     if (idkey) {
         obj.id = idkey;
@@ -850,7 +932,22 @@ const getLogicdetail = async () => {
         const res = await proxy.$api.logicdetail({ id: idkey });
         if (res.code === 200) {
             ruleForm.value = res.data;
-            dataObj.value = res.data.graphData;
+            // 🌟 优先从后端实体字段或 graphData.edgeType 中读取连线风格
+            const savedEdgeType = res.data.edgeType || res.data.graphData?.edgeType || 'bezier';
+            currentEdgeType.value = savedEdgeType;
+            ruleForm.value.edgeType = savedEdgeType;
+            setEdgeType(savedEdgeType);
+
+            dataObj.value = res.data.graphData || {};
+
+            // 🌟 核心：将所有边的具体类型同步为保存的连线风格，确保 renderRawData 100% 渲染为折线/直线/贝塞尔
+            if (dataObj.value && Array.isArray(dataObj.value.edges)) {
+                dataObj.value.edges = dataObj.value.edges.map(edge => ({
+                    ...edge,
+                    type: savedEdgeType,
+                }));
+            }
+
             if (dataObj.value && dataObj.value.nodes) {
                 dataObj.value.nodes = dataObj.value.nodes.map(node => {
                     let newType = node.type;
@@ -876,28 +973,9 @@ const getLogicdetail = async () => {
         console.log(error);
     }
 };
-// 将审批状态的颜色直接注入到 graphData 中
+// 将审批状态的颜色及流光动画注入到画布中
 const injectNodeStatusIntoGraphData = () => {
-    lf.setProperties({ globalStatus: approvalHistoryData.value?.status });
-    if (approvalHistoryData.value && approvalHistoryData.value.steps) {
-        const { steps } = approvalHistoryData.value;
-        steps.forEach(step => {
-            // console.log('step', step);
-            const { nodeId, status, title, userName, comment } = step;
-            try {
-                // 关键：只更新 properties，不碰 fill/stroke
-                lf.setProperties(nodeId, {
-                    nodeStatus: status, // 将状态存入 properties
-                    nodeTitle: title, // 将标题存入 properties
-                    assigneeName: userName || '', //设置审批人姓名
-                    comment: comment || '', //设置审批人意见
-                });
-                // console.log(`节点 ${nodeId} 状态属性更新为: ${status}`, step);
-            } catch (error) {
-                console.warn(`节点 ${nodeId} 不存在或更新失败:`, error.message);
-            }
-        });
-    }
+    injectApprovalStatus(lf, approvalHistoryData.value);
 };
 
 const findAll = async () => {
