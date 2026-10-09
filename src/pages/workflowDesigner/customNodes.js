@@ -46,21 +46,47 @@ export function calculateNodeColors(properties = {}, globalStatus) {
  * @param {LogicFlow} lf - LogicFlow 实例
  */
 export function registerCustomNodes(lf) {
-    // 1. 自定义圆形节点 (开始 / 结束)
-    class CustomCircleModel extends CircleNodeModel {
+    // 1. 自定义开始节点 (start-node)
+    class StartNodeModel extends CircleNodeModel {
         getNodeStyle() {
             const style = super.getNodeStyle();
-            const { fill, stroke } = calculateNodeColors(this.properties, this.properties?.globalStatus);
-            style.fill = fill;
-            style.stroke = stroke;
+            style.fill = '#d4edda';
+            style.stroke = '#155724';
+            style.strokeWidth = 2;
             return style;
         }
     }
-    class CustomCircleView extends CircleNode {}
+    class StartNodeView extends CircleNode {}
     lf.register({
-        type: 'circle',
-        view: CustomCircleView,
-        model: CustomCircleModel,
+        type: 'start-node',
+        view: StartNodeView,
+        model: StartNodeModel,
+    });
+
+    // 2. 自定义结束节点 (end-node, BPMN 规范加粗边框)
+    class EndNodeModel extends CircleNodeModel {
+        getNodeStyle() {
+            const style = super.getNodeStyle();
+            const globalStatus = this.properties?.globalStatus;
+            if (globalStatus == 2) {
+                style.fill = '#c3e6cb';
+                style.stroke = '#28a745';
+            } else if (globalStatus == 3) {
+                style.fill = '#f5c6cb';
+                style.stroke = '#dc3545';
+            } else {
+                style.fill = '#ffffff';
+                style.stroke = '#000000';
+            }
+            style.strokeWidth = 3; // 结束事件经典粗边框
+            return style;
+        }
+    }
+    class EndNodeView extends CircleNode {}
+    lf.register({
+        type: 'end-node',
+        view: EndNodeView,
+        model: EndNodeModel,
     });
 
     // 2. 自定义矩形节点 (人工审批节点)

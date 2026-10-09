@@ -638,7 +638,7 @@ const getStepLines = (step, index) => {
 // 格式化描述信息
 const getDescription = (step, index) => {
     if (index == 0) return `申请人: ${step.userName}\n发起时间: ${step.approvedAt}\n`;
-    if (step.type == 'circle') return '';
+    if (step.type === 'end-node' || step.type === 'start-node') return '';
     if (step.type == 'ai-agent') {
         // 场景 1：如果存在人工特批放行/驳回记录 (HITL 人机协同特批)
         if (step.specialApproval) {

@@ -12,13 +12,12 @@
                     <el-form-item label="模板名称" prop="name">
                         <el-input v-model="ruleForm.name"></el-input>
                     </el-form-item>
-                    <!-- 关联表单 -->
+                    <!-- 关联表单（可选） -->
                     <el-form-item label="关联表单" prop="formId">
-                        <!-- <el-input v-model="ruleForm.formId"></el-input> -->
-                        <el-select v-model="ruleForm.formId" placeholder="请选择关联表单">
+                        <el-select v-model="ruleForm.formId" clearable placeholder="请选择关联表单 (可选)">
                             <el-option v-for="form in mockFormList" :key="form.id" :label="form.name" :value="form.id"> </el-option>
                         </el-select>
-                        <el-button link type="primary" @click="previewForm" style="margin-left: 10px"> 预览 </el-button>
+                        <el-button link type="primary" @click="previewForm" style="margin-left: 10px" :disabled="!ruleForm.formId"> 预览 </el-button>
                     </el-form-item>
                     <!-- 🌟 动态连线风格 (活的 edgeType) -->
                     <el-form-item label="连线风格">
@@ -112,15 +111,6 @@
                                     {{ currentNodeConfig.properties.approvalMode === 'and' ? '💡 会签模式：当前节点将同时发给选中的所有审批人，所有人全部点击同意后流程才推进。' : '💡 或签/抢办：当前节点同时通知选中的所有人，任意一人抢先审批通过，流程即刻流向下一节点。' }}
                                 </div>
                             </el-form-item>
-
-                            <el-form-item label="关联表单">
-                                <div style="display: flex; width: 100%; gap: 10px">
-                                    <el-select v-model="currentNodeConfig.properties.formId" placeholder="请选择表单" style="flex: 1">
-                                        <el-option v-for="form in mockFormList" :key="form.id" :label="form.name" :value="form.id" />
-                                    </el-select>
-                                    <el-button link type="primary" @click="previewForm">预览</el-button>
-                                </div>
-                            </el-form-item>
                         </template>
 
                         <!-- 2. AI 智能体节点 (ai-agent) -->
@@ -139,13 +129,21 @@
                                     </el-option-group>
                                 </el-select>
                             </el-form-item>
-                            <!-- 🌟 显式绑定当前表单的报销金额字段 -->
+                            <!-- 🌟 显式绑定当前表单的报销金额字段（支持从表单选择或手动输入变量名） -->
                             <el-form-item label="报销金额字段" required>
-                                <el-select v-model="currentNodeConfig.properties.amountField" placeholder="请选择对应表单中的报销金额字段" clearable style="width: 100%">
+                                <el-select
+                                    v-model="currentNodeConfig.properties.amountField"
+                                    filterable
+                                    allow-create
+                                    default-first-option
+                                    placeholder="选择表单字段或直接输入变量名 (如 totalAmount)"
+                                    clearable
+                                    style="width: 100%"
+                                >
                                     <el-option v-for="field in currentFormFields" :key="field.id" :label="`${field.label} (${field.id})`" :value="field.id" />
                                 </el-select>
                                 <span style="font-size: 12px; color: #909399; margin-top: 4px; display: inline-block; line-height: 1.4">
-                                    💡 明确指定 AI 审查时提取的申报金额字段 Key（如 bxje）
+                                    💡 明确指定 AI 审查时提取的申报金额字段 Key（如 totalAmount、bxje）
                                 </span>
                             </el-form-item>
                             <el-form-item label="合规通过分">
@@ -272,7 +270,6 @@ const formName = ref('');
 const ruleFormRef = ref(null);
 const rules = reactive({
     name: [{ required: true, message: '请输入模板名称', trigger: 'blur' }],
-    formId: [{ required: true, message: '请选择关联表单', trigger: 'change' }],
 });
 const ruleForm = ref({ name: '', formId: '', edgeType: 'bezier', status: 0, description: '' });
 const options = ref([]);
@@ -444,8 +441,8 @@ const loadDiamondOutgoingEdges = diamondNodeId => {
     const outgoing = edges.filter(e => e.sourceNodeId === diamondNodeId);
     diamondOutgoingEdges.value = outgoing.map(e => {
         const targetNode = nodeMap.get(e.targetNodeId);
-        const targetNodeName = (typeof targetNode?.text === 'string' ? targetNode.text : targetNode?.text?.value) || targetNode?.id || '未命名节点';
-        const edgeText = typeof e.text === 'string' ? e.text : e.text?.value || '';
+        const targetNodeName = targetNode?.text?.value || targetNode?.id || '未命名节点';
+        const edgeText = e.text?.value || '';
         return {
             id: e.id,
             sourceNodeId: e.sourceNodeId,
@@ -476,7 +473,7 @@ const initLogicFlow = () => {
     registerCustomNodes(lfInstance);
     let nodeData = [
         {
-            type: 'circle', // 节点类型：圆形（开始节点）
+            type: 'start-node', // 节点类型：语义化开始节点
             text: '开始', // 拖拽到画布后节点的默认文本
             label: '开始节点', // 拖拽面板中显示的节点名称
             properties: {}, // 空对象，不挂业务属性
@@ -492,7 +489,6 @@ const initLogicFlow = () => {
                 assigneeName: '',
                 assigneeNames: [],
                 approvalMode: 'or',
-                formId: '',
                 remark: '',
             }, // 默认属性
             icon: './jx.png',
@@ -522,7 +518,7 @@ const initLogicFlow = () => {
             stroke: '#9333EA',
         },
         {
-            type: 'circle', // 节点类型：圆形（结束节点）
+            type: 'end-node', // 节点类型：语义化结束节点
             text: '结束', // 默认文本
             label: '结束节点', // 面板显示名称
             properties: {}, // 默认属性
@@ -567,14 +563,13 @@ const initLogicFlow = () => {
         }
 
         currentNodeConfig.value = {
-            text: { value: typeof data.text === 'string' ? data.text : data.text?.value || '' },
+            text: { value: data.text?.value || '' },
             properties: {
                 assignee: data.properties?.assignee || (initialAssignees[0] || ''),
                 assignees: initialAssignees,
                 assigneeName: data.properties?.assigneeName || '',
                 assigneeNames: data.properties?.assigneeNames || [],
                 approvalMode: data.properties?.approvalMode || 'or',
-                formId: data.properties?.formId || '',
                 remark: data.properties?.remark || '',
                 condition: data.properties?.condition || '',
                 agentRole: data.properties?.agentRole || '',
@@ -605,11 +600,11 @@ const initLogicFlow = () => {
         const targetNode = nodeMap.get(data.targetNodeId);
 
         const isFromDiamond = sourceNode?.type === 'diamond';
-        const sourceName = (typeof sourceNode?.text === 'string' ? sourceNode.text : sourceNode?.text?.value) || sourceNode?.id || '起点';
-        const targetName = (typeof targetNode?.text === 'string' ? targetNode.text : targetNode?.text?.value) || targetNode?.id || '终点';
+        const sourceName = sourceNode?.text?.value || sourceNode?.id;
+        const targetName = targetNode?.text?.value || targetNode?.id;
 
         currentEdgeConfig.value = {
-            text: typeof data.text === 'string' ? data.text : data.text?.value || '',
+            text: data.text?.value || '',
             condition: data.properties?.condition || '',
             isDefault: !!data.properties?.isDefault,
             remark: data.properties?.remark || '',
@@ -827,9 +822,9 @@ const getApprovalHistory = async () => {
 
 // 预览表单
 const previewForm = async () => {
-    const formId = ruleForm.value.formId || currentNodeConfig.value.properties.formId;
+    const formId = ruleForm.value.formId;
     if (!formId) {
-        proxy.$message.warning('请先选择表单');
+        proxy.$message.warning('请先选择关联表单');
         return;
     }
     previewVisible.value = true;
@@ -844,22 +839,34 @@ const previewForm = async () => {
 
 // 🌟 保存工作流（增加前端完整性强校验）
 const saveWorkflow = async () => {
+    // 0. 表单基本信息校验（模板名称必填）
+    if (ruleFormRef.value) {
+        try {
+            await ruleFormRef.value.validate();
+        } catch (validateErr) {
+            ElMessage.warning('请先完善流程基本信息');
+            return;
+        }
+    }
+
     const graphData = lf.getGraphData();
     const nodes = graphData.nodes || [];
     const edges = graphData.edges || [];
+    console.log('edges', edges);
+    console.log('nodes', nodes);
 
     // 1. 基础校验：必须有开始和结束节点
-    const hasStart = nodes.some(n => n.type === 'circle' && (n.text === '开始' || n.text?.value === '开始'));
-    const hasEnd = nodes.some(n => n.type === 'circle' && (n.text === '结束' || n.text?.value === '结束'));
+    const hasStart = nodes.some(n => n.type === 'start-node');
+    const hasEnd = nodes.some(n => n.type === 'end-node');
     if (!hasStart || !hasEnd) {
-        ElMessage.warning('流程必须包含【开始】和【结束】节点');
+        ElMessage.warning('流程必须包含【开始节点】和【结束节点】');
         return;
     }
 
     // 2. 🌟 排他条件网关强校验：至少 2 条出边，且必须配置分支条件
     for (const node of nodes) {
         if (node.type === 'diamond') {
-            const nodeName = (typeof node.text === 'string' ? node.text : node.text?.value) || '条件网关';
+            const nodeName = node.text?.value || '条件网关';
             const outgoing = edges.filter(e => e.sourceNodeId === node.id);
             if (outgoing.length < 2) {
                 ElMessage.warning(`条件网关【${nodeName}】必须至少连接 2 条分支连线（当前仅有 ${outgoing.length} 条）`);
@@ -876,7 +883,7 @@ const saveWorkflow = async () => {
 
     // 3. 🌟 节点人员必选强校验 (人工审批节点 assignee & AI智能体节点 specialApproverId)
     for (const node of nodes) {
-        const nodeName = (typeof node.text === 'string' ? node.text : node.text?.value) || node.id;
+        const nodeName = node.text?.value || node.id;
         if (node.type === 'rect') {
             const hasAssignee = node.properties?.assignee || (Array.isArray(node.properties?.assignees) && node.properties.assignees.length > 0);
             if (!hasAssignee) {
@@ -890,7 +897,7 @@ const saveWorkflow = async () => {
                 return;
             }
             if (!node.properties?.amountField) {
-                ElMessage.warning(`AI智能审查节点【${nodeName}】必须选择【报销金额字段】，以明确 AI 审查核验的金额来源！`);
+                ElMessage.warning(`AI智能审查节点【${nodeName}】必须选择或输入【报销金额字段】，以明确 AI 审查核验的金额来源！`);
                 return;
             }
         }
@@ -906,6 +913,7 @@ const saveWorkflow = async () => {
 
     let obj = {
         ...ruleForm.value,
+        formId: ruleForm.value.formId ? Number(ruleForm.value.formId) : null,
         edgeType: currentEdgeType.value,
         graphData: graphData,
     };
@@ -949,23 +957,10 @@ const getLogicdetail = async () => {
             }
 
             if (dataObj.value && dataObj.value.nodes) {
-                dataObj.value.nodes = dataObj.value.nodes.map(node => {
-                    let newType = node.type;
-                    // 根据原始类型映射到自定义类型
-                    if (node.type === 'rect') {
-                        newType = 'rect';
-                    } else if (node.type === 'circle') {
-                        newType = 'circle';
-                    } else if (node.type === 'diamond') {
-                        newType = 'diamond';
-                    } else if (node.type === 'ai-agent') {
-                        newType = 'ai-agent';
-                    }
-                    return {
-                        ...node,
-                        type: newType,
-                    };
-                });
+                dataObj.value.nodes = dataObj.value.nodes.map(node => ({
+                    ...node,
+                    type: node.type,
+                }));
             }
             initLogicFlow();
         }
