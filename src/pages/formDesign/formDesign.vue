@@ -1,186 +1,100 @@
-<!-- 表单设计器 -->
+<!-- 动态表单设计器 (组件注册制 + 递归渲染) -->
 <template>
     <div class="form-design-container">
-        <!-- 左侧组件列表 -->
+        <!-- 1. 左侧物料库面板 -->
         <div class="component-list">
             <div class="section-header">
-                <h4 style="margin: 0px">组件列表</h4>
+                <h4>物料组件库</h4>
             </div>
             <div class="section-content">
-                <!-- 栅格布局组件 -->
+                <!-- 容器布局物料 -->
+                <div class="widget-group-title">布局容器</div>
                 <draggable
-                    :list="[gridLayoutComponent]"
+                    :list="containerWidgets"
                     :group="{ name: 'form-items', pull: 'clone', put: false }"
                     :sort="false"
-                    :clone="cloneComponent"
+                    :clone="cloneWidget"
                     item-key="type"
                     :animation="200"
+                    class="widgets-grid"
                 >
                     <template #item="{ element }">
-                        <div class="component-item" @click="addComponent(element)">
-                            <el-icon>
-                                <Grid />
-                            </el-icon>
+                        <div class="component-item" @click="addWidget(element)">
+                            <el-icon><component :is="getIcon(element.icon)" /></el-icon>
                             <span>{{ element.label }}</span>
                         </div>
                     </template>
                 </draggable>
-                <draggable :list="componentList" :group="{ name: 'form-items', pull: 'clone', put: false }" :sort="false" :clone="cloneComponent" item-key="type" :animation="200">
+
+                <!-- 基础表单物料 -->
+                <div class="widget-group-title" style="margin-top: 14px">基础字段</div>
+                <draggable
+                    :list="fieldWidgets"
+                    :group="{ name: 'form-items', pull: 'clone', put: false }"
+                    :sort="false"
+                    :clone="cloneWidget"
+                    item-key="type"
+                    :animation="200"
+                    class="widgets-grid"
+                >
                     <template #item="{ element }">
-                        <div class="component-item" @click="addComponent(element)">
-                            <el-icon>
-                                <component :is="element.icon"></component>
-                            </el-icon>
+                        <div class="component-item" @click="addWidget(element)">
+                            <el-icon><component :is="getIcon(element.icon)" /></el-icon>
                             <span>{{ element.label }}</span>
                         </div>
                     </template>
                 </draggable>
             </div>
         </div>
-        <!-- 中间设计区域 -->
+
+        <!-- 2. 中间画布工作区 -->
         <div class="design-area">
             <div class="section-header">
-                <div style="display: flex; justify-content: space-between; align-items: center; width: 100%">
-                    <h4 style="margin: 0px">{{ formConfig.name }}</h4>
-                    <div>
-                        <el-button type="primary" size="small" @click="openGeneratedCodeDialog">生成代码</el-button>
-                        <el-button type="primary" size="small" @click="saveFormSchema">保存</el-button>
+                <div class="canvas-header-bar">
+                    <span class="form-title-badge">{{ formConfig.name || '未命名表单' }}</span>
+                    <div class="header-actions">
+                        <el-button size="small" @click="clearCanvas">清空画布</el-button>
+                        <el-button type="primary" size="small" @click="saveFormSchema">保存表单</el-button>
                     </div>
                 </div>
             </div>
-            <div class="section-content">
+
+            <div class="section-content canvas-scroll">
                 <div class="form-canvas">
                     <el-form
-                        style="height: 100%; width: 100%"
                         :label-position="formConfig.labelPosition"
                         :size="formConfig.size"
-                        :model="formData"
                         :label-width="formConfig.labelWidth + 'px'"
+                        style="min-height: 100%"
                     >
                         <draggable
-                            style="width: 100%; height: 100%"
                             v-model="formItems"
                             item-key="id"
-                            ghost-class="ghost"
+                            :group="{ name: 'form-items', pull: true, put: true }"
+                            ghost-class="ghost-canvas-item"
                             handle=".drag-handle"
-                            @end="onDragEnd"
                             :animation="200"
-                            @drop="onDrop"
-                            @dragover.prevent
-                            group="form-items"
+                            style="min-height: 400px; height: 100%"
+                            @change="handleCanvasChange"
                         >
                             <template #item="{ element, index }">
-                                <div>
-                                    <!-- 栅格布局组件 -->
-                                    <div
-                                        v-if="element.type === 'grid'"
-                                        class="form-item-wrapper grid-container"
-                                        :class="{ active: currentItem?.id === element.id }"
-                                        @click="selectItem(element)"
-                                    >
-                                        <el-icon class="drag-handle">
-                                            <Rank />
-                                        </el-icon>
-                                        <el-row :gutter="element.props.gutter">
-                                            <el-col v-for="(col, colIndex) in element.props.columns" :key="colIndex" :span="col.span">
-                                                <div
-                                                    class="grid-col-content"
-                                                    :class="{ 'grid-col-active': currentGridCol?.colIndex === colIndex && currentItem?.id === element.id }"
-                                                    @click.stop="selectGridCol(element, colIndex)"
-                                                >
-                                                    <draggable
-                                                        v-model="col.list"
-                                                        item-key="id"
-                                                        ghost-class="ghost"
-                                                        group="form-items"
-                                                        :animation="200"
-                                                        style="min-height: 50px; height: 100%"
-                                                    >
-                                                        <template #item="{ element: colElement, index: colElementIndex }">
-                                                            <div
-                                                                class="form-item-wrapper"
-                                                                :class="{ active: currentColItem?.id === colElement.id }"
-                                                                @click.stop="selectColItem(colElement, element, colIndex)"
-                                                            >
-                                                                <el-form-item :label="colElement.props.label" :required="colElement.props.required" style="width: 100%">
-                                                                    <div v-if="colElement.type === 'upload'" style="padding: 6px 0">
-                                                                        <el-button type="primary" plain size="small">
-                                                                            <el-icon style="margin-right: 4px"><UploadFilled /></el-icon>上传发票/附件
-                                                                        </el-button>
-                                                                        <div style="font-size: 12px; color: #909399; margin-top: 4px">{{ colElement.props.tip || '支持上传发票图片或PDF' }}</div>
-                                                                    </div>
-                                                                    <component v-else :is="colElement.component" v-bind="colElement.props" v-model="formData[colElement.id]">
-                                                                        <template v-if="colElement.type === 'select'">
-                                                                            <el-option
-                                                                                v-for="option in colElement.props.options"
-                                                                                :key="option.value"
-                                                                                :label="option.label"
-                                                                                :value="option.value"
-                                                                            ></el-option>
-                                                                        </template>
-                                                                        <template v-if="colElement.type === 'radio'">
-                                                                            <el-radio v-for="option in colElement.props.options" :key="option.value" :value="option.value">{{
-                                                                                option.label
-                                                                            }}</el-radio>
-                                                                        </template>
-                                                                        <template v-if="colElement.type === 'checkbox'">
-                                                                            <el-checkbox v-for="option in colElement.props.options" :key="option.value" :value="option.value">{{
-                                                                                option.label
-                                                                            }}</el-checkbox>
-                                                                        </template>
-                                                                    </component>
-                                                                </el-form-item>
-                                                                <el-icon class="delete-icon" @click.stop="deleteColItem(colIndex, colElementIndex, element)">
-                                                                    <Delete />
-                                                                </el-icon>
-                                                            </div>
-                                                        </template>
-                                                        <template #footer>
-                                                            <div v-if="col.list.length === 0" class="empty-tip grid-empty-tip" style="text-align: center; padding: 10px">
-                                                                拖拽组件到此处
-                                                            </div>
-                                                        </template>
-                                                    </draggable>
-                                                    <!-- <div v-if="col.list.length === 0" class="empty-tip grid-empty-tip">拖拽组件到此处</div> -->
-                                                </div>
-                                            </el-col>
-                                        </el-row>
-                                        <el-icon class="delete-icon" @click.stop="deleteItem(index)">
-                                            <Delete />
-                                        </el-icon>
-                                    </div>
-                                    <!-- 普通组件 -->
-                                    <div v-else class="form-item-wrapper" :class="{ active: currentItem?.id === element.id }" @click="selectItem(element)">
-                                        <el-icon class="drag-handle">
-                                            <Rank />
-                                        </el-icon>
-                                        <el-form-item :label="element.props.label" :required="element.props.required" style="width: 100%">
-                                            <div v-if="element.type === 'upload'" style="padding: 6px 0">
-                                                <el-button type="primary" plain size="small">
-                                                    <el-icon style="margin-right: 4px"><UploadFilled /></el-icon>上传发票/附件
-                                                </el-button>
-                                                <div style="font-size: 12px; color: #909399; margin-top: 4px">{{ element.props.tip || '支持上传发票图片或PDF' }}</div>
-                                            </div>
-                                            <component v-else :is="element.component" v-bind="element.props" v-model="formData[element.id]">
-                                                <template v-if="element.type === 'select'">
-                                                    <el-option v-for="option in element.props.options" :key="option.value" :label="option.label" :value="option.value"></el-option>
-                                                </template>
-                                                <template v-if="element.type === 'radio'">
-                                                    <el-radio v-for="option in element.props.options" :key="option.value" :value="option.value">{{ option.label }}</el-radio>
-                                                </template>
-                                                <template v-if="element.type === 'checkbox'">
-                                                    <el-checkbox v-for="option in element.props.options" :key="option.value" :value="option.value">{{ option.label }}</el-checkbox>
-                                                </template>
-                                            </component>
-                                        </el-form-item>
-                                        <el-icon class="delete-icon" @click.stop="deleteItem(index)">
-                                            <Delete />
-                                        </el-icon>
-                                    </div>
+                                <div class="canvas-item-slot-wrapper">
+                                    <DesignItemRenderer
+                                        :element="element"
+                                        :current-item="currentItem"
+                                        :form-data="formData"
+                                        @select="selectItem"
+                                        @delete="() => deleteItem(index)"
+                                        @delete-child="handleDeleteChild"
+                                    />
                                 </div>
                             </template>
-                            <template #footer v-if="formItems.length === 0">
-                                <div class="empty-tip">请从左侧拖拽组件到此处</div>
+
+                            <template #footer>
+                                <div v-if="formItems.length === 0" class="canvas-empty-placeholder">
+                                    <el-icon :size="48" color="#c0c4cc"><Grid /></el-icon>
+                                    <p>从左侧拖拽或点击物料组件添加到画布</p>
+                                </div>
                             </template>
                         </draggable>
                     </el-form>
@@ -188,24 +102,74 @@
             </div>
         </div>
 
-        <!-- 右侧配置面板 -->
+        <!-- 3. 右侧属性配置面板 -->
         <div class="config-panel">
-            <div class="section-header" style="padding: 7px 16px; height: auto">
-                <el-tabs v-model="activeTab">
-                    <el-tab-pane label="表单配置" name="form"></el-tab-pane>
-                    <el-tab-pane label="组件配置" name="component"></el-tab-pane>
-                    <el-tab-pane label="栅格配置" name="grid" v-if="currentItem && currentItem.type === 'grid'"></el-tab-pane>
+            <div class="section-header tab-header">
+                <el-tabs v-model="activeTab" style="width: 100%">
+                    <el-tab-pane label="组件配置" name="component" />
+                    <el-tab-pane label="表单全局" name="form" />
                 </el-tabs>
             </div>
-            <div class="section-content">
-                <!-- 表单配置 -->
-                <div v-if="activeTab === 'form'" class="form-config">
-                    <el-form label-width="80px" size="small" label-position="left">
+
+            <div class="section-content config-scroll">
+                <!-- 3.1 组件专属配置 -->
+                <div v-if="activeTab === 'component'">
+                    <div v-if="currentItem">
+                        <el-form label-width="85px" label-position="left" size="small">
+                            <!-- 公共基础属性（非栅格） -->
+                            <template v-if="currentItem.type !== 'grid'">
+                                <div class="config-section-title">基础属性</div>
+                                <el-form-item label="标签名称">
+                                    <el-input v-model="currentItem.props.label" />
+                                </el-form-item>
+                                <el-form-item label="绑定字段">
+                                    <el-input v-model="currentItem.id" placeholder="英文标识，如: reason, amount" />
+                                </el-form-item>
+                                <el-form-item label="占位提示" v-if="currentItem.props.placeholder !== undefined">
+                                    <el-input v-model="currentItem.props.placeholder" />
+                                </el-form-item>
+                                <el-form-item label="是否必填">
+                                    <el-switch v-model="currentItem.props.required" />
+                                </el-form-item>
+                                <el-form-item label="是否禁用">
+                                    <el-switch v-model="currentItem.props.disabled" />
+                                </el-form-item>
+                            </template>
+
+                            <!-- 物料专属动态属性面板 (组件解耦) -->
+                            <div class="config-section-title">专有属性</div>
+                            <component
+                                :is="activeSettingComponent"
+                                v-if="activeSettingComponent"
+                                :props-data="currentItem.props"
+                                :type="currentItem.type"
+                            />
+
+                            <!-- 计算字段配置 (非栅格组件支持) -->
+                            <template v-if="currentItem.type !== 'grid'">
+                                <div class="config-section-title">联动与计算</div>
+                                <ComputedFieldSetting
+                                    :item="currentItem"
+                                    :available-fields="getAvailableFields()"
+                                />
+                            </template>
+                        </el-form>
+                    </div>
+                    <div v-else class="empty-selection-tip">
+                        请在中间画布中点击选中要配置的组件
+                    </div>
+                </div>
+
+                <!-- 3.2 表单全局配置 -->
+                <div v-if="activeTab === 'form'">
+                    <el-form label-width="85px" size="small" label-position="left">
+                        <div class="config-section-title">全局样式</div>
                         <el-form-item label="表单名称">
-                            <el-input v-model="formConfig.name"></el-input>
+                            <el-input v-model="formConfig.name" />
                         </el-form-item>
                         <el-form-item label="标签宽度">
-                            <el-input-number v-model="formConfig.labelWidth" :min="50" :max="200"></el-input-number>
+                            <el-input-number v-model="formConfig.labelWidth" :min="60" :max="200" :step="10" />
+                            <span style="margin-left: 6px; font-size: 12px; color: #909399">px</span>
                         </el-form-item>
                         <el-form-item label="表单尺寸">
                             <el-radio-group v-model="formConfig.size">
@@ -214,960 +178,391 @@
                                 <el-radio-button value="small">小</el-radio-button>
                             </el-radio-group>
                         </el-form-item>
-                        <el-form-item label="标签位置">
+                        <el-form-item label="标签对齐">
                             <el-radio-group v-model="formConfig.labelPosition">
-                                <el-radio-button value="left">左对齐</el-radio-button>
                                 <el-radio-button value="right">右对齐</el-radio-button>
-                                <el-radio-button value="top">顶部对齐</el-radio-button>
+                                <el-radio-button value="left">左对齐</el-radio-button>
+                                <el-radio-button value="top">顶部</el-radio-button>
                             </el-radio-group>
-                        </el-form-item>
-                    </el-form>
-                </div>
-
-                <!-- 组件配置 -->
-                <div v-if="activeTab === 'component'" class="component-config">
-                    <div v-if="currentItem">
-                        <el-form label-width="85px" label-position="left" size="small">
-                            <el-form-item label="标签文本" v-if="currentItem.type !== 'grid'">
-                                <el-input v-model="currentItem.props.label"></el-input>
-                            </el-form-item>
-                            <el-form-item label="占位提示" v-if="currentItem.type !== 'grid'">
-                                <el-input v-model="currentItem.props.placeholder"></el-input>
-                            </el-form-item>
-                            <el-form-item label="是否必填" v-if="currentItem.type !== 'grid'">
-                                <el-switch v-model="currentItem.props.required"></el-switch>
-                            </el-form-item>
-                            <el-form-item label="是否禁用" v-if="currentItem.type !== 'grid'">
-                                <el-switch v-model="currentItem.props.disabled"></el-switch>
-                            </el-form-item>
-
-                            <!-- 针对不同组件类型的特定配置 -->
-                            <template v-if="currentItem.type === 'input'">
-                                <el-form-item label="最大长度">
-                                    <el-input-number v-model="currentItem.props.maxlength"></el-input-number>
-                                </el-form-item>
-                                <el-form-item label="显示计数">
-                                    <el-switch v-model="currentItem.props.showWordLimit"></el-switch>
-                                </el-form-item>
-                                <el-form-item label="可清除">
-                                    <el-switch v-model="currentItem.props.clearable"></el-switch>
-                                </el-form-item>
-                            </template>
-
-                            <template v-if="currentItem.type === 'select' || currentItem.type === 'checkbox' || currentItem.type === 'radio'">
-                                <el-form-item label="选项">
-                                    <div v-for="(option, idx) in currentItem.props.options" :key="idx" class="option-item">
-                                        <el-input v-model="option.label" placeholder="选项名称" class="option-input"></el-input>
-                                        <el-input v-model="option.value" placeholder="选项值" class="option-input"></el-input>
-                                        <el-button @click="removeOption(idx)" type="danger" size="small" circle>
-                                            <el-icon>
-                                                <Delete />
-                                            </el-icon>
-                                        </el-button>
-                                    </div>
-                                    <el-button @click="addOption" type="primary" size="small">添加选项</el-button>
-                                </el-form-item>
-                                <el-form-item label="数据源API">
-                                    <el-input v-model="currentItem.props.apiUrl" placeholder="如: /api/employees 或 /api/enums/leaveType" />
-                                    <div style="font-size: 12px; color: #999; margin-top: 5px">留空则使用静态选项，填写后将动态加载数据</div>
-                                </el-form-item>
-                                <el-form-item label="多选" v-if="currentItem.type !== 'radio'">
-                                    <el-switch v-model="currentItem.props.multiple"></el-switch>
-                                </el-form-item>
-                                <el-form-item label="可清除">
-                                    <el-switch v-model="currentItem.props.clearable"></el-switch>
-                                </el-form-item>
-                                <el-form-item label="可筛选">
-                                    <el-switch v-model="currentItem.props.filterable"></el-switch>
-                                </el-form-item>
-                            </template>
-
-                            <template v-if="currentItem.type === 'date-picker'">
-                                <el-form-item label="显示格式">
-                                    <el-input v-model="currentItem.props.format" placeholder="例如 YYYY-MM-DD"></el-input>
-                                </el-form-item>
-                                <el-form-item label="绑定值格式">
-                                    <el-input v-model="currentItem.props.valueFormat" placeholder="例如 YYYY-MM-DD"></el-input>
-                                </el-form-item>
-                            </template>
-
-                            <template v-if="currentItem.type === 'switch'">
-                                <el-form-item label="开启时文字">
-                                    <el-input v-model="currentItem.props.activeText"></el-input>
-                                </el-form-item>
-                                <el-form-item label="关闭时文字">
-                                    <el-input v-model="currentItem.props.inactiveText"></el-input>
-                                </el-form-item>
-                            </template>
-
-                            <template v-if="currentItem.type === 'upload'">
-                                <el-form-item label="允许格式">
-                                    <el-input v-model="currentItem.props.accept" placeholder="如 .jpg,.jpeg,.png,.pdf" />
-                                </el-form-item>
-                                <el-form-item label="最大张数">
-                                    <el-input-number v-model="currentItem.props.limit" :min="1" :max="30" />
-                                </el-form-item>
-                                <el-form-item label="大小限制(MB)">
-                                    <el-input-number v-model="currentItem.props.maxSize" :min="1" :max="50" />
-                                </el-form-item>
-                                <el-form-item label="提示文字">
-                                    <el-input v-model="currentItem.props.tip" placeholder="上传说明" />
-                                </el-form-item>
-                            </template>
-
-                            <el-form-item label="绑定字段" v-if="currentItem && currentItem.type !== 'grid'">
-                                <el-input v-model="currentItem.id" placeholder="如: username, email" clearable="true"></el-input>
-                            </el-form-item>
-
-                            <!-- 计算字段配置，仅对 input 类型 -->
-                            <!-- <template v-if="currentItem.type === 'input'"> -->
-                            <el-form-item label="是否计算字段">
-                                <el-switch v-model="currentItem.props.isComputed"></el-switch>
-                            </el-form-item>
-                            <el-form-item label="依赖字段" v-if="currentItem.props.isComputed">
-                                <el-select v-model="currentItem.props.dependencies" multiple placeholder="选择依赖字段">
-                                    <el-option v-for="field in getAvailableFields()" :key="field.id" :label="field.props.label" :value="field.id" />
-                                </el-select>
-                            </el-form-item>
-                            <el-form-item label="计算表达式" v-if="currentItem.props.isComputed">
-                                <el-input v-model="currentItem.props.computedExpression" placeholder="如: (endDate - startDate) / (1000*60*60*24)" />
-                                <div style="font-size: 12px; color: #999">支持 JS 表达式，引用字段 ID</div>
-                            </el-form-item>
-                            <!-- </template> -->
-                        </el-form>
-                    </div>
-                    <div v-else class="empty-tip">请选择要配置的组件</div>
-                </div>
-
-                <!-- 栅格配置 -->
-                <div v-if="activeTab === 'grid' && currentItem && currentItem.type === 'grid'" class="grid-config">
-                    <el-form label-width="80px" size="small" label-position="left">
-                        <el-form-item label="栅格间隔">
-                            <el-input-number v-model="currentItem.props.gutter" :min="0" :max="40" :step="5"></el-input-number>
-                        </el-form-item>
-                        <el-form-item label="列配置">
-                            <div v-for="(col, idx) in currentItem.props.columns" :key="idx" class="column-config">
-                                <div class="column-header">
-                                    <span>列 {{ idx + 1 }}</span>
-                                    <el-button @click="removeGridColumn(idx)" type="danger" size="small" circle v-if="currentItem.props.columns.length > 1">
-                                        <el-icon>
-                                            <Delete />
-                                        </el-icon>
-                                    </el-button>
-                                </div>
-                                <el-form-item label="宽度占比">
-                                    <el-slider v-model="col.span" :min="1" :max="24" :step="1" show-stops></el-slider>
-                                    <div class="span-display">{{ col.span }}/24</div>
-                                </el-form-item>
-                            </div>
-                            <el-button @click="addGridColumn" type="primary" size="small" :disabled="currentItem.props.columns.length >= 4">添加列</el-button>
                         </el-form-item>
                     </el-form>
                 </div>
             </div>
         </div>
-        <!-- 生成代码对话框 -->
-        <el-dialog v-model="showCodeDialog" title="生成的 Vue 代码" width="70%" top="5vh" custom-class="code-dialog">
-            <div style="height: 70vh; overflow: auto; padding: 10px; border-radius: 4px">
-                <!-- <MarkdownRender :is-dark="false" :content="'```vue\n' + generatedVueCode + '\n```'" /> -->
-                <!-- {{ generatedVueCode }} -->
-                <!-- <pre><code class="language-html" style="white-space: pre-wrap; word-wrap: break-word;">{{ generatedVueCode
-                }}</code></pre> -->
-            </div>
-            <template #footer>
-                <span class="dialog-footer">
-                    <el-button @click="showCodeDialog = false">取消</el-button>
-                    <el-button type="primary" @click="copyGeneratedCode">复制代码</el-button>
-                </span>
-            </template>
-        </el-dialog>
     </div>
 </template>
 
 <script setup>
-// import MarkdownIt from 'markdown-it';
-// import hljs from 'highlight.js';
-// import 'highlight.js/styles/atom-one-dark.css';
-// import xml from 'highlight.js/lib/languages/xml';
-// hljs.registerLanguage('vue', xml);
-// import { MarkdownRender } from 'markstream-vue';
-// import 'markstream-vue/index.css';
-// import 'katex/dist/katex.min.css';
-
-import { ref, reactive, computed, nextTick, getCurrentInstance, onMounted } from 'vue';
-import { ElMessage, ElDialog, ElButton } from 'element-plus';
-const { proxy } = getCurrentInstance();
-import { useRoute } from 'vue-router';
-const route = useRoute();
-const { idkey } = route.query;
-// 例如: export const copyText = (text) => navigator.clipboard.writeText(text);
-import { copyText } from '@/utils/copy';
+import { ref, reactive, computed, onMounted, getCurrentInstance } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 import draggable from 'vuedraggable/src/vuedraggable';
-import { Delete, Rank, Edit, Select, Switch, Calendar, Document, List, Menu, Grid, UploadFilled } from '@element-plus/icons-vue';
-// 初始化 markdown-it
-// const md = new MarkdownIt({
-//     html: true,
-//     highlight: function (str, lang) {
-//         if (lang && hljs.getLanguage(lang)) {
-//             try {
-//                 return hljs.highlight(str, { language: lang }).value;
-//             } catch (__) {}
-//         }
-//         return '';
-//     },
-// });
-onMounted(() => {
-    if (idkey) {
-        getDesignQuery();
-    }
-});
+import {
+    Edit,
+    Document,
+    Select,
+    Switch,
+    Calendar,
+    List,
+    Menu,
+    Grid,
+    UploadFilled,
+    Odometer,
+} from '@element-plus/icons-vue';
+import { ElMessage, ElMessageBox } from 'element-plus';
 
-const getDesignQuery = async () => {
-    try {
-        const data = await proxy.$api.designDetail({ id: idkey });
-        if (data.code == 200) {
-            console.log(data.data);
+import { fieldWidgets, containerWidgets, getWidget } from './widgets/index.js';
+import DesignItemRenderer from './designer/DesignItemRenderer.vue';
+import ComputedFieldSetting from './designer/ComputedFieldSetting.vue';
 
-            Object.assign(formConfig, data.data.ui_config, {
-                name: data.data.name,
-                description: data.data.description,
-                status: data.data.status,
-            });
+const { proxy } = getCurrentInstance();
+const route = useRoute();
+const router = useRouter();
+const { idkey } = route.query;
 
-            formItems.value = JSON.parse(data.data.schema);
-        }
-    } catch (error) {
-        console.log(error);
-    }
+// 图标字典
+const iconMap = {
+    Edit,
+    Document,
+    Select,
+    Switch,
+    Calendar,
+    List,
+    Menu,
+    Grid,
+    UploadFilled,
+    Odometer,
 };
+const getIcon = iconName => iconMap[iconName] || Edit;
 
-// 组件列表数据
-const componentList = [
-    { type: 'input', label: '单行文本', icon: 'Edit', component: 'el-input' },
-    { type: 'textarea', label: '多行文本', icon: 'Document', component: 'el-input' },
-    { type: 'select', label: '下拉选择', icon: 'Select', component: 'el-select' },
-    { type: 'switch', label: '开关', icon: 'Switch', component: 'el-switch' },
-    { type: 'date-picker', label: '日期选择器', icon: 'Calendar', component: 'el-date-picker' },
-    { type: 'radio', label: '单选框组', icon: 'List', component: 'el-radio-group' },
-    { type: 'checkbox', label: '多选框组', icon: 'Menu', component: 'el-checkbox-group' },
-    { type: 'upload', label: '附件/发票上传', icon: 'UploadFilled', component: 'el-upload' },
-];
-
-// 栅格布局组件
-const gridLayoutComponent = {
-    type: 'grid',
-    label: '栅格布局',
-    icon: 'Grid',
-    component: 'el-row',
-};
-
-// 表单数据
-const formData = reactive({});
-const formItems = ref([]);
-const currentItem = ref(null);
-const currentGridCol = ref(null); // 当前选中的栅格列
-const currentColItem = ref(null); // 当前选中的栅格列中的组件
-const activeTab = ref('form');
-
-// 生成代码对话框相关
-const showCodeDialog = ref(false);
-const generatedVueCode = ref('');
-
-const openGeneratedCodeDialog = () => {
-    generatedVueCode.value = generateVueCode();
-    showCodeDialog.value = true;
-};
-
-// 获取可用的依赖字段
-const getAvailableFields = () => {
-    const fields = [];
-    // 遍历所有表单项，收集可作为依赖的字段
-    const traverseItems = items => {
-        items.forEach(item => {
-            if (item.type === 'grid') {
-                // 处理栅格列内的字段
-                console.log(item);
-                item.props.columns.forEach(col => traverseItems(col.list));
-            } else {
-                fields.push(item);
-            }
-            //  else if (item.id !== currentItem.value?.id) {
-            //     // 排除自身
-            //     fields.push(item);
-            // }
-        });
-    };
-    traverseItems(formItems.value);
-    return fields;
-};
-
-// 保存
-const saveFormSchema = async () => {
-    try {
-        console.log(formConfig, formItems.value);
-        const formData = {
-            id: idkey || '', // 如果是编辑，用已有ID
-            name: formConfig.name,
-            description: '', // 可扩展(说明)
-            schema: JSON.stringify(formItems.value), // 组件结构
-            ui_config: {
-                // UI配置
-                labelWidth: formConfig.labelWidth,
-                size: formConfig.size,
-                labelPosition: formConfig.labelPosition,
-            },
-            status: 2, // 1=发布 2 = 草稿
-        };
-        console.log(formData);
-        const res = await proxy.$api.designAdd(formData);
-        if (res.code == 200) {
-            proxy.$message.success('保存成功');
-            proxy.$router.push('/home/formDesignList');
-        } else {
-            proxy.$message.error(res.message);
-        }
-    } catch (error) {
-        console.error(error);
-    }
-};
-
-const copyGeneratedCode = async () => {
-    try {
-        await copyText(generatedVueCode.value);
-        ElMessage.success('代码已复制到剪贴板');
-    } catch (err) {
-        ElMessage.error('复制失败，请手动复制');
-        console.error('Failed to copy: ', err);
-    }
-};
-
-// 组件模板生成器
-const componentTemplates = {
-    select: (item, formKey) => `
-        <el-select v-model="formData.${formKey}" ${getProps(item.props)}>
-            ${item.props.options?.map(opt => `<el-option label="${opt.label}" value="${opt.value}" />`).join('\n            ')}
-        </el-select>`,
-
-    input: (item, formKey) => `<el-input v-model="formData.${formKey}" ${getProps(item.props)} />`,
-
-    'date-picker': (item, formKey) => `<el-date-picker v-model="formData.${formKey}" ${getProps(item.props)} />`,
-
-    switch: (item, formKey) => `<el-switch v-model="formData.${formKey}" ${getProps(item.props)} />`,
-
-    radio: (item, formKey) => `
-        <el-radio-group v-model="formData.${formKey}" ${getProps(item.props)}>
-            ${item.props.options?.map(opt => `<el-radio :label="${JSON.stringify(opt.value)}">${opt.label}</el-radio>`).join('\n            ')}
-        </el-radio-group>`,
-
-    checkbox: (item, formKey) => `
-        <el-checkbox-group v-model="formData.${formKey}" ${getProps(item.props)}>
-            ${item.props.options?.map(opt => `<el-checkbox :label="${JSON.stringify(opt.value)}">${opt.label}</el-checkbox>`).join('\n            ')}
-        </el-checkbox-group>`,
-
-    upload: (item, formKey) => `
-        <el-upload
-            action="/api/upload/uploadFile"
-            name="avatar"
-            :limit="${item.props.limit || 10}"
-            accept="${item.props.accept || '.jpg,.jpeg,.png,.pdf'}"
-            list-type="picture"
-        >
-            <el-button type="primary" size="small">上传发票/附件</el-button>
-            <template #tip>
-                <div class="el-upload__tip">${item.props.tip || '支持jpg/png/pdf格式'}</div>
-            </template>
-        </el-upload>`,
-};
-
-// 属性处理函数
-const getProps = props => {
-    const excludeProps = ['label', 'required', 'options', 'defaultValue'];
-    return Object.entries(props)
-        .filter(([key, value]) => !excludeProps.includes(key) && value !== undefined && value !== '' && value !== false)
-        .map(([key, value]) => {
-            if (typeof value === 'string') {
-                // 字符串：直接静态绑定，不需要 :，用单引号避免嵌套问题
-                return `${key}='${value.replace(/'/g, "\\'")}'`;
-            } else {
-                // 非字符串（布尔、数字等）：动态绑定
-                return `:${key}="${value}"`;
-            }
-        })
-        .join(' ');
-};
-
-// 生成表单项
-const generateFormItem = item => {
-    const template = componentTemplates[item.type];
-    if (!template) return '';
-
-    return `
-    <el-form-item
-      label="${item.props.label}"
-      prop="${item.id}"
-      ${item.props.required ? ':required="true"' : ''}>
-      ${template(item, item.id)}
-    </el-form-item>`;
-};
-
-// 生成栅格列
-const generateGridColumn = column => {
-    if (!column.list?.length) {
-        return '        <div class="empty-col">空栅格列</div>';
-    }
-    return column.list.map(item => generateFormItem(item)).join('\n');
-};
-
-// 主生成函数
-const generateVueCode = () => {
-    // 生成模板
-    const template = `<template>
-  <el-form
-    :model="formData"
-    label-width="${formConfig.labelWidth}px"
-    label-position="${formConfig.labelPosition}"
-    size="${formConfig.size}">
-${formItems.value
-    .map(item => {
-        if (item.type === 'grid') {
-            return `      <el-row :gutter="${item.props.gutter || 0}">
-${item.props.columns
-    .map(
-        col =>
-            `        <el-col :span="${col.span}">
-${generateGridColumn(col)}
-      </el-col>`,
-    )
-    .join('\n')}
-    </el-row>`;
-        }
-        return generateFormItem(item);
-    })
-    .join('\n')}
-  </el-form>
-</template>`;
-
-    return template;
-};
-
-// 收集表单默认值
-const collectFormDataDefaults = items => {
-    const defaults = {
-        input: '',
-        textarea: '',
-        select: props => (props.multiple ? [] : null),
-        switch: false,
-        'date-picker': null,
-        radio: null,
-        checkbox: [],
-        upload: [],
-    };
-
-    return items.reduce((acc, item) => {
-        if (item.type === 'grid') {
-            item.props.columns.forEach(col => {
-                if (col.list) {
-                    Object.assign(acc, collectFormDataDefaults(col.list));
-                }
-            });
-        } else {
-            acc[item.id] = item.props.defaultValue ?? (typeof defaults[item.type] === 'function' ? defaults[item.type](item.props) : (defaults[item.type] ?? null));
-        }
-        return acc;
-    }, {});
-};
-// 表单配置
-let formConfig = reactive({
-    name: '未命名表单',
+// 表单全局配置
+const formConfig = reactive({
+    name: '未命名动态表单',
     labelWidth: 100,
     size: 'default',
     labelPosition: 'right',
 });
 
-// 克隆组件
-const cloneComponent = item => {
-    return createComponentConfig(item);
+// 画布数据模型
+const formItems = ref([]);
+const currentItem = ref(null);
+const formData = reactive({});
+const activeTab = ref('form');
+
+// 当前选中物料的专有属性面板组件
+const activeSettingComponent = computed(() => {
+    if (!currentItem.value) return null;
+    const widget = getWidget(currentItem.value.type);
+    return widget?.settingComponent || null;
+});
+
+// 初始化加载
+onMounted(() => {
+    if (idkey) {
+        getDesignDetail();
+    }
+});
+
+const getDesignDetail = async () => {
+    try {
+        const res = await proxy.$api.designDetail({ id: idkey });
+        if (res.code === 200 && res.data) {
+            Object.assign(formConfig, res.data.ui_config || {}, {
+                name: res.data.name,
+                description: res.data.description,
+                status: res.data.status,
+            });
+            formItems.value = JSON.parse(res.data.schema || '[]');
+            if (formItems.value.length > 0) {
+                selectItem(formItems.value[0]);
+            }
+        }
+    } catch (err) {
+        console.error('获取表单详情失败:', err);
+    }
 };
 
-// 拖拽结束
-const onDragEnd = () => {
-    // 可以在这里添加拖拽结束后的逻辑
+// 拖拽克隆物料 (深拷贝纯净对象，附带全新高熵 ID)
+const cloneWidget = element => {
+    const fresh = element.createDefault();
+    return JSON.parse(JSON.stringify(fresh));
 };
 
-// 处理拖拽放置
-const onDrop = event => {
-    // 使用draggable组件的内部处理，不需要手动处理
-    event.preventDefault();
-};
-
-// 添加组件
-const addComponent = item => {
-    const newItem = createComponentConfig(item);
+// 点击直接追加物料
+const addWidget = element => {
+    const newItem = cloneWidget(element);
     formItems.value.push(newItem);
     selectItem(newItem);
-    ElMessage.success(`已添加${item.label}组件`);
+    ElMessage.success(`已添加【${element.label}】`);
 };
 
-// 创建组件配置
-const createComponentConfig = item => {
-    const newId = `${item.type}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-    const baseConfig = {
-        id: newId,
-        component: item.component,
-        type: item.type,
-        props: {
-            label: item.label,
-            placeholder: `请输入${item.label}`,
-            required: false,
-            disabled: false,
-
-            // 计算字段相关默认值
-            isComputed: false,
-            dependencies: [], // 计算字段依赖的组件ID
-            computedExpression: '', // 计算表达式
-        },
-    };
-    if (item.type !== 'grid') {
-        let defaultValue = null;
-        if (item.type === 'switch') {
-            defaultValue = false;
-        } else if (item.type === 'checkbox' || item.type === 'upload') {
-            defaultValue = [];
-        } else if (item.type === 'input' || item.type === 'textarea') {
-            defaultValue = '';
-        }
-        formData[newId] = defaultValue;
+// 监听画布变动（当物料拖入时自动激活选中）
+const handleCanvasChange = evt => {
+    if (evt.added) {
+        selectItem(evt.added.element);
     }
-
-    // 根据组件类型添加特定配置
-    switch (item.type) {
-        case 'input':
-            baseConfig.props.maxlength = 100;
-            baseConfig.props.showWordLimit = true;
-            baseConfig.props.clearable = false;
-            break;
-        case 'textarea':
-            baseConfig.props.type = 'textarea';
-            baseConfig.props.rows = 3;
-            baseConfig.props.maxlength = 300;
-            baseConfig.props.showWordLimit = true;
-            break;
-        case 'select':
-            baseConfig.props.options = [{ label: '选项1', value: 'option1' }];
-            baseConfig.props.apiUrl = '';
-            baseConfig.props.multiple = false;
-            baseConfig.props.clearable = false;
-            baseConfig.props.filterable = false;
-            break;
-        case 'radio':
-            baseConfig.props.options = [
-                { label: '选项1', value: 'option1' },
-                { label: '选项2', value: 'option2' },
-            ];
-            break;
-        case 'checkbox':
-            baseConfig.props.options = [{ label: '选项1', value: 'option1' }];
-            baseConfig.props.apiUrl = '';
-            baseConfig.props.options = [
-                { label: '选项1', value: 'option1' },
-                { label: '选项2', value: 'option2' },
-            ];
-            break;
-        case 'date-picker':
-            baseConfig.props.type = 'date';
-            baseConfig.props.placeholder = '请选择日期';
-            baseConfig.props.format = 'YYYY-MM-DD';
-            baseConfig.props.valueFormat = 'YYYY-MM-DD';
-            break;
-        case 'switch':
-            baseConfig.props.activeText = '';
-            baseConfig.props.inactiveText = '';
-            break;
-        case 'upload':
-            baseConfig.props.accept = '.jpg,.jpeg,.png,.pdf';
-            baseConfig.props.limit = 10;
-            baseConfig.props.maxSize = 10;
-            baseConfig.props.tip = '支持上传 jpg/png/pdf 格式发票附件，单文件不超过 10MB';
-            break;
-        case 'grid':
-            baseConfig.props.gutter = 20;
-            baseConfig.props.columns = [
-                { span: 12, list: [] },
-                { span: 12, list: [] },
-            ];
-            break;
-    }
-
-    return baseConfig;
 };
 
-// 选择组件
+// 选中某个组件
 const selectItem = item => {
-    console.log(item, '哈哈2');
     currentItem.value = item;
-    currentGridCol.value = null;
-    currentColItem.value = null;
-    activeTab.value = item.type === 'grid' ? 'grid' : 'component';
-};
-
-// 选择栅格列
-const selectGridCol = (gridItem, colIndex) => {
-    console.log(gridItem, colIndex, '哈哈');
-    currentItem.value = gridItem;
-    currentGridCol.value = { colIndex };
-    currentColItem.value = null;
-    activeTab.value = 'grid';
-};
-
-// 选择栅格列中的组件
-const selectColItem = (colElement, gridItem, colIndex) => {
-    currentItem.value = gridItem;
-    currentGridCol.value = { colIndex };
-    currentColItem.value = colElement;
     activeTab.value = 'component';
-    selectItem(colElement);
 };
 
-// 删除组件
+// 删除顶级组件
 const deleteItem = index => {
-    if (currentItem.value && currentItem.value.id === formItems.value[index].id) {
+    const deleted = formItems.value[index];
+    if (currentItem.value?.id === deleted.id) {
         currentItem.value = null;
-        currentGridCol.value = null;
-        currentColItem.value = null;
+        activeTab.value = 'form';
     }
-    const deletedItemId = formItems.value[index].id;
-    delete formData[deletedItemId];
+    delete formData[deleted.id];
     formItems.value.splice(index, 1);
     ElMessage.success('已删除组件');
 };
 
-// 删除栅格列中的组件
-const deleteColItem = (colIndex, itemIndex, gridItem) => {
-    if (currentColItem.value && currentColItem.value.id === gridItem.props.columns[colIndex].list[itemIndex].id) {
-        currentColItem.value = null;
+// 删除容器内的子组件
+const handleDeleteChild = ({ colIndex, index, parent }) => {
+    if (parent?.props?.columns?.[colIndex]?.list) {
+        const targetList = parent.props.columns[colIndex].list;
+        const deleted = targetList[index];
+        if (currentItem.value?.id === deleted.id) {
+            currentItem.value = null;
+            activeTab.value = 'form';
+        }
+        delete formData[deleted.id];
+        targetList.splice(index, 1);
+        ElMessage.success('已删除子组件');
     }
-    const deletedColItemId = gridItem.props.columns[colIndex].list[itemIndex].id;
-    delete formData[deletedColItemId];
-    gridItem.props.columns[colIndex].list.splice(itemIndex, 1);
-    ElMessage.success('已删除组件');
 };
 
-// 添加栅格列
-const addGridColumn = () => {
-    if (!currentItem.value || currentItem.value.type !== 'grid') return;
-
-    const columns = currentItem.value.props.columns;
-    if (columns.length >= 4) {
-        ElMessage.warning('最多支持4列');
-        return;
-    }
-
-    // 重新计算每列的宽度，保持总宽度为24
-    const newColCount = columns.length + 1;
-    const baseSpan = Math.floor(24 / newColCount);
-    const remainder = 24 % newColCount;
-
-    // 更新现有列的宽度
-    columns.forEach((col, index) => {
-        col.span = baseSpan + (index < remainder ? 1 : 0);
-    });
-
-    // 添加新列
-    columns.push({
-        span: baseSpan,
-        list: [],
-    });
-
-    ElMessage.success('已添加新列');
-};
-
-// 删除栅格列
-const removeGridColumn = index => {
-    if (!currentItem.value || currentItem.value.type !== 'grid') return;
-
-    const columns = currentItem.value.props.columns;
-    if (columns.length <= 1) {
-        ElMessage.warning('至少保留一列');
-        return;
-    }
-
-    // 删除列
-    columns.splice(index, 1);
-
-    // 重新计算每列的宽度
-    const totalCols = columns.length;
-    const baseSpan = Math.floor(24 / totalCols);
-    const remainder = 24 % totalCols;
-
-    columns.forEach((col, idx) => {
-        col.span = baseSpan + (idx < remainder ? 1 : 0);
-    });
-
-    // 重置当前选中的列
-    if (currentGridCol.value && currentGridCol.value.colIndex === index) {
-        currentGridCol.value = null;
-    }
-
-    ElMessage.success('已删除列');
-};
-
-// 添加选项（用于select、radio、checkbox等）
-const addOption = () => {
-    if (!currentItem.value || !currentItem.value.props.options) return;
-
-    const options = currentItem.value.props.options;
-    options.push({
-        label: `选项${options.length + 1}`,
-        value: `option${options.length + 1}`,
+// 清空画布
+const clearCanvas = () => {
+    ElMessageBox.confirm('确定清空当前画布上的全部组件吗？', '提示', {
+        type: 'warning',
+    }).then(() => {
+        formItems.value = [];
+        currentItem.value = null;
+        activeTab.value = 'form';
+        ElMessage.success('画布已清空');
     });
 };
 
-// 删除选项
-const removeOption = index => {
-    if (!currentItem.value || !currentItem.value.props.options) return;
+// 收集可供计算字段依赖的普通字段
+const getAvailableFields = () => {
+    const fields = [];
+    const traverse = items => {
+        items.forEach(item => {
+            if (item.type === 'grid' && item.props?.columns) {
+                item.props.columns.forEach(col => traverse(col.list || []));
+            } else if (item.id !== currentItem.value?.id) {
+                fields.push(item);
+            }
+        });
+    };
+    traverse(formItems.value);
+    return fields;
+};
 
-    // if (currentItem.value.props.options.length <= 1) {
-    //     ElMessage.warning('至少保留一个选项');
-    //     return;
-    // }
+// 保存表单结构至后端
+const saveFormSchema = async () => {
+    try {
+        const payload = {
+            id: idkey || '',
+            name: formConfig.name,
+            description: '',
+            schema: JSON.stringify(formItems.value),
+            ui_config: {
+                labelWidth: formConfig.labelWidth,
+                size: formConfig.size,
+                labelPosition: formConfig.labelPosition,
+            },
+            status: 2, // 1=发布, 2=草稿
+        };
 
-    currentItem.value.props.options.splice(index, 1);
+        const res = await proxy.$api.designAdd(payload);
+        if (res.code === 200) {
+            ElMessage.success('表单已成功保存！');
+            router.push('/home/formDesignList');
+        } else {
+            ElMessage.error(res.message || '保存失败');
+        }
+    } catch (error) {
+        console.error('保存表单异常:', error);
+    }
 };
 </script>
 
 <style scoped>
 .form-design-container {
     display: flex;
-    height: 100vh;
-}
-
-/* 通用样式 - 固定标题和滚动内容 */
-.component-list,
-.design-area,
-.config-panel {
-    display: flex;
-    flex-direction: column;
+    height: calc(100vh - 106px);
+    background-color: #f0f2f5;
     overflow: hidden;
 }
 
-.section-header {
-    padding: 15px 20px;
-    border-bottom: 1px solid #ebeef5;
-    z-index: 10;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-}
-
-.section-content {
-    flex: 1;
-    overflow-y: auto;
-    padding: 8px;
-}
-
-/* 左侧组件列表 */
+/* 1. 左侧物料库 */
 .component-list {
     width: 250px;
-    border-right: 1px solid #dcdfe6;
+    background: #ffffff;
+    border-right: 1px solid #e4e7ed;
+    display: flex;
+    flex-direction: column;
+}
+
+.widget-group-title {
+    font-size: 12px;
+    font-weight: 600;
+    color: #909399;
+    margin-bottom: 8px;
+    padding-left: 2px;
+}
+
+.widgets-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
 }
 
 .component-item {
     display: flex;
     align-items: center;
-    padding: 8px;
-    margin-bottom: 10px;
-    cursor: pointer;
-    border: 1px solid #dcdfe6;
+    gap: 6px;
+    padding: 8px 10px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
     border-radius: 4px;
-    font-size: 14px;
+    cursor: move;
+    font-size: 12px;
+    color: #334155;
+    transition: all 0.2s ease;
+    user-select: none;
 }
 
 .component-item:hover {
-    border-color: #409eff;
+    color: #409eff;
+    border-color: #b3d8ff;
+    background: #ecf5ff;
 }
 
-.component-item .el-icon {
-    margin-right: 8px;
-    font-size: 18px;
-}
-
-/* 中间设计区域 */
+/* 2. 中间画布区 */
 .design-area {
     flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    background: #f1f5f9;
 }
 
-.form-canvas {
-    min-height: calc(100% - 40px);
-    padding: 20px;
-    border-radius: 4px;
-    box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
-}
-
-.form-item-wrapper {
-    position: relative;
-    padding: 10px;
-    margin-bottom: 10px;
-    border: 1px dashed #dcdfe6;
-    border-radius: 4px;
-}
-
-.form-item-wrapper:hover {
-    border-color: #409eff;
-}
-
-.form-item-wrapper.active {
-    border: 1px solid #409eff;
-}
-
-/* 栅格布局样式 */
-.grid-container {
-    padding: 15px;
-}
-
-.grid-col-content {
-    min-height: 80px;
-    padding: 10px;
-    border: 1px dashed #dcdfe6;
-    border-radius: 4px;
-    margin-bottom: 10px;
-}
-
-.grid-col-content:hover {
-    border-color: #409eff;
-}
-
-.grid-col-active {
-    border: 1px solid #409eff;
-}
-
-.grid-empty-tip {
-    margin: 5px 0;
-    padding: 10px;
-    font-size: 12px;
-}
-
-.column-config {
-    width: 100%;
-    margin-bottom: 10px;
-    padding: 8px;
-    border: 1px solid #ebeef5;
-    border-radius: 4px;
-}
-
-.column-header {
+.canvas-header-bar {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 10px;
-    font-weight: bold;
-}
-
-.span-display {
-    text-align: center;
-    color: #606266;
-}
-
-.drag-handle {
-    cursor: move;
-    position: absolute;
-    left: -20px;
-    top: 50%;
-    transform: translateY(-50%);
-    color: #909399;
-}
-
-.delete-icon {
-    position: absolute;
-    right: 5px;
-    bottom: 5px;
-    cursor: pointer;
-    color: #f56c6c;
-}
-
-.delete-icon:hover {
-    color: #f78989;
-}
-
-/* 右侧配置面板 */
-.config-panel {
-    width: 300px;
-    border-left: 1px solid #dcdfe6;
-}
-
-.empty-tip {
-    text-align: center;
-    color: #909399;
-    padding: 20px;
-    border: 1px dashed #dcdfe6;
-    border-radius: 4px;
-    margin: 20px 0;
-}
-
-.ghost {
-    opacity: 0.5;
-    background: #c8ebfb;
-}
-
-.option-item {
-    display: flex;
-    align-items: center;
-    margin-bottom: 10px;
-}
-
-.option-input {
-    margin-right: 10px;
-}
-
-.config-panel .el-form-item {
-    margin-bottom: 10px;
-}
-
-.config-panel .el-form-item__label {
-    font-size: 13px;
-    padding-right: 8px;
-}
-
-.config-panel .el-input__inner,
-.config-panel .el-input-number,
-.config-panel .el-select .el-input__inner,
-.config-panel .el-button {
-    font-size: 13px;
-}
-
-.config-panel .el-input-number {
     width: 100%;
 }
 
-.config-panel .el-slider {
-    margin-left: 5px;
-    margin-right: 15px;
+.form-title-badge {
+    font-weight: 600;
+    font-size: 15px;
+    color: #1e293b;
 }
 
-.config-panel .el-radio-button__inner {
+.canvas-scroll {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px;
+}
+
+.form-canvas {
+    background: #ffffff;
+    min-height: calc(100vh - 204px);
+    padding: 12px;
+    border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.canvas-item-slot-wrapper {
+    width: 100%;
+}
+
+.canvas-empty-placeholder {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 380px;
+    color: #94a3b8;
+    gap: 12px;
+}
+
+.ghost-canvas-item {
+    border: 2px dashed #409eff !important;
+    background: #ecf5ff !important;
+    opacity: 0.7;
+}
+
+/* 3. 右侧配置面板 */
+.config-panel {
+    width: 320px;
+    background: #ffffff;
+    border-left: 1px solid #e4e7ed;
+    display: flex;
+    flex-direction: column;
+}
+
+.section-header {
+    height: 48px;
+    padding: 0 16px;
+    display: flex;
+    align-items: center;
+    border-bottom: 1px solid #e4e7ed;
+    background: #ffffff;
+}
+
+.section-header h4 {
+    margin: 0;
+    font-size: 14px;
+    color: #1e293b;
+}
+
+.tab-header {
+    height: auto;
+    padding: 4px 16px 0;
+}
+
+.section-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 12px;
+}
+
+.config-scroll {
+    padding: 16px;
+}
+
+.config-section-title {
     font-size: 12px;
-    padding: 6px 10px;
+    font-weight: 700;
+    color: #475569;
+    margin: 12px 0 10px;
+    padding-bottom: 4px;
+    border-bottom: 1px solid #f1f5f9;
 }
 
-.config-panel .option-item .el-input {
-    margin-right: 5px;
+.config-section-title:first-child {
+    margin-top: 0;
 }
 
-.config-panel .option-item .el-button {
-    padding: 5px;
+.empty-selection-tip {
+    text-align: center;
+    color: #94a3b8;
+    font-size: 13px;
+    padding-top: 80px;
 }
 
-.config-panel .column-config .el-form-item {
-    margin-bottom: 5px;
-}
-
-.config-panel .column-header {
-    margin-bottom: 5px;
-}
-
-.config-panel .column-header .el-button {
-    padding: 5px;
-}
-</style>
-<style>
-.el-tabs__header {
-    margin-bottom: 0;
+.field-hint {
+    font-size: 12px;
+    color: #909399;
+    margin-top: 4px;
+    line-height: 1.4;
 }
 </style>

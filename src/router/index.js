@@ -130,6 +130,9 @@ let backendRoutes = [];
 const setupDynamicRoutes = async () => {
     try {
         const res = await api.menus();
+        if (!res || res.code === 401 || !Array.isArray(res.data)) {
+            throw new Error(res?.message || '菜单获取失败或登录状态已失效');
+        }
         backendRoutes = res.data;
         let menu = JSON.parse(JSON.stringify(backendRoutes));
         let menus = JSON.parse(JSON.stringify(backendRoutes));
@@ -162,10 +165,8 @@ const setupDynamicRoutes = async () => {
         });
         return res;
     } catch (error) {
-        console.error(error, '3333');
-        if (error.response.status === 401) {
-            router.push('/login');
-        }
+        console.error('动态路由加载异常:', error);
+        throw error; // 抛出异常，让 router.beforeEach 的 catch 块统一捕获并安全跳转到 /login
     }
 };
 

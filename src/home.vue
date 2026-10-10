@@ -200,7 +200,16 @@ const handleContextOut = e => {
             .confirm('确定退出登录吗？', '提示', {
                 type: '提示',
             })
-            .then(() => {
+            .then(async () => {
+                try {
+                    // 调用后端注销接口，从 Redis 中彻底销毁该 Token
+                    await proxy.$api.logout();
+                } catch (err) {
+                    console.warn('注销异常:', err);
+                }
+                // 清空本地 Token 与缓存
+                sessionStorage.clear();
+                localStorage.removeItem('token');
                 // 移除主题色
                 document.documentElement.classList.remove('dark');
                 setTimeout(() => {

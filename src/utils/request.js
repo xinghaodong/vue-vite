@@ -66,6 +66,9 @@ axios.interceptors.response.use(
                         refreshToken: sessionStorage.getItem('refreshToken') || '',
                     })
                     .then(res => {
+                        if (res.data?.code !== 200 || !res.data?.data?.token) {
+                            throw new Error(res.data?.message || '刷新Token失败');
+                        }
                         const { token, refreshToken } = res.data.data;
                         // 替换token
                         sessionStorage.setItem('token', token);
@@ -77,6 +80,7 @@ axios.interceptors.response.use(
                         return axios(response.config);
                     })
                     .catch(err => {
+                        requests = [];
                         sessionStorage.removeItem('token');
                         sessionStorage.removeItem('refreshToken');
                         router.push('/login');
@@ -163,6 +167,10 @@ export default {
     //登录
     login(params) {
         return oPost(baseUrl + '/auth/login', params);
+    },
+    //退出登录
+    logout() {
+        return oPost(baseUrl + '/auth/logout');
     },
     // 附件上传
     upload(params) {
