@@ -267,6 +267,7 @@ import {
     CollectionTag,
     Connection,
     Operation,
+    Tickets,
 } from '@element-plus/icons-vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 
@@ -296,6 +297,7 @@ const iconMap = {
     CollectionTag,
     Connection,
     Operation,
+    Tickets,
 };
 const getIcon = iconName => iconMap[iconName] || Edit;
 

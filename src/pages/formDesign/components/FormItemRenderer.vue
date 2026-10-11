@@ -1,9 +1,18 @@
 <!-- 递归表单项/容器解析渲染器 -->
 <template>
-    <!-- 1. 🌟 所有容器物料统合运行时渲染 (基于统一 slots 协议，零 if/else 判断) -->
+    <!-- 1. 🌟 所有容器物料统合运行时渲染 (基于统一 slots 协议，零 if/else 特判) -->
     <div v-if="item.slots" class="container-runtime-box">
+        <!-- 1.1 业务自闭环运行态容器 (如 SubformWidget 负责多行明细数据数组与汇总计算) -->
+        <component
+            :is="getRuntimeContainerComponent(item.type)"
+            v-if="getRuntimeContainerComponent(item.type)"
+            :item="item"
+        />
+
+        <!-- 1.2 纯净排版容器 (Grid / Card / Tabs 递归渲染子插槽) -->
         <component
             :is="getContainerComponent(item.type)"
+            v-else
             :props-data="item.props"
         >
             <template v-for="(slotList, slotKey) in item.slots" :key="slotKey" #[slotKey]>
@@ -43,7 +52,7 @@
 
 <script setup>
 import { computed, inject, ref, unref } from 'vue';
-import { getContainerComponent, getFieldComponent } from '../widgets/index.js';
+import { getContainerComponent, getRuntimeContainerComponent, getFieldComponent } from '../widgets/index.js';
 
 // 递归组件名称声明
 defineOptions({

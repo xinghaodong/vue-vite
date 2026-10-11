@@ -210,7 +210,6 @@ defineEmits(['select', 'copy', 'copy-child', 'delete', 'delete-child']);
     background: #fafbfc;
     border-style: solid;
     padding-top: 28px;
-    width: 100%;
 }
 
 .slot-draggable-box {

@@ -20,17 +20,20 @@ import CardSetting from './settings/CardSetting.vue';
 import TabsSetting from './settings/TabsSetting.vue';
 import CascaderSetting from './settings/CascaderSetting.vue';
 import SliderSetting from './settings/SliderSetting.vue';
+import SubformSetting from './settings/SubformSetting.vue';
 
 // 纯净容器排版组件
 import GridContainer from './containers/GridContainer.vue';
 import CardContainer from './containers/CardContainer.vue';
 import TabsContainer from './containers/TabsContainer.vue';
+import SubformContainer from './containers/SubformContainer.vue';
 
 // 自闭环基础字段物料组件
 import SelectWidget from '../components/widgets/SelectWidget.vue';
 import RadioWidget from '../components/widgets/RadioWidget.vue';
 import CheckboxWidget from '../components/widgets/CheckboxWidget.vue';
 import FileUploadWidget from '../components/widgets/FileUploadWidget.vue';
+import SubformWidget from '../components/widgets/SubformWidget.vue';
 
 /**
  * 生成全局高熵唯一的组件 ID (形如: input_1728552000000_a3x9f)
@@ -475,6 +478,32 @@ export const containerWidgets = [
             };
         },
     },
+    {
+        type: 'subform',
+        label: '子表单明细',
+        icon: 'Tickets',
+        category: 'layout',
+        isContainer: true,
+        containerComponent: markRaw(SubformContainer),
+        runtimeComponent: markRaw(SubformWidget),
+        settingComponent: markRaw(SubformSetting),
+        createDefault: () => ({
+            id: generateWidgetId('subform'),
+            type: 'subform',
+            props: {
+                label: '子表单',
+                layoutMode: 'card',
+                addButtonText: '添加一项',
+                showIndex: true,
+                showSummary: true,
+                minRows: 1,
+                maxRows: 50,
+            },
+            slots: {
+                default: [],
+            },
+        }),
+    },
 ];
 
 // 汇总索引映射
@@ -487,11 +516,19 @@ export const widgetMap = new Map(allWidgets.map(w => [w.type, w]));
 export const getWidget = (type) => widgetMap.get(type);
 
 /**
- * 根据类型获取纯净容器排版组件
+ * 根据类型获取纯净容器排版组件 (设计态画布挂载)
  */
 export const getContainerComponent = (type) => {
     const widget = widgetMap.get(type);
     return widget?.containerComponent || null;
+};
+
+/**
+ * 根据类型获取业务容器专属运行态组件 (如 SubformWidget，零 if/else 特判)
+ */
+export const getRuntimeContainerComponent = (type) => {
+    const widget = widgetMap.get(type);
+    return widget?.runtimeComponent || null;
 };
 
 /**
