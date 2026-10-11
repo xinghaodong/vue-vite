@@ -75,21 +75,31 @@
 import { Delete } from '@element-plus/icons-vue';
 
 const props = defineProps({
-    // 接收当前选中栅格容器组件的 props 属性对象 (内含 gutter 与 columns)
     propsData: {
         type: Object,
         required: true,
     },
+    element: {
+        type: Object,
+        default: () => ({}),
+    },
 });
 
-// 新增一栏（默认分配 12/24 占比，自带空 children 列表）
+// 新增一栏（分配 12/24 占比，并分配专属 slot 键名）
 const addColumn = () => {
-    props.propsData.columns.push({ span: 12, list: [] });
+    const slotKey = `col_${Date.now()}`;
+    props.propsData.columns.push({ span: 12, slot: slotKey });
+    if (props.element.slots) {
+        props.element.slots[slotKey] = [];
+    }
 };
 
-// 移除指定栏目
+// 移除指定栏目，同步释放对应 slot
 const removeColumn = idx => {
-    props.propsData.columns.splice(idx, 1);
+    const [col] = props.propsData.columns.splice(idx, 1);
+    if (props.element.slots && col?.slot) {
+        delete props.element.slots[col.slot];
+    }
 };
 </script>
 

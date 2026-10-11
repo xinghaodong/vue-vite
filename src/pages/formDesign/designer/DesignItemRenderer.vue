@@ -4,58 +4,63 @@
       杜绝 Vue 3 Fragment 多根节点现象，确保 Sortable.js / vuedraggable 追踪挂载 DOM 稳如磐石
     -->
     <div class="design-item-root">
-        <!-- 1. 容器组件：栅格布局 -->
+        <!-- 1. 🌟 所有容器物料统合渲染 (基于统一 slots 协议，零 if/else 判断) -->
         <div
-            v-if="element.type === 'grid'"
-            class="design-item-wrapper grid-container"
+            v-if="element.slots"
+            class="design-item-wrapper container-item-wrapper"
             :class="{ active: currentItem?.id === element.id }"
             @click.stop="$emit('select', element)"
         >
-            <div class="drag-handle" title="按住此处拖拽移动栅格">
+            <div class="drag-handle" title="按住此处拖拽移动容器">
                 <el-icon><Rank /></el-icon>
             </div>
 
-            <el-row :gutter="element.props?.gutter || 0" style="width: 100%">
-                <el-col
-                    v-for="(col, colIndex) in element.props?.columns || []"
-                    :key="colIndex"
-                    :span="col.span"
-                >
-                    <div class="grid-col-box">
+            <!-- 动态挂载对应容器排版组件 (Grid / Card / Tabs / 任意未来容器) -->
+            <component
+                :is="getContainerComponent(element.type)"
+                :props-data="element.props"
+            >
+                <template v-for="(slotList, slotKey) in element.slots" :key="slotKey" #[slotKey]>
+                    <div class="slot-draggable-box">
                         <draggable
-                            v-model="col.list"
+                            v-model="element.slots[slotKey]"
                             item-key="id"
                             :group="{ name: 'form-items', pull: true, put: true }"
                             ghost-class="ghost-canvas-item"
                             :animation="200"
                             handle=".drag-handle"
-                            class="col-draggable-area"
+                            class="slot-draggable-area"
                         >
-                            <template #item="{ element: colElement, index: colElementIndex }">
+                            <template #item="{ element: childElement, index: childIndex }">
                                 <div class="col-item-slot-wrapper">
                                     <DesignItemRenderer
-                                        :element="colElement"
+                                        :element="childElement"
                                         :current-item="currentItem"
                                         :form-data="formData"
                                         @select="item => $emit('select', item)"
-                                        @delete="() => $emit('delete-child', { colIndex, index: colElementIndex, parent: element })"
+                                        @copy="() => $emit('copy-child', { parent: element, slotKey, index: childIndex })"
+                                        @copy-child="args => $emit('copy-child', args)"
+                                        @delete="() => $emit('delete-child', { parent: element, slotKey, index: childIndex })"
                                         @delete-child="args => $emit('delete-child', args)"
                                     />
                                 </div>
                             </template>
 
                             <template #footer>
-                                <div v-if="!col.list || col.list.length === 0" class="empty-col-tip">
-                                    拖拽组件到此分栏
+                                <div v-if="!slotList || slotList.length === 0" class="empty-col-tip">
+                                    拖拽组件到此区域
                                 </div>
                             </template>
                         </draggable>
                     </div>
-                </el-col>
-            </el-row>
+                </template>
+            </component>
 
             <div class="item-actions">
-                <el-icon class="action-btn delete-btn" title="删除整个栅格" @click.stop="$emit('delete', element)">
+                <el-icon class="action-btn copy-btn" title="复制整个容器" @click.stop="$emit('copy', element)">
+                    <CopyDocument />
+                </el-icon>
+                <el-icon class="action-btn delete-btn" title="删除整个容器" @click.stop="$emit('delete', element)">
                     <Delete />
                 </el-icon>
             </div>
@@ -77,74 +82,23 @@
                 :required="element.props?.required"
                 style="width: 100%; margin-bottom: 0"
             >
-                <!-- 附件上传预览 -->
-                <template v-if="element.type === 'upload'">
-                    <div class="upload-preview-box">
-                        <el-button type="primary" plain size="small">
-                            <el-icon style="margin-right: 4px"><UploadFilled /></el-icon>
-                            上传附件
-                        </el-button>
-                        <div class="upload-tip">{{ element.props?.tip || '支持jpg/png/pdf格式发票附件' }}</div>
-                    </div>
-                </template>
-
-                <!-- 下拉选择预览 -->
-                <template v-else-if="element.type === 'select'">
-                    <el-select
-                        :model-value="formData[element.id]"
-                        v-bind="element.props"
-                        :placeholder="element.props?.placeholder"
-                        disabled
-                        style="width: 100%"
-                    >
-                        <el-option
-                            v-for="opt in element.props?.options || []"
-                            :key="opt.value"
-                            :label="opt.label"
-                            :value="opt.value"
-                        />
-                    </el-select>
-                </template>
-
-                <!-- 单选框组预览 -->
-                <template v-else-if="element.type === 'radio'">
-                    <el-radio-group :model-value="formData[element.id]" disabled>
-                        <el-radio
-                            v-for="opt in element.props?.options || []"
-                            :key="opt.value"
-                            :label="opt.value"
-                        >
-                            {{ opt.label }}
-                        </el-radio>
-                    </el-radio-group>
-                </template>
-
-                <!-- 多选框组预览 -->
-                <template v-else-if="element.type === 'checkbox'">
-                    <el-checkbox-group :model-value="formData[element.id] || []" disabled>
-                        <el-checkbox
-                            v-for="opt in element.props?.options || []"
-                            :key="opt.value"
-                            :label="opt.value"
-                        >
-                            {{ opt.label }}
-                        </el-checkbox>
-                    </el-checkbox-group>
-                </template>
-
-                <!-- 其他基础组件（input / number / textarea / switch / date-picker 等） -->
                 <component
-                    v-else
-                    :is="element.component || 'el-input'"
-                    :model-value="formData[element.id]"
+                    :is="getFieldComponent(element.type)"
+                    :model-value="formData[element.id] ?? element.props?.defaultValue ?? (element.type === 'slider' ? (element.props?.min ?? 0) : undefined)"
                     v-bind="element.props"
+                    :options="element.props?.options || []"
+                    :placeholder="element.props?.placeholder"
+                    :disabled="true"
+                    :is-design="true"
+                    :props-config="element.props"
                     :controls-position="element.component === 'el-input-number' ? 'right' : undefined"
-                    disabled
-                    style="width: 100%"
                 />
             </el-form-item>
 
             <div class="item-actions">
+                <el-icon class="action-btn copy-btn" title="复制该字段" @click.stop="$emit('copy', element)">
+                    <CopyDocument />
+                </el-icon>
                 <el-icon class="action-btn delete-btn" title="删除该字段" @click.stop="$emit('delete', element)">
                     <Delete />
                 </el-icon>
@@ -155,7 +109,8 @@
 
 <script setup>
 import draggable from 'vuedraggable/src/vuedraggable';
-import { Rank, Delete, UploadFilled } from '@element-plus/icons-vue';
+import { Rank, Delete, UploadFilled, CopyDocument } from '@element-plus/icons-vue';
+import { getContainerComponent, getFieldComponent } from '../widgets/index.js';
 
 defineOptions({
     name: 'DesignItemRenderer',
@@ -176,7 +131,7 @@ defineProps({
     },
 });
 
-defineEmits(['select', 'delete', 'delete-child']);
+defineEmits(['select', 'copy', 'copy-child', 'delete', 'delete-child']);
 </script>
 
 <style scoped>
@@ -250,23 +205,25 @@ defineEmits(['select', 'delete', 'delete-child']);
     background: #fef0f0;
 }
 
-/* 栅格容器样式 */
-.grid-container {
+/* 容器统一样式 */
+.container-item-wrapper {
     background: #fafbfc;
     border-style: solid;
-    padding-top: 26px;
+    padding-top: 28px;
+    width: 100%;
 }
 
-.grid-col-box {
+.slot-draggable-box {
     border: 1px dashed #dcdfe6;
     background: #ffffff;
     border-radius: 4px;
-    min-height: 64px;
-    padding: 8px;
+    min-height: 56px;
+    padding: 6px;
+    margin: 4px 0;
 }
 
-.col-draggable-area {
-    min-height: 52px;
+.slot-draggable-area {
+    min-height: 48px;
     height: 100%;
 }
 
@@ -296,5 +253,14 @@ defineEmits(['select', 'delete', 'delete-child']);
     border: 2px dashed #409eff !important;
     background: #ecf5ff !important;
     opacity: 0.7;
+}
+
+/* 统一保证设计态画布所有输入控件撑满栅格容器，使用 :not 排除滑块内置附属输入框 */
+.field-container :deep(.el-cascader),
+.field-container :deep(.el-date-editor),
+.field-container :deep(.el-select),
+.field-container :deep(.el-slider),
+.field-container :deep(.el-input-number:not(.el-slider__input)) {
+    width: 100% !important;
 }
 </style>

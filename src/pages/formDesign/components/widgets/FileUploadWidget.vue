@@ -1,8 +1,10 @@
+<!-- （Renderer）：FileUploadWidget.vue（附件上传在页面上的实际交互）； -->
 <template>
     <div class="file-upload-widget">
         <!-- 上传触发按钮 -->
         <el-upload
-            v-if="!noApproval && !disabled"
+            v-if="!noApproval && (!disabled || isDesign)"
+            :disabled="disabled || isDesign"
             :action="uploadUrl"
             name="avatar"
             :headers="uploadHeaders"
@@ -102,6 +104,10 @@ const props = defineProps({
         default: false,
     },
     noApproval: {
+        type: Boolean,
+        default: false,
+    },
+    isDesign: {
         type: Boolean,
         default: false,
     },

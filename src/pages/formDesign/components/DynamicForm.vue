@@ -14,20 +14,16 @@
             v-for="item in schema"
             :key="item.id"
             :item="item"
-            :model-value="innerData"
-            :options-map="optionsMap"
-            :loading-map="loadingMap"
-            :no-approval="noApproval"
-            @update:model-value="handleUpdateModelValue"
         />
     </el-form>
 </template>
 
 <script setup>
-import { ref, reactive, watch, computed, shallowRef } from 'vue';
+import { ref, reactive, watch, computed, shallowRef, provide } from 'vue';
 import { oGet } from '@/utils/request';
 import FormItemRenderer from './FormItemRenderer.vue';
 import { formulaHelpers } from '../utils/formula.js';
+import { traverseWidgets } from '../widgets/index.js';
 
 const props = defineProps({
     schema: {
@@ -75,20 +71,30 @@ const handleUpdateModelValue = nextVal => {
     emit('update:modelValue', nextVal);
 };
 
-// 扁平化收集所有字段（支持栅格等容器深度提取）
+// 字段值更新方法 (子组件通过 Context 直接调用)
+const updateFieldValue = (fieldId, value) => {
+    innerData.value[fieldId] = value;
+    handleUpdateModelValue(innerData.value);
+};
+
+// 🌟 第二阶段：广播注入全局表单上下文 (消灭多层 Props Drilling)
+provide('formContext', {
+    formData: innerData,
+    updateFieldValue,
+    optionsMap,
+    loadingMap,
+    disabled: computed(() => props.noApproval),
+    noApproval: computed(() => props.noApproval),
+});
+
+// 扁平化收集所有实际字段（排除纯容器节点，无需任何兼容判断）
 const flatFields = computed(() => {
     const list = [];
-    const traverse = items => {
-        if (!Array.isArray(items)) return;
-        items.forEach(item => {
-            if (item.type === 'grid' && item.props?.columns) {
-                item.props.columns.forEach(col => traverse(col.list));
-            } else {
-                list.push(item);
-            }
-        });
-    };
-    traverse(props.schema);
+    traverseWidgets(props.schema, item => {
+        if (!item.slots) {
+            list.push(item);
+        }
+    });
     return list;
 });
 
@@ -218,11 +224,22 @@ const loadFieldOptions = async field => {
             data.push(res.data);
         }
 
-        const formatted = data.map(d => ({
-            label: d.label || d.name || d.title || String(d),
-            value: d.value ?? d.id ?? d.code ?? d,
-        }));
+        // 支持扁平数组与树形层级数据的通用递归规范化
+        const formatTreeNodes = list => {
+            if (!Array.isArray(list)) return [];
+            return list.map(d => {
+                const node = {
+                    label: d.label || d.name || d.title || String(d),
+                    value: d.value ?? d.id ?? d.code ?? d,
+                };
+                if (d.children && Array.isArray(d.children)) {
+                    node.children = formatTreeNodes(d.children);
+                }
+                return node;
+            });
+        };
 
+        const formatted = formatTreeNodes(data);
         optionsMap[field.id] = formatted;
 
         // 若仅有 1 项且当前无值时默认选中
@@ -314,6 +331,10 @@ defineExpose({
     resetFields() {
         formRef.value?.resetFields();
     },
+    getFormData() {
+        return innerData.value;
+    },
+    formData: innerData,
 });
 </script>
 

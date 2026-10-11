@@ -53,6 +53,7 @@
                 <div class="canvas-header-bar">
                     <span class="form-title-badge">{{ formConfig.name || '未命名表单' }}</span>
                     <div class="header-actions">
+                        <el-button type="success" size="small" :icon="View" @click="handleOpenPreview">真机全屏预览</el-button>
                         <el-button size="small" @click="clearCanvas">清空画布</el-button>
                         <el-button type="primary" size="small" @click="saveFormSchema">保存表单</el-button>
                     </div>
@@ -84,6 +85,8 @@
                                         :current-item="currentItem"
                                         :form-data="formData"
                                         @select="selectItem"
+                                        @copy="() => copyItem(index)"
+                                        @copy-child="handleCopyChild"
                                         @delete="() => deleteItem(index)"
                                         @delete-child="handleDeleteChild"
                                     />
@@ -141,12 +144,14 @@
                             <component
                                 :is="activeSettingComponent"
                                 v-if="activeSettingComponent"
+                                :element="currentItem"
                                 :props-data="currentItem.props"
+                                :slots-data="currentItem.slots"
                                 :type="currentItem.type"
                             />
 
-                            <!-- 计算字段配置 (非栅格组件支持) -->
-                            <template v-if="currentItem.type !== 'grid'">
+                            <!-- 计算字段配置 (非容器组件支持) -->
+                            <template v-if="!currentItem.slots">
                                 <div class="config-section-title">联动与计算</div>
                                 <ComputedFieldSetting
                                     :item="currentItem"
@@ -189,6 +194,55 @@
                 </div>
             </div>
         </div>
+    
+        <!-- 4. 🚀 真机全屏实时预览弹窗 (Preview Modal) -->
+        <el-dialog
+            v-model="previewVisible"
+            title="真机表单运行预览"
+            width="880px"
+            top="5vh"
+            destroy-on-close
+            class="real-form-preview-dialog"
+        >
+            <div class="preview-banner-tip">
+                <el-icon color="#409eff" style="margin-right: 6px"><View /></el-icon>
+                <span>当前环境模拟真实审批/填单运行容器，支持<strong>字段必填校验</strong>、<strong>动态计算公式联动</strong>、<strong>API数据源回显</strong>等完整业务逻辑。</span>
+            </div>
+
+            <div class="preview-content-box">
+                <el-tabs v-model="previewActiveTab" type="border-card">
+                    <el-tab-pane label="表单交互渲染" name="form">
+                        <div class="preview-form-wrapper">
+                            <DynamicForm
+                                ref="previewFormRef"
+                                v-model="previewData"
+                                :schema="previewSchema"
+                                :ui-config="previewUiConfig"
+                            />
+                        </div>
+                    </el-tab-pane>
+
+                    <el-tab-pane label="实时响应式数据 (JSON View)" name="json">
+                        <div class="preview-json-wrapper">
+                            <pre class="json-code-block">{{ JSON.stringify(previewData, null, 2) }}</pre>
+                        </div>
+                    </el-tab-pane>
+                </el-tabs>
+            </div>
+
+            <template #footer>
+                <div class="preview-dialog-footer">
+                    <div class="footer-left">
+                        <el-tag type="info" size="small">物料数量: {{ previewSchema.length }} 个组件</el-tag>
+                    </div>
+                    <div class="footer-right">
+                        <el-button @click="handleResetPreview">重置表单</el-button>
+                        <el-button type="success" @click="handleValidatePreview">验证规则 (Validate)</el-button>
+                        <el-button type="primary" @click="previewVisible = false">关闭预览</el-button>
+                    </div>
+                </div>
+            </template>
+        </el-dialog>
     </div>
 </template>
 
@@ -197,6 +251,8 @@ import { ref, reactive, computed, onMounted, getCurrentInstance } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import draggable from 'vuedraggable/src/vuedraggable';
 import {
+    View,
+    CopyDocument,
     Edit,
     Document,
     Select,
@@ -207,10 +263,15 @@ import {
     Grid,
     UploadFilled,
     Odometer,
+    CreditCard,
+    CollectionTag,
+    Connection,
+    Operation,
 } from '@element-plus/icons-vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 
-import { fieldWidgets, containerWidgets, getWidget } from './widgets/index.js';
+import { fieldWidgets, containerWidgets, getWidget, cloneWidgetWithNewIds, traverseWidgets } from './widgets/index.js';
+import DynamicForm from './components/DynamicForm.vue';
 import DesignItemRenderer from './designer/DesignItemRenderer.vue';
 import ComputedFieldSetting from './designer/ComputedFieldSetting.vue';
 
@@ -231,6 +292,10 @@ const iconMap = {
     Grid,
     UploadFilled,
     Odometer,
+    CreditCard,
+    CollectionTag,
+    Connection,
+    Operation,
 };
 const getIcon = iconName => iconMap[iconName] || Edit;
 
@@ -320,10 +385,10 @@ const deleteItem = index => {
     ElMessage.success('已删除组件');
 };
 
-// 删除容器内的子组件
-const handleDeleteChild = ({ colIndex, index, parent }) => {
-    if (parent?.props?.columns?.[colIndex]?.list) {
-        const targetList = parent.props.columns[colIndex].list;
+// 删除容器内的子组件 (基于统一 slots 协议，零兼容分支)
+const handleDeleteChild = ({ parent, slotKey, index }) => {
+    const targetList = parent?.slots?.[slotKey];
+    if (targetList && targetList[index]) {
         const deleted = targetList[index];
         if (currentItem.value?.id === deleted.id) {
             currentItem.value = null;
@@ -347,19 +412,14 @@ const clearCanvas = () => {
     });
 };
 
-// 收集可供计算字段依赖的普通字段
+// 收集可供计算字段依赖的普通字段 (排除任何容器物料)
 const getAvailableFields = () => {
     const fields = [];
-    const traverse = items => {
-        items.forEach(item => {
-            if (item.type === 'grid' && item.props?.columns) {
-                item.props.columns.forEach(col => traverse(col.list || []));
-            } else if (item.id !== currentItem.value?.id) {
-                fields.push(item);
-            }
-        });
-    };
-    traverse(formItems.value);
+    traverseWidgets(formItems.value, item => {
+        if (!item.slots && item.id !== currentItem.value?.id) {
+            fields.push(item);
+        }
+    });
     return fields;
 };
 
@@ -389,6 +449,75 @@ const saveFormSchema = async () => {
     } catch (error) {
         console.error('保存表单异常:', error);
     }
+};
+
+// ==================== 1. 一键复制组件逻辑 (深度克隆 + 高熵ID重置，未来容器零返工) ====================
+// 复制顶级物料组件
+const copyItem = index => {
+    const original = formItems.value[index];
+    if (!original) return;
+    const cloned = cloneWidgetWithNewIds(original);
+    formItems.value.splice(index + 1, 0, cloned);
+    selectItem(cloned);
+    ElMessage.success(`已复制【${cloned.props?.label || cloned.type}】`);
+};
+
+// 复制容器内的子组件 (基于统一 slots 协议，零兼容分支)
+const handleCopyChild = ({ parent, slotKey, index }) => {
+    const targetList = parent?.slots?.[slotKey];
+    if (targetList && targetList[index]) {
+        const cloned = cloneWidgetWithNewIds(targetList[index]);
+        targetList.splice(index + 1, 0, cloned);
+        selectItem(cloned);
+        ElMessage.success(`已复制【${cloned.props?.label || cloned.type}】`);
+    }
+};
+
+// ==================== 2. 真机全屏实时预览逻辑 (Live Simulation) ====================
+const previewVisible = ref(false);
+const previewFormRef = ref(null);
+const previewData = ref({});
+const previewSchema = ref([]);
+const previewUiConfig = ref({});
+const previewActiveTab = ref('form');
+
+const handleOpenPreview = () => {
+    if (formItems.value.length === 0) {
+        ElMessage.warning('画布暂无组件，请先添加表单物料');
+        return;
+    }
+    // 深拷贝当前 Schema 与 UI 样式配置
+    previewSchema.value = JSON.parse(JSON.stringify(formItems.value));
+    previewUiConfig.value = {
+        labelWidth: formConfig.labelWidth,
+        size: formConfig.size,
+        labelPosition: formConfig.labelPosition,
+    };
+    previewData.value = {};
+    previewActiveTab.value = 'form';
+    previewVisible.value = true;
+};
+
+// 预览内点击“校验规则”
+const handleValidatePreview = async () => {
+    if (!previewFormRef.value) return;
+    try {
+        const valid = await previewFormRef.value.validate();
+        if (valid) {
+            ElMessage.success('表单校验全部通过！数据结构合法完整');
+        }
+    } catch (err) {
+        ElMessage.error('表单存在未满足规则的字段，请检查输入');
+    }
+};
+
+// 预览内点击“重置清空”
+const handleResetPreview = () => {
+    if (previewFormRef.value) {
+        previewFormRef.value.resetFields();
+    }
+    previewData.value = {};
+    ElMessage.info('已重置预览表单');
 };
 </script>
 
@@ -564,5 +693,53 @@ const saveFormSchema = async () => {
     color: #909399;
     margin-top: 4px;
     line-height: 1.4;
+}
+
+/* 4. 真机预览弹窗样式 */
+.real-form-preview-dialog :deep(.el-dialog__body) {
+    padding: 14px 20px 20px;
+}
+
+.preview-banner-tip {
+    display: flex;
+    align-items: center;
+    background: #ecf5ff;
+    border: 1px solid #d9ecff;
+    border-radius: 6px;
+    padding: 8px 12px;
+    font-size: 13px;
+    color: #409eff;
+    margin-bottom: 14px;
+}
+
+.preview-form-wrapper {
+    padding: 16px 8px;
+    min-height: 260px;
+    max-height: 60vh;
+    overflow-y: auto;
+}
+
+.preview-json-wrapper {
+    background: #1e1e1e;
+    border-radius: 6px;
+    padding: 12px;
+    max-height: 55vh;
+    overflow-y: auto;
+}
+
+.json-code-block {
+    margin: 0;
+    color: #4ec9b0;
+    font-family: Consolas, Monaco, monospace;
+    font-size: 13px;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    word-break: break-all;
+}
+
+.preview-dialog-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
 }
 </style>

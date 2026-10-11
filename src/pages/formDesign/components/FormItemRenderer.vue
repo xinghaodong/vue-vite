@@ -1,31 +1,23 @@
 <!-- 递归表单项/容器解析渲染器 -->
 <template>
-    <!-- 1. 容器组件：栅格布局 (Grid) -->
-    <div v-if="item.type === 'grid'" class="grid-container">
-        <el-row :gutter="item.props?.gutter || 0">
-            <el-col
-                v-for="(col, colIndex) in item.props?.columns || []"
-                :key="colIndex"
-                :span="col.span"
-            >
-                <div class="grid-col-content">
-                    <!-- 递归渲染列内部的子组件 -->
-                    <FormItemRenderer
-                        v-for="subItem in col.list || []"
-                        :key="subItem.id"
-                        :item="subItem"
-                        :model-value="modelValue"
-                        :options-map="optionsMap"
-                        :loading-map="loadingMap"
-                        :no-approval="noApproval"
-                        @update:model-value="val => $emit('update:modelValue', val)"
-                    />
-                </div>
-            </el-col>
-        </el-row>
+    <!-- 1. 🌟 所有容器物料统合运行时渲染 (基于统一 slots 协议，零 if/else 判断) -->
+    <div v-if="item.slots" class="container-runtime-box">
+        <component
+            :is="getContainerComponent(item.type)"
+            :props-data="item.props"
+        >
+            <template v-for="(slotList, slotKey) in item.slots" :key="slotKey" #[slotKey]>
+                <!-- 纯净递归: 依赖 Context 直连，无需任何业务数据与事件透传 -->
+                <FormItemRenderer
+                    v-for="subItem in slotList || []"
+                    :key="subItem.id"
+                    :item="subItem"
+                />
+            </template>
+        </component>
     </div>
 
-    <!-- 2. 普通字段组件 -->
+    <!-- 2. 普通字段组件 (零 if/else 分支，纯动态物料驱动) -->
     <el-form-item
         v-else
         :label="item.props?.label"
@@ -33,90 +25,25 @@
         :required="item.props?.required"
         class="form-field-item"
     >
-        <!-- 专用上传附件组件 -->
-        <template v-if="item.type === 'upload'">
-            <FileUploadWidget
-                :model-value="modelValue[item.id] || []"
-                :props-config="item.props"
-                :disabled="isDisabled"
-                :no-approval="noApproval"
-                @update:model-value="val => handleValueChange(item.id, val)"
-            />
-        </template>
-
-        <!-- 下拉选择组件 (支持静态与动态 options) -->
-        <template v-else-if="item.type === 'select'">
-            <el-select
-                :model-value="modelValue[item.id]"
-                v-bind="filteredProps"
-                :placeholder="item.props?.placeholder"
-                :disabled="isDisabled"
-                :loading="loadingMap[item.id]"
-                @update:model-value="val => handleValueChange(item.id, val)"
-            >
-                <el-option
-                    v-for="opt in currentOptions"
-                    :key="opt.value"
-                    :label="opt.label"
-                    :value="opt.value"
-                />
-            </el-select>
-        </template>
-
-        <!-- 单选框组 -->
-        <template v-else-if="item.type === 'radio'">
-            <el-radio-group
-                :model-value="modelValue[item.id]"
-                v-bind="filteredProps"
-                :disabled="isDisabled"
-                @update:model-value="val => handleValueChange(item.id, val)"
-            >
-                <el-radio
-                    v-for="opt in currentOptions"
-                    :key="opt.value"
-                    :value="opt.value"
-                >
-                    {{ opt.label }}
-                </el-radio>
-            </el-radio-group>
-        </template>
-
-        <!-- 多选框组 -->
-        <template v-else-if="item.type === 'checkbox'">
-            <el-checkbox-group
-                :model-value="modelValue[item.id] || []"
-                v-bind="filteredProps"
-                :disabled="isDisabled"
-                @update:model-value="val => handleValueChange(item.id, val)"
-            >
-                <el-checkbox
-                    v-for="opt in currentOptions"
-                    :key="opt.value"
-                    :value="opt.value"
-                >
-                    {{ opt.label }}
-                </el-checkbox>
-            </el-checkbox-group>
-        </template>
-
-        <!-- 标准输入框/数字/开关/日期等直接通过 component 渲染 -->
         <component
-            v-else
-            :is="item.component || 'el-input'"
-            :model-value="modelValue[item.id]"
+            :is="getFieldComponent(item.type)"
+            :model-value="fieldValue"
             v-bind="filteredProps"
+            :options="currentOptions"
+            :loading="isLoading"
             :placeholder="item.props?.placeholder"
             :disabled="isDisabled"
+            :no-approval="isNoApproval"
+            :props-config="item.props"
             :controls-position="item.component === 'el-input-number' ? 'right' : undefined"
-            :style="item.component === 'el-input-number' ? { width: '100%' } : {}"
             @update:model-value="val => handleValueChange(item.id, val)"
         />
     </el-form-item>
 </template>
 
 <script setup>
-import { computed } from 'vue';
-import FileUploadWidget from './widgets/FileUploadWidget.vue';
+import { computed, inject, ref, unref } from 'vue';
+import { getContainerComponent, getFieldComponent } from '../widgets/index.js';
 
 // 递归组件名称声明
 defineOptions({
@@ -128,41 +55,41 @@ const props = defineProps({
         type: Object,
         required: true,
     },
-    modelValue: {
-        type: Object,
-        default: () => ({}),
-    },
-    optionsMap: {
-        type: Object,
-        default: () => ({}),
-    },
-    loadingMap: {
-        type: Object,
-        default: () => ({}),
-    },
-    noApproval: {
-        type: Boolean,
-        default: false,
-    },
 });
 
-const emit = defineEmits(['update:modelValue']);
+// 🌟 第二阶段：直接注入顶层表单上下文 (消灭 3~4 层 Props Drilling)
+const formContext = inject('formContext', {
+    formData: ref({}),
+    updateFieldValue: () => {},
+    optionsMap: {},
+    loadingMap: {},
+    disabled: ref(false),
+    noApproval: ref(false),
+});
 
-// 处理值变更
+// 当前字段绑定值 (安全响应式获取)
+const fieldValue = computed(() => formContext.formData?.value?.[props.item.id]);
+
+// 处理值变更 (直接调用 Context 注入的方法，告别层层 $emit)
 const handleValueChange = (fieldId, value) => {
-    const nextData = { ...props.modelValue, [fieldId]: value };
-    emit('update:modelValue', nextData);
+    formContext.updateFieldValue(fieldId, value);
 };
 
 // 是否禁用
 const isDisabled = computed(() => {
-    if (props.noApproval) return true;
+    if (unref(formContext.disabled)) return true;
     return Boolean(props.item.props?.disabled);
 });
 
+// 是否处于无审批/查看态 (使用 unref 精准取值，防止 Ref 对象被当做 truthy)
+const isNoApproval = computed(() => Boolean(unref(formContext.noApproval)));
+
+// 是否加载中
+const isLoading = computed(() => Boolean(formContext.loadingMap?.[props.item.id]));
+
 // 计算选项列表（动态 API 缓存优先，其次静态 options）
 const currentOptions = computed(() => {
-    const dynamicOpts = props.optionsMap[props.item.id];
+    const dynamicOpts = formContext.optionsMap?.[props.item.id];
     if (dynamicOpts && Array.isArray(dynamicOpts)) {
         return dynamicOpts;
     }
@@ -189,11 +116,16 @@ const filteredProps = computed(() => {
     margin-bottom: 18px;
     width: 100%;
 }
-.grid-container {
-    width: 100%;
+/* 统一保证所有输入控件撑满栅格容器，使用 :not 排除滑块内置附属输入框 */
+.form-field-item :deep(.el-cascader),
+.form-field-item :deep(.el-date-editor),
+.form-field-item :deep(.el-select),
+.form-field-item :deep(.el-slider),
+.form-field-item :deep(.el-input-number:not(.el-slider__input)) {
+    width: 100% !important;
 }
-.grid-col-content {
-    min-height: 40px;
-    padding: 2px 0;
+.container-runtime-box {
+    margin-bottom: 18px;
+    width: 100%;
 }
 </style>
