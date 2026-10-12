@@ -1,3 +1,4 @@
+<!-- 设计态画布 -->
 <template>
     <!-- 
       重点：最外层必须维持严格的单根 DOM 元素！
@@ -143,7 +144,7 @@ defineEmits(['select', 'copy', 'copy-child', 'delete', 'delete-child']);
     position: relative;
     padding: 14px 16px;
     margin-bottom: 12px;
-    background: #ffffff;
+    /* background: #ffffff; */
     border: 1px dashed #dcdfe6;
     border-radius: 6px;
     transition: all 0.2s ease;
@@ -151,22 +152,22 @@ defineEmits(['select', 'copy', 'copy-child', 'delete', 'delete-child']);
 
 .design-item-wrapper:hover {
     border-color: #409eff;
-    background: #fdfdfd;
+    /* background: #fdfdfd; */
 }
 
 .design-item-wrapper.active {
     border: 1px solid #409eff;
-    background: #f0f7ff;
+    /* background: #f0f7ff; */
     box-shadow: 0 0 0 1px #409eff inset;
 }
 
-/* 拖拽手柄图标 */
+/* 拖拽手柄图标 (默认隐藏，仅在鼠标悬停或当前组件激活时显现) */
 .drag-handle {
     position: absolute;
     top: 6px;
     left: 6px;
-    width: 18px;
-    height: 18px;
+    width: 20px;
+    height: 20px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -174,14 +175,22 @@ defineEmits(['select', 'copy', 'copy-child', 'delete', 'delete-child']);
     cursor: move;
     font-size: 14px;
     z-index: 10;
+    opacity: 0;
+    pointer-events: none;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 4px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    transition: all 0.2s ease;
 }
 
 .drag-handle:hover {
     color: #409eff;
-    background: #e6f1fc;
-    border-radius: 3px;
+    border-color: #b3d8ff;
+    background: #ecf5ff;
 }
 
+/* 操作按钮组 (复制/删除，默认隐藏) */
 .item-actions {
     position: absolute;
     right: 6px;
@@ -189,32 +198,60 @@ defineEmits(['select', 'copy', 'copy-child', 'delete', 'delete-child']);
     display: flex;
     gap: 4px;
     z-index: 10;
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(2px);
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* 🌟 核心优化：直接子选择器实现仅当前悬浮(hover)或选中聚焦(active)的组件才显示操作手柄与按钮 */
+.design-item-wrapper:hover > .drag-handle,
+.design-item-wrapper.active > .drag-handle {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.design-item-wrapper:hover > .item-actions,
+.design-item-wrapper.active > .item-actions {
+    opacity: 1;
+    pointer-events: auto;
+    transform: translateY(0);
 }
 
 .action-btn {
     cursor: pointer;
-    font-size: 14px;
+    font-size: 13px;
     color: #909399;
-    padding: 4px;
+    padding: 3px 5px;
     border-radius: 4px;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
     transition: all 0.2s ease;
 }
 
-.action-btn:hover {
+.copy-btn:hover {
+    color: #409eff;
+    border-color: #b3d8ff;
+    background: #ecf5ff;
+}
+
+.delete-btn:hover {
     color: #f56c6c;
+    border-color: #fde2e2;
     background: #fef0f0;
 }
 
 /* 容器统一样式 */
 .container-item-wrapper {
-    background: #fafbfc;
+    /* background: #fafbfc; */
     border-style: solid;
     padding-top: 28px;
 }
 
 .slot-draggable-box {
     border: 1px dashed #dcdfe6;
-    background: #ffffff;
+    /* background: #ffffff; */
     border-radius: 4px;
     min-height: 56px;
     padding: 6px;
@@ -250,7 +287,7 @@ defineEmits(['select', 'copy', 'copy-child', 'delete', 'delete-child']);
 
 .ghost-canvas-item {
     border: 2px dashed #409eff !important;
-    background: #ecf5ff !important;
+    /* background: #ecf5ff !important; */
     opacity: 0.7;
 }
 

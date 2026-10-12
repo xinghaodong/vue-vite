@@ -21,6 +21,7 @@ import TabsSetting from './settings/TabsSetting.vue';
 import CascaderSetting from './settings/CascaderSetting.vue';
 import SliderSetting from './settings/SliderSetting.vue';
 import SubformSetting from './settings/SubformSetting.vue';
+import RichTextSetting from './settings/RichTextSetting.vue';
 
 // 纯净容器排版组件
 import GridContainer from './containers/GridContainer.vue';
@@ -34,6 +35,7 @@ import RadioWidget from '../components/widgets/RadioWidget.vue';
 import CheckboxWidget from '../components/widgets/CheckboxWidget.vue';
 import FileUploadWidget from '../components/widgets/FileUploadWidget.vue';
 import SubformWidget from '../components/widgets/SubformWidget.vue';
+import RichTextWidget from '../components/widgets/RichTextWidget.vue';
 
 /**
  * 生成全局高熵唯一的组件 ID (形如: input_1728552000000_a3x9f)
@@ -399,6 +401,30 @@ export const fieldWidgets = [
             },
         }),
     },
+    {
+        type: 'richtext',
+        label: '富文本',
+        icon: 'Document',
+        category: 'basic',
+        isContainer: false,
+        component: markRaw(RichTextWidget),
+        settingComponent: markRaw(RichTextSetting),
+        createDefault: () => ({
+            id: generateWidgetId('richtext'),
+            type: 'richtext',
+            category: 'basic',
+            isContainer: false,
+            props: {
+                label: '富文本内容',
+                placeholder: '请输入富文本内容...',
+                height: 300,
+                toolbarMode: 'default',
+                required: false,
+                disabled: false,
+                defaultValue: '',
+            },
+        }),
+    },
 ];
 
 // 容器/布局物料定义列表（全部标准化为统一的 slots 协议规范）
@@ -414,6 +440,8 @@ export const containerWidgets = [
         createDefault: () => ({
             id: generateWidgetId('grid'),
             type: 'grid',
+            category: 'layout',
+            isContainer: true,
             props: {
                 gutter: 20,
                 columns: [
@@ -438,9 +466,11 @@ export const containerWidgets = [
         createDefault: () => ({
             id: generateWidgetId('card'),
             type: 'card',
+            category: 'layout',
+            isContainer: true,
             props: {
                 title: '分组卡片',
-                shadow: 'always',
+                shadow: 'never',
                 bordered: true,
             },
             slots: {
@@ -462,6 +492,8 @@ export const containerWidgets = [
             return {
                 id: generateWidgetId('tabs'),
                 type: 'tabs',
+                category: 'layout',
+                isContainer: true,
                 props: {
                     tabType: 'border-card',
                     tabPosition: 'top',
@@ -490,6 +522,8 @@ export const containerWidgets = [
         createDefault: () => ({
             id: generateWidgetId('subform'),
             type: 'subform',
+            category: 'layout',
+            isContainer: true,
             props: {
                 label: '子表单',
                 layoutMode: 'card',
@@ -509,6 +543,26 @@ export const containerWidgets = [
 // 汇总索引映射
 const allWidgets = [...containerWidgets, ...fieldWidgets];
 export const widgetMap = new Map(allWidgets.map(w => [w.type, w]));
+
+/**
+ * 🌟 软件工程标准判断：判断一个节点或类型是否属于布局容器
+ * 遵循 OCP 开闭原则，彻底消灭硬编码数组，支持 3 级递进识别：
+ * 1. 节点对象上的显式元数据 (isContainer 或 category === 'layout')；
+ * 2. 统一插槽协议契约 (存在 slots 即为容器)；
+ * 3. 物料注册表动态查表 (通过 widgetMap 查询物料定义的 isContainer)。
+ */
+export const isContainerWidget = (itemOrType) => {
+    if (!itemOrType) return false;
+    if (typeof itemOrType === 'object') {
+        if (itemOrType.isContainer !== undefined) return Boolean(itemOrType.isContainer);
+        if (itemOrType.category === 'layout') return true;
+        if (Boolean(itemOrType.slots)) return true;
+        const w = widgetMap.get(itemOrType.type);
+        return w ? Boolean(w.isContainer) : false;
+    }
+    const w = widgetMap.get(itemOrType);
+    return w ? Boolean(w.isContainer) : false;
+};
 
 /**
  * 根据类型安全获取物料配置

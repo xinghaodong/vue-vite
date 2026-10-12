@@ -10,7 +10,7 @@
             v-model="activeTab"
             :type="propsData.tabType === 'default' ? '' : (propsData.tabType || 'border-card')"
             :tab-position="propsData.tabPosition || 'top'"
-            @tab-click.stop
+            @tab-click="handleTabClick"
         >
             <el-tab-pane
                 v-for="pane in propsData.panes || []"
@@ -40,13 +40,27 @@ const activeTab = ref(
     props.propsData.activeTab || props.propsData.panes?.[0]?.slot || ''
 );
 
+// 监听外界配置中的 activeTab 变更
 watch(
     () => props.propsData.activeTab,
     val => {
-        if (val) activeTab.value = val;
+        if (val && val !== activeTab.value) {
+            activeTab.value = val;
+        }
     }
 );
 
+// 监听内部激活 Tab 变更，双向同步回写 propsData.activeTab
+watch(
+    () => activeTab.value,
+    newVal => {
+        if (newVal && props.propsData && props.propsData.activeTab !== newVal) {
+            props.propsData.activeTab = newVal;
+        }
+    }
+);
+
+// 监听 panes 列表变动，若当前激活项被删除则平滑回退
 watch(
     () => props.propsData.panes,
     panes => {
@@ -58,6 +72,13 @@ watch(
     },
     { deep: true }
 );
+
+// 安全的 Tab 点击事件处理器（兼容 Element Plus 参数签名 (pane, ev)）
+const handleTabClick = pane => {
+    if (pane?.paneName) {
+        activeTab.value = pane.paneName;
+    }
+};
 </script>
 
 <style scoped>

@@ -63,7 +63,7 @@ defineProps({
 <style scoped>
 .subform-design-card {
     width: 100%;
-    background: #ffffff;
+    /* background: #ffffff; */
     border: 1px solid #cbd5e1;
     border-radius: 8px;
     padding: 12px 14px;
@@ -94,7 +94,7 @@ defineProps({
 .subform-title-text {
     font-size: 14px;
     font-weight: 600;
-    color: #1e293b;
+    /* color: #1e293b; */
 }
 
 .badge-tag {
@@ -107,7 +107,7 @@ defineProps({
 }
 
 .subform-body-wrapper {
-    background: #f8fafc;
+    /* background: #f8fafc; */
     border: 1px dashed #cbd5e1;
     border-radius: 6px;
     padding: 10px;
@@ -115,7 +115,7 @@ defineProps({
 
 .template-canvas-area {
     min-height: 60px;
-    background: #ffffff;
+    /* background: #ffffff; */
     border-radius: 4px;
     padding: 6px;
     box-sizing: border-box;

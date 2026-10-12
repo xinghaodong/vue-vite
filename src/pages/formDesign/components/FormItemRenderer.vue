@@ -1,4 +1,4 @@
-<!-- 递归表单项/容器解析渲染器 -->
+<!-- 运行态递归渲染 递归表单项/容器解析渲染器 -->
 <template>
     <!-- 1. 🌟 所有容器物料统合运行时渲染 (基于统一 slots 协议，零 if/else 特判) -->
     <div v-if="item.slots" class="container-runtime-box">
@@ -30,7 +30,7 @@
     <el-form-item
         v-else
         :label="item.props?.label"
-        :prop="item.id"
+        :prop="isSubformRow ? undefined : item.id"
         :required="item.props?.required"
         class="form-field-item"
     >
@@ -74,7 +74,11 @@ const formContext = inject('formContext', {
     loadingMap: {},
     disabled: ref(false),
     noApproval: ref(false),
+    isSubformRow: false,
 });
+
+// 是否处于子表单行内作用域 (若是，则断开顶层 el-form 的 prop 自动绑定)
+const isSubformRow = computed(() => Boolean(formContext.isSubformRow));
 
 // 当前字段绑定值 (安全响应式获取)
 const fieldValue = computed(() => formContext.formData?.value?.[props.item.id]);

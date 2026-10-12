@@ -5,10 +5,10 @@
         ref="formRef"
         :rules="formRules"
         :model="innerData"
-        :label-position="uiConfig?.labelPosition || 'right'"
+        :label-position="actualLabelPosition"
         :size="uiConfig?.size || 'default'"
-        :label-width="`${uiConfig?.labelWidth || 100}px`"
-        class="dynamic-form"
+        :label-width="actualLabelWidth"
+        :class="['dynamic-form', { 'mobile-dynamic-form': isMobileMode }]"
     >
         <FormItemRenderer
             v-for="item in schema"
@@ -43,11 +43,20 @@ const props = defineProps({
         type: Boolean,
         default: false,
     },
+    deviceMode: {
+        type: String,
+        default: 'pc', // 'pc' | 'mobile'
+    },
 });
 
 const emit = defineEmits(['update:modelValue']);
 
 const formRef = ref(null);
+
+// 移动端视口自适应配置
+const isMobileMode = computed(() => props.deviceMode === 'mobile');
+const actualLabelPosition = computed(() => (isMobileMode.value ? 'top' : props.uiConfig?.labelPosition || 'right'));
+const actualLabelWidth = computed(() => (isMobileMode.value ? 'auto' : `${props.uiConfig?.labelWidth || 100}px`));
 
 // 表单响应式数据
 const innerData = ref({ ...props.modelValue });
@@ -87,11 +96,44 @@ provide('formContext', {
     noApproval: computed(() => props.noApproval),
 });
 
-// 扁平化收集所有实际字段（排除纯容器节点，无需任何兼容判断）
+// 1. 扁平化收集所有实际叶子字段（包含容器内部，用于通用 API 加载与公式计算）
 const flatFields = computed(() => {
     const list = [];
     traverseWidgets(props.schema, item => {
         if (!item.slots) {
+            list.push(item);
+        }
+    });
+    return list;
+});
+
+// 2. 仅收集顶层主表单字段（排除子表单内部字段，因为子表单内部字段属于独立的二维明细行数据模型）
+const topLevelFormFields = computed(() => {
+    const list = [];
+    const walk = items => {
+        if (!Array.isArray(items)) return;
+        items.forEach(item => {
+            if (!item) return;
+            // 遇见子表单容器则停止向下深入，子表单行属于独立数据模型
+            if (item.type === 'subform') return;
+            if (!item.slots) {
+                list.push(item);
+            } else if (item.slots) {
+                Object.values(item.slots).forEach(slotList => {
+                    if (Array.isArray(slotList)) walk(slotList);
+                });
+            }
+        });
+    };
+    walk(props.schema);
+    return list;
+});
+
+// 3. 收集所有子表单容器物料（用于校验时明细行必填规则深度穿透）
+const subformWidgets = computed(() => {
+    const list = [];
+    traverseWidgets(props.schema, item => {
+        if (item.type === 'subform') {
             list.push(item);
         }
     });
@@ -122,10 +164,10 @@ const presetValidators = {
     },
 };
 
-// 动态构建校验规则
+// 动态构建顶层主表单校验规则 (仅约束顶层表单字段，不污染子表单行数据)
 const formRules = computed(() => {
     const rules = {};
-    flatFields.value.forEach(item => {
+    topLevelFormFields.value.forEach(item => {
         const itemRules = [];
 
         // 1. 必填校验
@@ -326,7 +368,46 @@ watch(
 defineExpose({
     async validate() {
         if (!formRef.value) return true;
-        return await formRef.value.validate();
+        // 1. 优先校验顶层主表单
+        await formRef.value.validate();
+
+        // 2. 深度穿透校验所有子表单明细行中的必填项
+        for (const subform of subformWidgets.value) {
+            const rows = innerData.value[subform.id];
+            const subName = subform.props?.label || '子表单';
+
+            // 若子表单自身配置了必填且当前没有行数据
+            if (subform.props?.required && (!Array.isArray(rows) || rows.length === 0)) {
+                throw new Error(`请至少添加一条【${subName}】明细数据`);
+            }
+
+            if (Array.isArray(rows) && rows.length > 0) {
+                // 收集该子表单内部定义的所有必填字段
+                const requiredCols = [];
+                traverseWidgets(subform.slots?.default || [], col => {
+                    if (!col.slots && col.props?.required) {
+                        requiredCols.push(col);
+                    }
+                });
+
+                for (let rIndex = 0; rIndex < rows.length; rIndex++) {
+                    const row = rows[rIndex];
+                    for (const col of requiredCols) {
+                        const val = row[col.id];
+                        const isEmpty =
+                            val === undefined ||
+                            val === null ||
+                            val === '' ||
+                            (Array.isArray(val) && val.length === 0);
+                        if (isEmpty) {
+                            const colName = col.props?.label || '字段';
+                            throw new Error(`【${subName}】第 ${rIndex + 1} 项的【${colName}】不能为空`);
+                        }
+                    }
+                }
+            }
+        }
+        return true;
     },
     resetFields() {
         formRef.value?.resetFields();
@@ -341,5 +422,39 @@ defineExpose({
 <style scoped>
 .dynamic-form {
     width: 100%;
+}
+
+.mobile-dynamic-form {
+    padding: 0 4px;
+}
+
+/* 移动端栅格自适应流式折行为 100% 单列 */
+.mobile-dynamic-form :deep(.el-col) {
+    max-width: 100% !important;
+    flex: 0 0 100% !important;
+    width: 100% !important;
+}
+
+/* 移动端标签与表单项紧凑排版 */
+.mobile-dynamic-form :deep(.el-form-item) {
+    margin-bottom: 14px;
+}
+
+.mobile-dynamic-form :deep(.el-form-item__label) {
+    font-size: 13px;
+    font-weight: 500;
+    line-height: 1.4;
+    padding-bottom: 4px;
+    color: #475569;
+}
+
+/* 移动端卡片容器阴影与边距紧凑化 */
+.mobile-dynamic-form :deep(.el-card) {
+    border-radius: 8px;
+    margin-bottom: 12px;
+}
+
+.mobile-dynamic-form :deep(.el-card__body) {
+    padding: 12px;
 }
 </style>

@@ -16,7 +16,7 @@
             <el-radio-group v-model="propsData.tabType" size="small">
                 <el-radio-button label="border-card">边框卡片</el-radio-button>
                 <el-radio-button label="card">选项卡</el-radio-button>
-                <el-radio-button label="default">常规下划线</el-radio-button>
+                <el-radio-button label="default">下划线</el-radio-button>
             </el-radio-group>
         </el-form-item>
 
@@ -29,21 +29,42 @@
             </el-radio-group>
         </el-form-item>
 
-        <el-form-item label="标签页项管理">
+        <el-form-item label="标签页管理">
             <div class="pane-list-wrapper">
                 <div v-for="(pane, idx) in propsData.panes" :key="idx" class="pane-item-box">
                     <div class="pane-header">
                         <span class="pane-index-tag">第 {{ idx + 1 }} 页</span>
-                        <el-button
-                            v-if="propsData.panes.length > 1"
-                            type="danger"
-                            size="small"
-                            circle
-                            title="删除此标签页"
-                            @click="removePane(idx)"
-                        >
-                            <el-icon><Delete /></el-icon>
-                        </el-button>
+                        <div class="header-actions">
+                            <el-tag
+                                v-if="propsData.activeTab === pane.slot"
+                                size="small"
+                                type="success"
+                                effect="light"
+                                style="margin-right: 6px; cursor: default"
+                            >
+                                当前激活
+                            </el-tag>
+                            <el-button
+                                v-else
+                                size="small"
+                                type="primary"
+                                link
+                                style="margin-right: 6px"
+                                @click="propsData.activeTab = pane.slot"
+                            >
+                                设为激活
+                            </el-button>
+                            <el-button
+                                v-if="propsData.panes.length > 1"
+                                type="danger"
+                                size="small"
+                                circle
+                                title="删除此标签页"
+                                @click="removePane(idx)"
+                            >
+                                <el-icon><Delete /></el-icon>
+                            </el-button>
+                        </div>
                     </div>
                     <div class="pane-name-row">
                         <el-input
@@ -134,6 +155,10 @@ const removePane = idx => {
     justify-content: space-between;
     align-items: center;
     margin-bottom: 6px;
+}
+.header-actions {
+    display: flex;
+    align-items: center;
 }
 .pane-index-tag {
     font-size: 12px;

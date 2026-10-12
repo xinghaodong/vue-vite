@@ -33,6 +33,7 @@
                         <el-option label="日期相减算天数 (如请假/出差)" value="dateDiff" />
                         <el-option label="数值乘法 (如单价 × 数量 = 总价)" value="multiply" />
                         <el-option label="多个数值累加 (如多项津贴求和)" value="sum" />
+                        <el-option label="子表单明细汇总 (跨行求和)" value="subformSum" />
                     </el-select>
                 </el-form-item>
 
@@ -101,6 +102,44 @@
                     </el-form-item>
                 </template>
 
+                <!-- 场景 4: 子表单跨行汇总求和 -->
+                <template v-if="wizardData.scene === 'subformSum'">
+                    <el-form-item label="目标子表单">
+                        <el-select
+                            v-model="wizardData.targetSubform"
+                            placeholder="请选择要汇总的子表单"
+                            style="width: 100%"
+                            @change="handleSubformChange"
+                        >
+                            <el-option
+                                v-for="sub in availableSubforms"
+                                :key="sub.id"
+                                :label="sub.label"
+                                :value="sub.id"
+                            />
+                        </el-select>
+                    </el-form-item>
+                    <el-form-item label="汇总数值列">
+                        <el-select
+                            v-model="wizardData.targetSubformCols"
+                            multiple
+                            collapse-tags
+                            collapse-tags-tooltip
+                            placeholder="请勾选需要汇总的列 (支持多选合并)"
+                            style="width: 100%"
+                            :disabled="!wizardData.targetSubform"
+                            @change="applyWizardFormula"
+                        >
+                            <el-option
+                                v-for="col in currentSubformColumns"
+                                :key="col.id"
+                                :label="`${col.label} (${col.id})`"
+                                :value="col.id"
+                            />
+                        </el-select>
+                    </el-form-item>
+                </template>
+
                 <!-- 向导模式下预览生成的公式 -->
                 <div class="wizard-preview-card">
                     <div class="preview-title">
@@ -131,6 +170,12 @@
                             :label="field.props?.label || field.id"
                             :value="field.id"
                         />
+                        <el-option
+                            v-for="sub in availableSubforms"
+                            :key="sub.id"
+                            :label="`${sub.label} [子表单]`"
+                            :value="sub.id"
+                        />
                     </el-select>
                 </el-form-item>
 
@@ -158,6 +203,16 @@
                         >
                             {{ f.props?.label || f.id }}
                         </el-tag>
+                        <el-tag
+                            v-for="sub in availableSubforms"
+                            :key="sub.id"
+                            size="small"
+                            type="warning"
+                            class="pill-tag field-pill"
+                            @click="insertText(sub.id)"
+                        >
+                            {{ sub.label }} [子表单]
+                        </el-tag>
                     </div>
                 </div>
 
@@ -184,7 +239,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, watch, nextTick } from 'vue';
+import { ref, reactive, computed, watch, nextTick } from 'vue';
 import { presetFunctions } from '../utils/formula.js';
 
 const props = defineProps({
@@ -193,6 +248,10 @@ const props = defineProps({
         required: true,
     },
     availableFields: {
+        type: Array,
+        default: () => [],
+    },
+    availableSubforms: {
         type: Array,
         default: () => [],
     },
@@ -212,7 +271,24 @@ const wizardData = reactive({
     multiA: props.item.props.wizardConfig?.multiA || '',
     multiB: props.item.props.wizardConfig?.multiB || '',
     sumFields: props.item.props.wizardConfig?.sumFields || [],
+    targetSubform: props.item.props.wizardConfig?.targetSubform || '',
+    targetSubformCols: Array.isArray(props.item.props.wizardConfig?.targetSubformCols)
+        ? props.item.props.wizardConfig.targetSubformCols
+        : (props.item.props.wizardConfig?.targetSubformCol ? [props.item.props.wizardConfig.targetSubformCol] : []),
 });
+
+// 当前选中子表单内部的可用列清单
+const currentSubformColumns = computed(() => {
+    if (!wizardData.targetSubform) return [];
+    const target = props.availableSubforms.find(s => s.id === wizardData.targetSubform);
+    return target?.columns || [];
+});
+
+// 切换子表单时默认全选内部所有列（多列合并累加）
+const handleSubformChange = () => {
+    wizardData.targetSubformCols = currentSubformColumns.value.map(c => c.id);
+    applyWizardFormula();
+};
 
 // 开关变更
 const handleSwitchChange = val => {
@@ -261,6 +337,16 @@ const applyWizardFormula = () => {
         if (wizardData.sumFields && wizardData.sumFields.length > 0) {
             deps.push(...wizardData.sumFields);
             expr = `SUM(${wizardData.sumFields.join(', ')})`;
+        }
+    } else if (wizardData.scene === 'subformSum') {
+        if (wizardData.targetSubform && wizardData.targetSubformCols && wizardData.targetSubformCols.length > 0) {
+            deps.push(wizardData.targetSubform);
+            if (wizardData.targetSubformCols.length === 1) {
+                expr = `SUM_SUBFORM(${wizardData.targetSubform}, '${wizardData.targetSubformCols[0]}')`;
+            } else {
+                const colsFormatted = JSON.stringify(wizardData.targetSubformCols).replace(/"/g, "'");
+                expr = `SUM_SUBFORM(${wizardData.targetSubform}, ${colsFormatted})`;
+            }
         }
     }
 

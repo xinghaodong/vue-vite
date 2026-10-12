@@ -246,6 +246,7 @@
 <script setup>
 import { ref, onMounted, nextTick, reactive, getCurrentInstance, computed, watch } from 'vue';
 import DynamicForm from '@/pages/formDesign/components/DynamicForm.vue';
+import { isContainerWidget } from '@/pages/formDesign/widgets/index.js';
 const { proxy } = getCurrentInstance();
 import { useRoute } from 'vue-router';
 import { useLogicFlow, EDGE_TYPES } from './hooks/useLogicFlow.js';
@@ -309,13 +310,22 @@ const extractFieldsFromSchema = schema => {
         if (!Array.isArray(items)) return;
         for (const item of items) {
             if (!item) continue;
-            if (item.type !== 'grid' && item.id) {
+            // 🌟 借助表单引擎统一物料元数据契约 (零硬编码判断容器，未来扩展 0 改动)
+            const isContainer = isContainerWidget(item);
+            if (!isContainer && item.id) {
                 fields.push({
                     id: item.id,
                     label: item.props?.label || item.label || item.id,
                     type: item.type,
                 });
             }
+            // 🌟 统一插槽协议 slots 深度穿透递归 (提取卡片内、标签页内、栅格内等任意容器内的真实业务字段)
+            if (item.slots && typeof item.slots === 'object') {
+                Object.values(item.slots).forEach(slotList => {
+                    if (Array.isArray(slotList)) traverse(slotList);
+                });
+            }
+            // 兼容历史旧数据结构
             if (item.props?.columns) {
                 item.props.columns.forEach(col => traverse(col.list));
             }

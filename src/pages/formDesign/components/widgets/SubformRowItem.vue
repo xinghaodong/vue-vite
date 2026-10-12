@@ -103,6 +103,7 @@ provide('formContext', {
     noApproval: computed(() => props.isReadOnly),
     optionsMap: props.parentContext?.optionsMap || {},
     loadingMap: props.parentContext?.loadingMap || {},
+    isSubformRow: true, // 🌟 显式声明当前处于子表单明细行上下文
 });
 </script>
 

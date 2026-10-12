@@ -13,6 +13,11 @@
 -->
 <template>
     <div class="setting-group">
+        <!-- 子表单标题 -->
+        <el-form-item label="子表单标题">
+            <el-input v-model="propsData.label" placeholder="例如: 报销明细、出差行程" clearable />
+        </el-form-item>
+
         <!-- 排版展示形态 -->
         <el-form-item label="展示形态">
             <el-radio-group v-model="propsData.layoutMode" size="small">

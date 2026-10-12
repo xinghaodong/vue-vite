@@ -73,6 +73,28 @@ export const ROUND = (num, precision = 2) => {
 };
 
 /**
+ * 6. 子表单跨行求和函数：SUM_SUBFORM(subformRows, fieldKeyOrKeys)
+ * 对子表单二维数据数组中特定列（单列或多列合并累加）的全部行进行求和汇总
+ * @param {Array} subformRows 子表单明细数据数组 (形如 [{ id: 1, amount: 20 }, ...])
+ * @param {string|Array<string>} fieldKeyOrKeys 需要累加的单列标识或多列标识数组 (如 'amount' 或 ['chepiao', 'zhusu'])
+ * @returns {number} 累加总和数值，保留两位小数
+ */
+export const SUM_SUBFORM = (subformRows, fieldKeyOrKeys) => {
+    if (!Array.isArray(subformRows) || !fieldKeyOrKeys) return 0;
+    const keys = Array.isArray(fieldKeyOrKeys) ? fieldKeyOrKeys : [fieldKeyOrKeys];
+    if (keys.length === 0) return 0;
+    const sum = subformRows.reduce((acc, row) => {
+        if (!row || typeof row !== 'object') return acc;
+        const rowSum = keys.reduce((rAcc, key) => {
+            const val = Number(row[key]);
+            return rAcc + (isNaN(val) ? 0 : val);
+        }, 0);
+        return acc + rowSum;
+    }, 0);
+    return Number(sum.toFixed(2));
+};
+
+/**
  * 导出公式沙箱执行环境
  */
 export const formulaHelpers = {
@@ -81,6 +103,7 @@ export const formulaHelpers = {
     MULTIPLY,
     IF,
     ROUND,
+    SUM_SUBFORM,
 };
 
 /**
@@ -98,6 +121,12 @@ export const presetFunctions = [
         label: '求和 SUM',
         template: 'SUM(fieldA, fieldB)',
         desc: '多个数值安全累加，自动处理数字转换',
+    },
+    {
+        name: 'SUM_SUBFORM',
+        label: '子表单求和 SUM_SUBFORM',
+        template: 'SUM_SUBFORM(subform_id, "field_key")',
+        desc: '对子表单明细某一数值列跨行求和汇总',
     },
     {
         name: 'MULTIPLY',

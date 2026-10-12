@@ -41,7 +41,7 @@ defineProps({
 .card-title-text {
     font-size: 14px;
     font-weight: 600;
-    color: #334155;
+    /* color: #334155; */
 }
 .card-slot-content {
     min-height: 48px;
