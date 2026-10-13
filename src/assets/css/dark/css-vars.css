@@ -1,11 +1,141 @@
-html.dark {
-    /* 自定义深色背景颜色 */
-    --el-bg-color: rgb(24.4, 33.8, 43.5);
-    /* ai输入框颜色 */
-    --container-secondary-fill: #2e2e33;
+/**
+ * ========================================================================
+ * 文件名称: css-vars.css
+ * 所属模块: 全局 Design Tokens 设计变量系统 (src/assets/css/dark)
+ * 功能说明:
+ *   彻底解决中后台业务页面中“硬编码 Hex 颜色导致暗黑模式失效割裂”的问题：
+ *   1. 统一白昼/暗夜模式下的语义化 CSS 变量；
+ *   2. 包含通用卡片、主要文本、次要文本、业务特色卡片 (AI审查卡片、特批横幅)；
+ *   3. 业务组件中 100% 推荐使用 var(--app-xxx) 或 var(--el-xxx)，实现自动响应无感变色。
+ * ========================================================================
+ */
+
+/* 基础根节点与全局视口背景 (从第一帧起无感跟随主题) */
+html,
+body,
+#app {
+    margin: 0;
+    padding: 0;
+    background-color: var(--el-bg-color-page);
+    color: var(--el-text-color-primary);
+    min-height: 100vh;
 }
 
+/* 1. 默认亮色模式变量 (Light Mode) */
+:root,
 html.light {
-    /* ai输入框颜色 */
+    /* 基础通用背景与边框 */
+    --app-card-bg: #ffffff;
+    --app-card-border: #e2e8f0;
+    --app-text-main: #1e293b;
+    --app-text-muted: #64748b;
+    --app-box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+
+    /* AI 智能审查卡片专用 Token (淡雅科技紫) */
+    --app-ai-card-bg: linear-gradient(135deg, #fbfaff 0%, #f8f6ff 100%);
+    --app-ai-card-border: #dcd1f6;
+    --app-ai-card-shadow: 0 2px 8px rgba(124, 58, 237, 0.06);
+    --app-ai-role-bg: #ede9fe;
+    --app-ai-role-text: #64748b;
+    --app-ai-box-bg: #ffffff;
+    --app-ai-box-border: #f1f5f9;
+    --app-ai-box-text: #334155;
+    --app-ai-item-bg: #ffffff;
+    --app-ai-item-text: #1e293b;
+
+    /* 异常与合规结果展示框 */
+    --app-ai-anomaly-bg: #fef2f2;
+    --app-ai-anomaly-border: #fecaca;
+    --app-ai-clean-bg: #f0fdf4;
+    --app-ai-clean-border: #bbf7d0;
+    --app-ai-clean-text: #15803d;
+
+    /* 审批特批横幅 Token */
+    --app-tip-pass-bg: #fdf6ec;
+    --app-tip-pass-border: #faecd8;
+    --app-tip-pass-text: #b88230;
+    --app-tip-reject-bg: #fef0f0;
+    --app-tip-reject-border: #fde2e2;
+    --app-tip-reject-text: #f56c6c;
+
+    /* 流程时间轴与审批人条目 Token */
+    --app-timeline-item-bg: #f8fafc;
+    --app-timeline-item-border: #e2e8f0;
+    --app-timeline-comment-bg: rgba(255, 255, 255, 0.75);
+
+    /* 聊天与输入框填充 */
     --container-secondary-fill: #f7f8fc;
+}
+
+/* 2. 暗黑模式变量 (Dark Mode - 优雅深邃高对比黑金紫夜) */
+html.dark {
+    /* 自定义 Element 深色基底 */
+    --el-bg-color: #18222b;
+    --el-bg-color-page: #0f171e;
+    --el-bg-color-overlay: #1e293b;
+
+    /* 基础通用背景与边框 */
+    --app-card-bg: #1e293b;
+    --app-card-border: #334155;
+    --app-text-main: #f1f5f9;
+    --app-text-muted: #94a3b8;
+    --app-box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
+
+    /* AI 智能审查卡片专用 Token (深邃暗紫金) */
+    --app-ai-card-bg: linear-gradient(135deg, #1e1b2e 0%, #151322 100%);
+    --app-ai-card-border: #4c3b6e;
+    --app-ai-card-shadow: 0 2px 12px rgba(0, 0, 0, 0.4);
+    --app-ai-role-bg: #2e2547;
+    --app-ai-role-text: #c4b5fd;
+    --app-ai-box-bg: #221d33;
+    --app-ai-box-border: #383050;
+    --app-ai-box-text: #e2e8f0;
+    --app-ai-item-bg: #1c1829;
+    --app-ai-item-text: #f1f5f9;
+
+    /* 异常与合规结果展示框 */
+    --app-ai-anomaly-bg: #2b1719;
+    --app-ai-anomaly-border: #522226;
+    --app-ai-clean-bg: #12281a;
+    --app-ai-clean-border: #1e4a2d;
+    --app-ai-clean-text: #4ade80;
+
+    /* 审批特批横幅 Token */
+    --app-tip-pass-bg: #2c2317;
+    --app-tip-pass-border: #523f22;
+    --app-tip-pass-text: #e6a23c;
+    --app-tip-reject-bg: #2d1719;
+    --app-tip-reject-border: #5a2428;
+    --app-tip-reject-text: #f89898;
+
+    /* 流程时间轴与审批人条目 Token */
+    --app-timeline-item-bg: #1e293b;
+    --app-timeline-item-border: #334155;
+    --app-timeline-comment-bg: rgba(15, 23, 42, 0.65);
+
+    /* 聊天与输入框填充 */
+    --container-secondary-fill: #222933;
+}
+
+/* ========================================================================
+ * 3. 第三方流程图引擎深色模式适配 (LogicFlow 穿透压制默认白底 #fff)
+ * ======================================================================== */
+.lf-graph {
+    background: var(--el-bg-color-page) !important;
+    background-color: var(--el-bg-color-page) !important;
+    transition: background-color 0.3s ease;
+}
+
+.lf-background,
+.lf-background-area {
+    background: transparent !important;
+    background-color: transparent !important;
+}
+
+html.dark .lf-grid svg circle {
+    fill: rgba(255, 255, 255, 0.15) !important;
+}
+
+html.dark .lf-grid svg path {
+    stroke: rgba(255, 255, 255, 0.08) !important;
 }

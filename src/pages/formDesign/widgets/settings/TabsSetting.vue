@@ -137,6 +137,10 @@ const removePane = idx => {
 </script>
 
 <style scoped>
+/* ========================================================================
+ * 🎨 标签页栏目项：Design Tokens 规范重构
+ * 彻底消除硬编码 Hex 颜色，自动响应全局暗黑/亮色主题切换
+ * ======================================================================== */
 .setting-group {
     width: 100%;
 }
@@ -144,11 +148,12 @@ const removePane = idx => {
     width: 100%;
 }
 .pane-item-box {
-    background: #f8fafc;
-    border: 1px solid #e2e8f0;
+    background: var(--el-fill-color-light);
+    border: 1px solid var(--el-border-color-lighter);
     border-radius: 6px;
     padding: 8px 10px;
     margin-bottom: 8px;
+    transition: background-color 0.3s ease, border-color 0.3s ease;
 }
 .pane-header {
     display: flex;
@@ -163,7 +168,7 @@ const removePane = idx => {
 .pane-index-tag {
     font-size: 12px;
     font-weight: 600;
-    color: #409eff;
+    color: var(--el-color-primary);
 }
 .pane-name-row {
     width: 100%;

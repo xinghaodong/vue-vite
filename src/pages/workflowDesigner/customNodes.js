@@ -2,26 +2,30 @@
 import { h, RectNode, RectNodeModel, CircleNode, CircleNodeModel, DiamondNode, DiamondNodeModel } from '@logicflow/core';
 
 /**
- * 纯函数：根据节点属性和全局审批状态计算节点填充色和边框色
+ * 纯函数：根据节点属性、全局审批状态以及当前暗黑模式，自适应计算节点填充色和边框色
  * @param {Object} properties - 节点 properties
  * @param {string|number} globalStatus - 流程全局审批状态 (1:进行中, 2:通过, 3:拒绝)
+ * @param {boolean} [isDark] - 是否为暗黑模式 (默认自动从 document.documentElement 嗅探)
  * @returns {{ fill: string, stroke: string }}
  */
-export function calculateNodeColors(properties = {}, globalStatus) {
+export function calculateNodeColors(properties = {}, globalStatus, isDark) {
+    const dark = isDark ?? (typeof document !== 'undefined' && document.documentElement.classList.contains('dark'));
     const status = properties?.nodeStatus ?? properties?.status;
     const title = properties?.nodeTitle ?? properties?.title;
 
     // 1. 特殊处理开始和结束节点
     if (title === '开始') {
-        return { fill: '#d4edda', stroke: '#155724' }; // 浅绿 / 深绿
+        return dark
+            ? { fill: '#064e3b', stroke: '#10b981' } // 暗黑：深邃翠绿 / 亮绿边框
+            : { fill: '#d4edda', stroke: '#155724' }; // 亮色：浅绿 / 深绿边框
     }
     if (title === '结束') {
         if (globalStatus == 2) {
-            return { fill: '#c3e6cb', stroke: '#28a745' }; // 全部通过 - 绿
+            return dark ? { fill: '#064e3b', stroke: '#10b981' } : { fill: '#c3e6cb', stroke: '#28a745' }; // 全部通过
         } else if (globalStatus == 3) {
-            return { fill: '#f5c6cb', stroke: '#dc3545' }; // 拒绝 - 红
+            return dark ? { fill: '#450a0a', stroke: '#ef4444' } : { fill: '#f5c6cb', stroke: '#dc3545' }; // 驳回
         } else {
-            return { fill: '#ffffff', stroke: '#000000' }; // 未完成 - 白底黑边
+            return dark ? { fill: '#1e293b', stroke: '#64748b' } : { fill: '#ffffff', stroke: '#94a3b8' }; // 未完成
         }
     }
 
@@ -29,15 +33,15 @@ export function calculateNodeColors(properties = {}, globalStatus) {
     switch (status) {
         case '2':
         case 2: // 通过
-            return { fill: '#d4edda', stroke: '#155724' };
+            return dark ? { fill: '#064e3b', stroke: '#10b981' } : { fill: '#d4edda', stroke: '#155724' };
         case '3':
         case 3: // 驳回
-            return { fill: '#f5c6cb', stroke: '#dc3545' };
+            return dark ? { fill: '#450a0a', stroke: '#ef4444' } : { fill: '#f5c6cb', stroke: '#dc3545' };
         case '1':
         case 1: // 审批中
-            return { fill: '#fff3cd', stroke: '#ffc107' };
-        default: // 未开始 / 默认
-            return { fill: '#ffffff', stroke: '#000000' };
+            return dark ? { fill: '#451a03', stroke: '#f59e0b' } : { fill: '#fff3cd', stroke: '#ffc107' };
+        default: // 未开始 / 默认待审批节点
+            return dark ? { fill: '#1e293b', stroke: '#475569' } : { fill: '#ffffff', stroke: '#cbd5e1' };
     }
 }
 
@@ -50,9 +54,16 @@ export function registerCustomNodes(lf) {
     class StartNodeModel extends CircleNodeModel {
         getNodeStyle() {
             const style = super.getNodeStyle();
-            style.fill = '#d4edda';
-            style.stroke = '#155724';
+            const dark = typeof document !== 'undefined' && document.documentElement.classList.contains('dark');
+            style.fill = dark ? '#064e3b' : '#d4edda';
+            style.stroke = dark ? '#10b981' : '#155724';
             style.strokeWidth = 2;
+            return style;
+        }
+        getTextStyle() {
+            const style = super.getTextStyle();
+            const dark = typeof document !== 'undefined' && document.documentElement.classList.contains('dark');
+            style.color = dark ? '#f1f5f9' : '#1e293b';
             return style;
         }
     }
@@ -68,17 +79,24 @@ export function registerCustomNodes(lf) {
         getNodeStyle() {
             const style = super.getNodeStyle();
             const globalStatus = this.properties?.globalStatus;
+            const dark = typeof document !== 'undefined' && document.documentElement.classList.contains('dark');
             if (globalStatus == 2) {
-                style.fill = '#c3e6cb';
-                style.stroke = '#28a745';
+                style.fill = dark ? '#064e3b' : '#c3e6cb';
+                style.stroke = dark ? '#10b981' : '#28a745';
             } else if (globalStatus == 3) {
-                style.fill = '#f5c6cb';
-                style.stroke = '#dc3545';
+                style.fill = dark ? '#450a0a' : '#f5c6cb';
+                style.stroke = dark ? '#ef4444' : '#dc3545';
             } else {
-                style.fill = '#ffffff';
-                style.stroke = '#000000';
+                style.fill = dark ? '#1e293b' : '#ffffff';
+                style.stroke = dark ? '#64748b' : '#94a3b8';
             }
             style.strokeWidth = 3; // 结束事件经典粗边框
+            return style;
+        }
+        getTextStyle() {
+            const style = super.getTextStyle();
+            const dark = typeof document !== 'undefined' && document.documentElement.classList.contains('dark');
+            style.color = dark ? '#f1f5f9' : '#1e293b';
             return style;
         }
     }
@@ -89,13 +107,20 @@ export function registerCustomNodes(lf) {
         model: EndNodeModel,
     });
 
-    // 2. 自定义矩形节点 (人工审批节点)
+    // 3. 自定义矩形节点 (人工审批节点)
     class CustomRectModel extends RectNodeModel {
         getNodeStyle() {
             const style = super.getNodeStyle();
             const { fill, stroke } = calculateNodeColors(this.properties, this.properties?.globalStatus);
             style.fill = fill;
             style.stroke = stroke;
+            style.radius = 6;
+            return style;
+        }
+        getTextStyle() {
+            const style = super.getTextStyle();
+            const dark = typeof document !== 'undefined' && document.documentElement.classList.contains('dark');
+            style.color = dark ? '#f1f5f9' : '#1e293b';
             return style;
         }
     }
@@ -104,6 +129,7 @@ export function registerCustomNodes(lf) {
             const { model } = this.props;
             const { x, y, width, height, properties = {} } = model || {};
             const rectShape = super.getShape();
+            const dark = typeof document !== 'undefined' && document.documentElement.classList.contains('dark');
 
             const assignees = properties?.assignees || [];
             const mode = properties?.approvalMode || 'or';
@@ -124,8 +150,8 @@ export function registerCustomNodes(lf) {
                     height: badgeHeight,
                     rx: 8,
                     ry: 8,
-                    fill: isAnd ? '#EEF2FF' : '#FEF3C7',
-                    stroke: isAnd ? '#6366F1' : '#F59E0B',
+                    fill: dark ? (isAnd ? '#2b2650' : '#3e2a10') : (isAnd ? '#EEF2FF' : '#FEF3C7'),
+                    stroke: dark ? (isAnd ? '#818cf8' : '#fbbf24') : (isAnd ? '#6366F1' : '#F59E0B'),
                     strokeWidth: 1,
                 });
 
@@ -135,7 +161,7 @@ export function registerCustomNodes(lf) {
                         x: badgeX + badgeWidth / 2,
                         y: badgeY + 12,
                         textAnchor: 'middle',
-                        fill: isAnd ? '#4338CA' : '#B45309',
+                        fill: dark ? (isAnd ? '#c7d2fe' : '#fde68a') : (isAnd ? '#4338CA' : '#B45309'),
                         fontSize: 10,
                         fontWeight: '600',
                     },
@@ -159,8 +185,8 @@ export function registerCustomNodes(lf) {
                     height: badgeHeight,
                     rx: 8,
                     ry: 8,
-                    fill: '#F1F5F9',
-                    stroke: '#CBD5E1',
+                    fill: dark ? '#334155' : '#F1F5F9',
+                    stroke: dark ? '#475569' : '#CBD5E1',
                     strokeWidth: 1,
                 });
 
@@ -170,7 +196,7 @@ export function registerCustomNodes(lf) {
                         x: badgeX + badgeWidth / 2,
                         y: badgeY + 12,
                         textAnchor: 'middle',
-                        fill: '#475569',
+                        fill: dark ? '#e2e8f0' : '#475569',
                         fontSize: 10,
                     },
                     name,
@@ -188,13 +214,19 @@ export function registerCustomNodes(lf) {
         model: CustomRectModel,
     });
 
-    // 3. 自定义菱形节点 (排他条件网关)
+    // 4. 自定义菱形节点 (排他条件网关)
     class CustomDiamondModel extends DiamondNodeModel {
         getNodeStyle() {
             const style = super.getNodeStyle();
             const { fill, stroke } = calculateNodeColors(this.properties, this.properties?.globalStatus);
             style.fill = fill;
             style.stroke = stroke;
+            return style;
+        }
+        getTextStyle() {
+            const style = super.getTextStyle();
+            const dark = typeof document !== 'undefined' && document.documentElement.classList.contains('dark');
+            style.color = dark ? '#f1f5f9' : '#1e293b';
             return style;
         }
     }
@@ -205,15 +237,26 @@ export function registerCustomNodes(lf) {
         model: CustomDiamondModel,
     });
 
-    // 4. 自定义 AI 智能体审查节点 (ai-agent)
+    // 5. 自定义 AI 智能体审查节点 (ai-agent)
     class CustomAiAgentModel extends RectNodeModel {
         getNodeStyle() {
             const style = super.getNodeStyle();
+            const dark = typeof document !== 'undefined' && document.documentElement.classList.contains('dark');
             const calculated = calculateNodeColors(this.properties, this.properties?.globalStatus);
-            style.fill = calculated.fill && calculated.fill !== '#ffffff' ? calculated.fill : '#FAF5FF';
-            style.stroke = calculated.stroke && calculated.stroke !== '#000000' ? calculated.stroke : '#9333EA';
+            style.fill = calculated.fill && calculated.fill !== '#ffffff' && calculated.fill !== '#1e293b'
+                ? calculated.fill
+                : (dark ? '#221938' : '#FAF5FF');
+            style.stroke = calculated.stroke && calculated.stroke !== '#cbd5e1' && calculated.stroke !== '#475569'
+                ? calculated.stroke
+                : (dark ? '#a855f7' : '#9333EA');
             style.strokeWidth = 2;
             style.radius = 8;
+            return style;
+        }
+        getTextStyle() {
+            const style = super.getTextStyle();
+            const dark = typeof document !== 'undefined' && document.documentElement.classList.contains('dark');
+            style.color = dark ? '#f1f5f9' : '#1e293b';
             return style;
         }
     }
@@ -221,6 +264,7 @@ export function registerCustomNodes(lf) {
         getShape() {
             const { model } = this.props;
             const { x, y, width, height, properties } = model;
+            const dark = typeof document !== 'undefined' && document.documentElement.classList.contains('dark');
             const roleName = properties?.agentRoleName || '🤖 AI审查';
 
             const rectShape = super.getShape();
@@ -232,7 +276,7 @@ export function registerCustomNodes(lf) {
                 height: 16,
                 rx: 3,
                 ry: 3,
-                fill: '#9333EA',
+                fill: dark ? '#7c3aed' : '#9333EA',
             });
 
             const badgeText = h(
@@ -252,7 +296,7 @@ export function registerCustomNodes(lf) {
                 {
                     x: x - width / 2 + 70,
                     y: y - height / 2 + 16,
-                    fill: '#6B21A8',
+                    fill: dark ? '#d8b4fe' : '#6B21A8',
                     fontSize: 12,
                     fontWeight: 'bold',
                 },

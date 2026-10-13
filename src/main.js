@@ -14,6 +14,7 @@ import 'uno.css';
 // import 'highlight.js/styles/github.css';
 import 'element-plus/theme-chalk/dark/css-vars.css';
 import '@/assets/css/dark/css-vars.css';
+import '@/assets/css/theme-transition.css';
 
 import MyInputNumber from 'element-plus-input-number-thousands';
 // import { enableKatex, enableMermaid } from 'markstream-vue';

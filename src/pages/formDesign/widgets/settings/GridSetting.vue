@@ -107,12 +107,17 @@ const removeColumn = idx => {
 .col-list-wrapper {
     width: 100%;
 }
+/* ========================================================================
+ * 🎨 栅格栏目项：Design Tokens 规范重构
+ * 彻底消除硬编码 Hex 颜色，自动响应全局暗黑/亮色主题切换
+ * ======================================================================== */
 .col-item-box {
-    background: #f8fafc;
-    border: 1px solid #e2e8f0;
+    background: var(--el-fill-color-light);
+    border: 1px solid var(--el-border-color-lighter);
     border-radius: 6px;
     padding: 8px 10px;
     margin-bottom: 8px;
+    transition: background 0.3s ease, border-color 0.3s ease;
 }
 .col-header {
     display: flex;
@@ -123,7 +128,6 @@ const removeColumn = idx => {
 .col-title {
     font-size: 13px;
     font-weight: 500;
-    color: #475569;
 }
 .col-slider {
     display: flex;

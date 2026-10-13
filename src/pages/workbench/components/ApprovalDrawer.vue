@@ -7,7 +7,7 @@
                     <el-icon v-if="status == 0" class="is-loading" style="margin-right: 4px; vertical-align: -1px"><Loading /></el-icon>
                     {{ activeStatus }}
                 </el-tag>
-                <span v-if="isHitlSuspended && instance?.currentApproverName" style="font-size: 13px; color: #e6a23c; font-weight: 500">
+                <span v-if="isHitlSuspended && instance?.currentApproverName" style="font-size: 13px; color: var(--el-color-warning); font-weight: 500">
                     (待特批人 [{{ instance.currentApproverName }}] 审批)
                 </span>
             </div>
@@ -24,7 +24,7 @@
                             show-icon
                         >
                             <template #default>
-                                <div style="font-size: 13px; color: #b88230; margin-top: 4px; line-height: 1.5">
+                                <div style="font-size: 13px; color: var(--app-tip-pass-text); margin-top: 4px; line-height: 1.5">
                                     {{ hitlSuspendInfo?.message }}
                                 </div>
                             </template>
@@ -37,7 +37,7 @@
                             <div v-if="isHitlSuspended" class="hitl-suspend-banner" style="margin-bottom: 12px">
                                 <el-alert :title="`AI人机协同挂起：检测到业务异常，等待特批人 [${instance.currentApproverName}] 复核`" type="warning" :closable="false" show-icon>
                                     <template #default>
-                                        <div style="font-size: 13px; color: #b88230; margin-top: 4px; line-height: 1.5">
+                                        <div style="font-size: 13px; color: var(--app-tip-pass-text); margin-top: 4px; line-height: 1.5">
                                             {{ hitlSuspendInfo?.message }}
                                         </div>
                                     </template>
@@ -118,7 +118,7 @@
                             <!-- 存疑异常项清单 -->
                             <div v-if="step.auditResult.anomalyList && step.auditResult.anomalyList.length > 0" class="ai-anomalies-box">
                                 <div class="anomaly-title">
-                                    <el-icon style="color: #f56c6c; margin-right: 6px"><WarningFilled /></el-icon>
+                                    <el-icon style="color: var(--el-color-danger); margin-right: 6px"><WarningFilled /></el-icon>
                                     <span>检测到疑似异常项 (共 {{ step.auditResult.anomalyList.length }} 处)：</span>
                                 </div>
                                 <div class="anomaly-list">
@@ -134,7 +134,7 @@
                                 </div>
                             </div>
                             <div v-else class="ai-clean-box">
-                                <el-icon style="color: #67c23a; margin-right: 6px">
+                                <el-icon style="color: var(--el-color-success); margin-right: 6px">
                                     <CircleCheckFilled />
                                 </el-icon>
                                 <span>{{ step.auditResult.checkSummary }}</span>
@@ -144,8 +144,8 @@
                     <!-- 🤖 AI 后台初审进行中占位卡片 (独立显示，不被前置智能体已完成卡片遮蔽) -->
                     <div v-if="hasPendingAiAgent" class="ai-audit-card ai-processing-card" :style="aiAuditSteps && aiAuditSteps.length > 0 ? 'margin-top: 14px;' : ''">
                         <div class="ai-processing-content">
-                            <el-icon class="is-loading" style="font-size: 18px; color: #409eff; margin-right: 8px"><Loading /></el-icon>
-                            <span style="color: #409eff; font-weight: 500">{{ aiProcessingMessage }}</span>
+                            <el-icon class="is-loading" style="font-size: 18px; color: var(--el-color-primary); margin-right: 8px"><Loading /></el-icon>
+                            <span style="color: var(--el-color-primary); font-weight: 500">{{ aiProcessingMessage }}</span>
                             <el-button link type="primary" size="small" style="margin-left: 12px" @click="getApprovalHistory(true)">刷新结果</el-button>
                         </div>
                     </div>
@@ -871,14 +871,20 @@ onUnmounted(() => {
     margin-top: 15px;
 }
 
+/* ========================================================================
+ * 🎨 样式规范重构：全面接入 Design Tokens 变量系统
+ * 彻底消除硬编码 Hex 颜色，在昼夜（Light/Dark）模式下实现 100% 自动自适应变色
+ * ======================================================================== */
+
 /* AI 智能审查卡片美化 */
 .ai-audit-card {
-    background: linear-gradient(135deg, #fbfaff 0%, #f8f6ff 100%);
-    border: 1px solid #dcd1f6;
+    background: var(--app-ai-card-bg);
+    border: 1px solid var(--app-ai-card-border);
     border-radius: 8px;
     padding: 16px 18px;
     margin-bottom: 20px;
-    box-shadow: 0 2px 8px rgba(124, 58, 237, 0.06);
+    box-shadow: var(--app-ai-card-shadow);
+    transition: background 0.3s ease, border-color 0.3s ease;
 }
 
 .ai-audit-header {
@@ -897,13 +903,13 @@ onUnmounted(() => {
 .ai-badge {
     font-size: 15px;
     font-weight: 700;
-    color: #6366f1;
+    color: var(--el-color-primary);
 }
 
 .ai-role {
     font-size: 12px;
-    color: #64748b;
-    background: #ede9fe;
+    color: var(--app-ai-role-text);
+    background: var(--app-ai-role-bg);
     padding: 2px 8px;
     border-radius: 12px;
 }
@@ -916,7 +922,7 @@ onUnmounted(() => {
 
 .score-label {
     font-size: 13px;
-    color: #475569;
+    color: var(--el-text-color-regular);
 }
 
 .score-tag {
@@ -924,7 +930,7 @@ onUnmounted(() => {
     font-size: 14px;
 }
 
-/* 🌟 特批放行 / 驳回 说明横幅样式 */
+/* 🌟 特批放行 / 驳回 说明横幅样式 (接入全局横幅 Token) */
 .special-approval-tip-box {
     margin-top: 10px;
     margin-bottom: 12px;
@@ -932,18 +938,19 @@ onUnmounted(() => {
     border-radius: 6px;
     font-size: 13px;
     line-height: 1.6;
+    transition: background 0.3s ease, border-color 0.3s ease;
 }
 
 .special-approval-tip-box.is-pass {
-    background: #fdf6ec;
-    border: 1px solid #faecd8;
-    color: #b88230;
+    background: var(--app-tip-pass-bg);
+    border: 1px solid var(--app-tip-pass-border);
+    color: var(--app-tip-pass-text);
 }
 
 .special-approval-tip-box.is-reject {
-    background: #fef0f0;
-    border: 1px solid #fde2e2;
-    color: #f56c6c;
+    background: var(--app-tip-reject-bg);
+    border: 1px solid var(--app-tip-reject-border);
+    color: var(--app-tip-reject-text);
 }
 
 .special-approval-tip-box .tip-header {
@@ -970,18 +977,18 @@ onUnmounted(() => {
 
 .ai-summary-box {
     font-size: 14px;
-    color: #334155;
-    background: #ffffff;
+    color: var(--app-ai-box-text);
+    background: var(--app-ai-box-bg);
     padding: 10px 14px;
     border-radius: 6px;
-    border: 1px solid #f1f5f9;
+    border: 1px solid var(--app-ai-box-border);
     margin-bottom: 12px;
     line-height: 1.6;
 }
 
 .ai-anomalies-box {
-    background: #fef2f2;
-    border: 1px solid #fecaca;
+    background: var(--app-ai-anomaly-bg);
+    border: 1px solid var(--app-ai-anomaly-border);
     border-radius: 6px;
     padding: 12px 14px;
 }
@@ -991,7 +998,7 @@ onUnmounted(() => {
     align-items: center;
     font-size: 14px;
     font-weight: 600;
-    color: #dc2626;
+    color: var(--el-color-danger);
     margin-bottom: 8px;
 }
 
@@ -1002,18 +1009,18 @@ onUnmounted(() => {
 }
 
 .anomaly-item {
-    background: #ffffff;
+    background: var(--app-ai-item-bg);
     border-radius: 4px;
     padding: 8px 12px;
-    border-left: 3px solid #ef4444;
+    border-left: 3px solid var(--el-color-danger);
 }
 
 .anomaly-item.severity-medium {
-    border-left-color: #f59e0b;
+    border-left-color: var(--el-color-warning);
 }
 
 .anomaly-item.severity-low {
-    border-left-color: #3b82f6;
+    border-left-color: var(--el-color-primary);
 }
 
 .item-head {
@@ -1025,12 +1032,12 @@ onUnmounted(() => {
 
 .file-tag {
     font-size: 12px;
-    color: #64748b;
+    color: var(--el-text-color-secondary);
 }
 
 .item-desc {
     font-size: 13px;
-    color: #1e293b;
+    color: var(--app-ai-item-text);
     line-height: 1.5;
 }
 
@@ -1038,19 +1045,19 @@ onUnmounted(() => {
     display: flex;
     align-items: center;
     font-size: 13px;
-    color: #15803d;
-    background: #f0fdf4;
+    color: var(--app-ai-clean-text);
+    background: var(--app-ai-clean-bg);
     padding: 10px 14px;
     border-radius: 6px;
-    border: 1px solid #bbf7d0;
+    border: 1px solid var(--app-ai-clean-border);
 }
 
 .ai-processing-card {
-    border-left: 4px solid #409eff;
-    background: #f0f9ff;
+    border-left: 4px solid var(--el-color-primary);
+    background: var(--el-color-primary-light-9);
     padding: 14px 18px;
     border-radius: 8px;
-    box-shadow: 0 2px 10px rgba(64, 158, 255, 0.08);
+    box-shadow: var(--el-box-shadow-light);
     margin-bottom: 20px;
 }
 
@@ -1058,6 +1065,7 @@ onUnmounted(() => {
     display: flex;
     align-items: center;
     font-size: 14px;
+    color: var(--el-color-primary);
 }
 
 /* 🌟 审批记录与时间轴样式增强 (拉开纵向间距，告别拥挤感) */
@@ -1082,7 +1090,7 @@ onUnmounted(() => {
     font-size: 15px;
     font-weight: 600;
     line-height: 1.4;
-    color: #1e293b;
+    color: var(--el-text-color-primary);
 }
 
 .step-title-row {
@@ -1104,7 +1112,7 @@ onUnmounted(() => {
     margin-top: 8px;
     font-size: 13px;
     line-height: 1.6;
-    color: #475569;
+    color: var(--el-text-color-regular);
 }
 
 /* 🌟 多审批人会签/或签 独立成员卡片容器 */
@@ -1116,26 +1124,26 @@ onUnmounted(() => {
 }
 
 .multi-approver-item {
-    background: #f8fafc;
-    border: 1px solid #e2e8f0;
+    background: var(--app-timeline-item-bg);
+    border: 1px solid var(--app-timeline-item-border);
     border-radius: 6px;
     padding: 10px 14px;
     transition: all 0.2s ease;
 }
 
 .multi-approver-item.status-approved {
-    background: #f0fdf4;
-    border-color: #bbf7d0;
+    background: var(--app-ai-clean-bg);
+    border-color: var(--app-ai-clean-border);
 }
 
 .multi-approver-item.status-pending {
-    background: #fefce8;
-    border-color: #fef08a;
+    background: var(--app-tip-pass-bg);
+    border-color: var(--app-tip-pass-border);
 }
 
 .multi-approver-item.status-rejected {
-    background: #fef2f2;
-    border-color: #fecaca;
+    background: var(--app-tip-reject-bg);
+    border-color: var(--app-tip-reject-border);
 }
 
 .approver-head {
@@ -1154,7 +1162,7 @@ onUnmounted(() => {
 .approver-name {
     font-weight: 600;
     font-size: 13px;
-    color: #1e293b;
+    color: var(--el-text-color-primary);
     display: flex;
     align-items: center;
     gap: 4px;
@@ -1162,34 +1170,35 @@ onUnmounted(() => {
 
 .user-icon {
     font-size: 14px;
-    color: #64748b;
+    color: var(--el-text-color-secondary);
 }
 
 .approver-time {
     font-size: 12px;
-    color: #64748b;
+    color: var(--el-text-color-secondary);
 }
 
 .approver-comment {
     font-size: 12px;
-    color: #334155;
-    background: rgba(255, 255, 255, 0.7);
+    color: var(--el-text-color-regular);
+    background: var(--app-timeline-comment-bg);
     padding: 4px 8px;
     border-radius: 4px;
     margin-top: 4px;
     line-height: 1.5;
+    border: 1px solid var(--el-border-color-extra-light);
 }
 
 .comment-prefix {
     font-weight: 500;
-    color: #64748b;
+    color: var(--el-text-color-secondary);
     margin-right: 4px;
 }
 
 /* 单人节点描述行 */
 .single-step-desc {
-    background: #f8fafc;
-    border: 1px solid #f1f5f9;
+    background: var(--app-timeline-item-bg);
+    border: 1px solid var(--app-timeline-item-border);
     border-radius: 6px;
     padding: 8px 12px;
     margin-top: 6px;
@@ -1197,7 +1206,7 @@ onUnmounted(() => {
 
 .desc-line {
     font-size: 13px;
-    color: #334155;
+    color: var(--el-text-color-regular);
     line-height: 1.6;
 }
 </style>

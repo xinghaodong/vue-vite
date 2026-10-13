@@ -297,19 +297,24 @@ const saveJsonTree = () => {
 .setting-group {
     padding: 0 4px;
 }
+/* ========================================================================
+ * 🎨 级联选择器配置：Design Tokens 规范重构
+ * 彻底消除硬编码 Hex 颜色，自动响应全局暗黑/亮色主题切换
+ * ======================================================================== */
 .tree-options-box {
     width: 100%;
-    background: #f8fafc;
-    border: 1px solid #e2e8f0;
+    background: var(--el-fill-color-light);
+    border: 1px solid var(--el-border-color-lighter);
     border-radius: 6px;
     padding: 8px 10px;
+    transition: background-color 0.3s ease, border-color 0.3s ease;
 }
 .tree-summary {
     display: flex;
     justify-content: space-between;
     align-items: center;
     font-size: 13px;
-    color: #475569;
+    color: var(--el-text-color-regular);
     margin-bottom: 6px;
 }
 .preset-buttons {
@@ -319,19 +324,19 @@ const saveJsonTree = () => {
     font-size: 12px;
 }
 .preset-label {
-    color: #94a3b8;
+    color: var(--el-text-color-secondary);
 }
 .sub-divider {
     font-size: 12px;
     font-weight: 600;
-    color: #64748b;
+    color: var(--el-text-color-secondary);
     margin: 12px 0 6px 0;
     padding-bottom: 4px;
-    border-bottom: 1px dashed #e2e8f0;
+    border-bottom: 1px dashed var(--el-border-color-lighter);
 }
 .field-hint {
     font-size: 11px;
-    color: #94a3b8;
+    color: var(--el-text-color-secondary);
     line-height: 1.4;
     margin-top: 4px;
 }
@@ -342,13 +347,13 @@ const saveJsonTree = () => {
 }
 .editor-tips {
     font-size: 12px;
-    color: #64748b;
+    color: var(--el-text-color-secondary);
 }
 .editor-tips code {
-    background: #e2e8f0;
+    background: var(--el-fill-color);
     padding: 2px 4px;
     border-radius: 4px;
-    color: #0f172a;
+    color: var(--el-text-color-primary);
 }
 .code-textarea :deep(textarea) {
     font-family: 'Consolas', 'Menlo', 'Courier New', monospace;
@@ -357,6 +362,6 @@ const saveJsonTree = () => {
 }
 .json-error-tip {
     font-size: 12px;
-    color: #ef4444;
+    color: var(--el-color-danger);
 }
 </style>

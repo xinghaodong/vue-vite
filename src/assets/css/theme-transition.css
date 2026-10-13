@@ -1,0 +1,33 @@
+/**
+ * ========================================================================
+ * 文件名称: theme-transition.css
+ * 所属模块: 全局主题视觉系统 (src/assets/css)
+ * 功能说明:
+ *   基于浏览器原生 View Transitions API 实现 Element Plus / VitePress 官网
+ *   同款的“以鼠标点击处为圆心、全屏圆形扩散/收缩”暗黑模式无缝过渡特效。
+ * ========================================================================
+ */
+
+::view-transition-old(root),
+::view-transition-new(root) {
+    animation: none;
+    mix-blend-mode: normal;
+}
+
+/* 1. 浅色 -> 深色模式：html 添加了 .dark 类，新视图 (dark) 在最上层进行圆形遮罩展开 */
+.dark::view-transition-old(root) {
+    z-index: 1;
+}
+
+.dark::view-transition-new(root) {
+    z-index: 99999;
+}
+
+/* 2. 深色 -> 浅色模式：html 移除了 .dark 类，旧视图 (dark) 在最上层收缩向圆心，露出底层浅色 */
+::view-transition-old(root) {
+    z-index: 99999;
+}
+
+::view-transition-new(root) {
+    z-index: 1;
+}

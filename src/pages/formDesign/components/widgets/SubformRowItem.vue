@@ -108,20 +108,24 @@ provide('formContext', {
 </script>
 
 <style scoped>
+/* ========================================================================
+ * 🎨 子表单明细行卡片：Design Tokens 规范重构
+ * 彻底消除硬编码 Hex 颜色，自动响应全局暗黑/亮色主题切换
+ * ======================================================================== */
 .subform-row-card {
     position: relative;
-    background: #ffffff;
-    border: 1px solid #e2e8f0;
+    background: var(--el-bg-color);
+    border: 1px solid var(--el-border-color-lighter);
     border-radius: 8px;
     padding: 12px 16px 16px;
     margin-bottom: 12px;
     transition: all 0.2s ease;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+    box-shadow: var(--el-box-shadow-lighter);
 }
 
 .subform-row-card:hover {
-    border-color: #cbd5e1;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+    border-color: var(--el-border-color);
+    box-shadow: var(--el-box-shadow-light);
 }
 
 .row-card-header {
@@ -130,7 +134,7 @@ provide('formContext', {
     align-items: center;
     padding-bottom: 8px;
     margin-bottom: 12px;
-    border-bottom: 1px dashed #f1f5f9;
+    border-bottom: 1px dashed var(--el-border-color-lighter);
 }
 
 .row-header-left {
@@ -145,18 +149,18 @@ provide('formContext', {
     justify-content: center;
     width: 22px;
     height: 22px;
-    background: #eff6ff;
-    color: #3b82f6;
+    background: var(--el-color-primary-light-9);
+    color: var(--el-color-primary);
     font-weight: 700;
     font-size: 12px;
     border-radius: 50%;
-    border: 1px solid #bfdbfe;
+    border: 1px solid var(--el-color-primary-light-8);
 }
 
 .row-index-label {
     font-size: 13px;
     font-weight: 600;
-    color: #475569;
+    color: var(--el-text-color-regular);
 }
 
 .row-header-actions {

@@ -377,24 +377,30 @@ const insertFunctionTemplate = fn => {
 </script>
 
 <style scoped>
+/* ========================================================================
+ * 🎨 计算字段向导配置：Design Tokens 规范重构
+ * 彻底消除硬编码 Hex 颜色，自动响应全局暗黑/亮色主题切换
+ * ======================================================================== */
 .computed-field-setting {
     width: 100%;
 }
 
 .wizard-panel {
-    background: #f8fafc;
-    border: 1px solid #e2e8f0;
+    background: var(--el-fill-color-light);
+    border: 1px solid var(--el-border-color-lighter);
     border-radius: 6px;
     padding: 10px 12px;
     margin-bottom: 12px;
+    transition: background-color 0.3s ease, border-color 0.3s ease;
 }
 
 .wizard-preview-card {
     margin-top: 8px;
     padding: 8px 10px;
-    background: #ffffff;
-    border: 1px dashed #cbd5e1;
+    background: var(--el-bg-color);
+    border: 1px dashed var(--el-border-color);
     border-radius: 4px;
+    transition: background-color 0.3s ease, border-color 0.3s ease;
 }
 
 .preview-title {
@@ -402,14 +408,14 @@ const insertFunctionTemplate = fn => {
     justify-content: space-between;
     align-items: center;
     font-size: 12px;
-    color: #64748b;
+    color: var(--el-text-color-secondary);
     margin-bottom: 4px;
 }
 
 .preview-code {
     font-family: monospace;
     font-size: 12px;
-    color: #0369a1;
+    color: var(--el-color-primary);
     word-break: break-all;
 }
 
@@ -424,7 +430,7 @@ const insertFunctionTemplate = fn => {
 
 .tag-label {
     font-size: 12px;
-    color: #64748b;
+    color: var(--el-text-color-secondary);
     margin-bottom: 6px;
 }
 
@@ -441,14 +447,14 @@ const insertFunctionTemplate = fn => {
 }
 
 .field-pill {
-    background-color: #eff6ff;
-    border-color: #bfdbfe;
-    color: #1d4ed8;
+    background-color: var(--el-color-primary-light-9);
+    border-color: var(--el-color-primary-light-8);
+    color: var(--el-color-primary);
 }
 
 .field-pill:hover {
-    background-color: #dbeafe;
-    border-color: #93c5fd;
+    background-color: var(--el-color-primary-light-8);
+    border-color: var(--el-color-primary-light-7);
     transform: translateY(-1px);
 }
 

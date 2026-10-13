@@ -252,7 +252,10 @@ import { useRoute } from 'vue-router';
 import { useLogicFlow, EDGE_TYPES } from './hooks/useLogicFlow.js';
 import { useFlowStatus } from './hooks/useFlowStatus.js';
 import { registerCustomNodes } from './customNodes.js';
+import { useTheme } from '@/composables/useTheme';
 import { ElMessage } from 'element-plus';
+
+const { isDark } = useTheme();
 
 const props = defineProps({
     workflowId: {
@@ -278,18 +281,36 @@ const options = ref([]);
 const route = useRoute();
 const idkey = route.query.idkey || props.workflowId;
 
-// 🌟 引入 LogicFlow 生命周期与动态连线管理 Hook
+// 🌟 引入 LogicFlow 生命周期、动态连线管理与暗黑主题 Hook
 const {
     containerRef,
     lf: lfRef,
     currentEdgeType,
     setEdgeType,
     createLogicFlow,
+    applyTheme,
     openEdgeAnimation,
     closeEdgeAnimation,
 } = useLogicFlow({
     defaultEdgeType: 'bezier',
 });
+
+// 🌟 监听全局暗黑模式切换，动态联动 LogicFlow 画布底色、网格与所有节点着色
+watch(
+    isDark,
+    (dark) => {
+        if (lf) {
+            applyTheme(dark);
+            const rawData = lf.getGraphRawData ? lf.getGraphRawData() : lf.getGraphData();
+            if (rawData && Array.isArray(rawData.nodes) && rawData.nodes.length > 0) {
+                lf.render(rawData);
+                if (props.appId && approvalHistoryData.value) {
+                    injectNodeStatusIntoGraphData();
+                }
+            }
+        }
+    }
+);
 
 // 🌟 引入审批流状态与连线流光 Hook
 const { injectApprovalStatus } = useFlowStatus();
@@ -541,22 +562,8 @@ const initLogicFlow = () => {
         lf.extension.dndPanel.setPatternItems(nodeData);
     }
 
-    // 原有主题适配逻辑
-    if (localStorage.getItem('theme') === 'dark') {
-        lf.setTheme(
-            {
-                nodeText: {
-                    color: '#333',
-                    fontSize: 14,
-                },
-                edgeText: {
-                    color: '#333',
-                    fontSize: 12,
-                },
-            },
-            'dark',
-        );
-    }
+    // 🌟 现代化主题适配：根据当前全局主题应用自适应 Token 样式
+    applyTheme(isDark.value);
 
     // 🌟 节点点击事件
     lf.on('node:click', ({ data }) => {
@@ -1011,45 +1018,59 @@ onMounted(() => {
 </script>
 
 <style scoped>
+/* ========================================================================
+ * 🎨 LogicFlow 流程设计器：Design Tokens 规范重构
+ * 彻底消除硬编码 Hex 颜色，自动响应全局暗黑/亮色主题切换
+ * ======================================================================== */
 .main-container {
     display: flex;
     height: calc(100vh - 116px);
     position: relative;
+    background-color: var(--el-bg-color-page);
 }
 
+/* 1. 左侧 DndPanel 拖拽面板：卡片拟态自适应 */
 .dnd-panel {
+    display: none;
     position: absolute;
-    left: 10px;
-    top: 10px;
-    width: 180px;
-    background-color: #10b981bf;
-    box-shadow: 0 0 10px 1px #e4e0db;
-    border-radius: 6px;
+    left: 14px;
+    top: 14px;
+    width: 170px;
+    background-color: var(--el-bg-color-overlay);
+    border: 1px solid var(--el-border-color-light);
+    box-shadow: var(--el-box-shadow-light);
+    border-radius: 8px;
     z-index: 101;
-    /* 插件默认标题样式调整 */
+    transition: background-color 0.3s ease, border-color 0.3s ease;
 }
 
+/* 2. 右侧工作流属性与保存卡片 */
 .toolbar {
     position: absolute;
-    right: 10px;
-    top: 68px;
-    width: 253px;
-    padding: 16px 10px;
+    right: 14px;
+    top: 70px;
+    width: 280px;
+    padding: 16px 14px;
     text-align: center;
-    z-index: 1;
-    border-radius: 5px;
-    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
-    margin: 5px;
+    z-index: 10;
+    border-radius: 8px;
+    background-color: var(--el-bg-color-overlay);
+    border: 1px solid var(--el-border-color-light);
+    box-shadow: var(--el-box-shadow-light);
+    transition: background-color 0.3s ease, border-color 0.3s ease;
 }
 
+/* 3. LogicFlow 画布容器 */
 .canvas {
     flex: 1;
     height: 100%;
     position: relative;
+    background-color: var(--el-bg-color-page);
+    transition: background-color 0.3s ease;
 }
 
 .demo-ruleForm {
-    margin-top: 20px;
+    margin-top: 10px;
 }
 
 .lf-node text {
@@ -1058,11 +1079,12 @@ onMounted(() => {
 
 /* 🌟 网关多分支卡片与快捷标签样式 */
 .gateway-branches-section {
-    background-color: #f8fafc;
-    border: 1px solid #e2e8f0;
+    background-color: var(--el-fill-color-light);
+    border: 1px solid var(--el-border-color-lighter);
     border-radius: 8px;
     padding: 12px;
     margin-bottom: 16px;
+    transition: background-color 0.3s ease, border-color 0.3s ease;
 }
 
 .gateway-branches-header {
@@ -1071,19 +1093,19 @@ onMounted(() => {
     align-items: center;
     margin-bottom: 12px;
     padding-bottom: 8px;
-    border-bottom: 1px solid #edf2f7;
+    border-bottom: 1px solid var(--el-border-color-lighter);
 }
 
 .gateway-branches-header .header-title {
     font-size: 13px;
     font-weight: 600;
-    color: #1e293b;
+    color: var(--el-text-color-primary);
 }
 
 .gateway-branches-header .header-count {
     font-size: 12px;
-    color: #64748b;
-    background-color: #e2e8f0;
+    color: var(--el-text-color-secondary);
+    background-color: var(--el-fill-color);
     padding: 2px 8px;
     border-radius: 10px;
 }
@@ -1100,14 +1122,15 @@ onMounted(() => {
 
 .branch-card-item {
     border-radius: 6px;
-    border: 1px solid #e2e8f0;
-    background-color: #ffffff;
+    border: 1px solid var(--el-border-color-lighter);
+    background-color: var(--el-bg-color);
+    transition: background-color 0.3s ease, border-color 0.3s ease;
 }
 
 :deep(.branch-card-item .el-card__header) {
     padding: 8px 12px;
-    background-color: #f8fafc;
-    border-bottom: 1px solid #f1f5f9;
+    background-color: var(--el-fill-color-light);
+    border-bottom: 1px solid var(--el-border-color-lighter);
 }
 
 :deep(.branch-card-item .el-card__body) {
@@ -1122,7 +1145,7 @@ onMounted(() => {
 
 .branch-target-info {
     font-size: 12px;
-    color: #475569;
+    color: var(--el-text-color-regular);
 }
 
 .quick-tags-box {
@@ -1140,7 +1163,7 @@ onMounted(() => {
 
 .quick-tag-label {
     font-size: 12px;
-    color: #94a3b8;
+    color: var(--el-text-color-secondary);
 }
 
 .quick-tag {
@@ -1156,8 +1179,9 @@ onMounted(() => {
 
 .default-branch-tip {
     font-size: 12px;
-    color: #e6a23c;
-    background-color: #fdf6ec;
+    color: var(--app-tip-pass-text);
+    background-color: var(--app-tip-pass-bg);
+    border: 1px solid var(--app-tip-pass-border);
     border-radius: 4px;
     padding: 6px 10px;
     line-height: 1.5;
@@ -1165,12 +1189,93 @@ onMounted(() => {
 </style>
 
 <style>
-.lf-control-text {
-    color: black !important;
+/* ========================================================================
+ * 🌟 LogicFlow 原生画布与容器暗黑模式强制覆盖 (彻底干掉 .lf-graph 的默认白底 #fff)
+ * ======================================================================== */
+/* 1. 画布顶层图谱容器：强制自适应系统页面底色 */
+#logic-flow-container .lf-graph,
+.lf-graph {
+    background: var(--el-bg-color-page) !important;
+    background-color: var(--el-bg-color-page) !important;
+    transition: background-color 0.3s ease;
 }
+
+/* 2. 背景遮罩与内联区域：强制透明，彻底露出自适应底色 */
+#logic-flow-container .lf-background,
+#logic-flow-container .lf-background-area,
+.lf-background,
+.lf-background-area {
+    background: transparent !important;
+    background-color: transparent !important;
+}
+
+/* 3. 网格点阵 (Grid Dots) 自适应 */
+html.dark .lf-grid svg circle {
+    fill: rgba(255, 255, 255, 0.15) !important;
+}
+html.light .lf-grid svg circle,
+:root .lf-grid svg circle {
+    fill: rgba(0, 0, 0, 0.1) !important;
+}
+
+/* 4. 网格交叉线 (Grid Mesh) 自适应 */
+html.dark .lf-grid svg path {
+    stroke: rgba(255, 255, 255, 0.08) !important;
+}
+html.light .lf-grid svg path,
+:root .lf-grid svg path {
+    stroke: rgba(0, 0, 0, 0.06) !important;
+}
+
+/* 5. 拖拽项容器与文字 */
+.lf-dnd-item {
+    color: var(--el-text-color-primary) !important;
+}
+
+.lf-dnd-text {
+    color: var(--el-text-color-primary) !important;
+}
+
+/* 6. 控制按钮栏 (缩放、适应屏幕等) */
+.lf-control {
+    background-color: var(--el-bg-color-overlay) !important;
+    border: 1px solid var(--el-border-color-light) !important;
+    box-shadow: var(--el-box-shadow-light) !important;
+    width: 277px;
+}
+
+.lf-control-item {
+    background-color: transparent !important;
+    color: var(--el-text-color-primary) !important;
+}
+
+.lf-control-item:hover {
+    background-color: var(--el-fill-color-light) !important;
+}
+
+.lf-control-text {
+    color: var(--el-text-color-primary) !important;
+}
+
+/* 7. 右键菜单 */
+.lf-menu {
+    background-color: var(--el-bg-color-overlay) !important;
+    border: 1px solid var(--el-border-color-light) !important;
+    box-shadow: var(--el-box-shadow-light) !important;
+}
+
+.lf-menu-item {
+    color: var(--el-text-color-primary) !important;
+}
+
+.lf-menu-item:hover {
+    background-color: var(--el-fill-color-light) !important;
+}
+
 .el-drawer__body {
     padding: 0px;
 }
+
 .el-drawer__header {
     margin-bottom: 16px;
 }

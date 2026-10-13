@@ -115,7 +115,7 @@
         <!-- 3. 右侧属性配置面板 -->
         <div class="config-panel">
             <div class="section-header tab-header">
-                <el-tabs v-model="activeTab" style="width: 100%">
+                <el-tabs v-model="activeTab" type="card" style="width: 100%">
                     <el-tab-pane label="组件配置" name="component" />
                     <el-tab-pane label="表单全局" name="form" />
                 </el-tabs>
@@ -750,27 +750,35 @@ const handleResetPreview = () => {
 </script>
 
 <style scoped>
+/* ========================================================================
+ * 🎨 表单设计器：Design Tokens 规范重构
+ * 边框规范全面对齐 Sidebar 的 var(--el-border-color-lighter) 体系，
+ * 消除所有静态 Hex 边框与背景，完美适配昼夜（Light / Dark）模式。
+ * ======================================================================== */
 .form-design-container {
     display: flex;
     height: calc(100vh - 108px);
-    /* background-color: #f0f2f5; */
     overflow: hidden;
-    border: 1px solid #e4e7ed;
+    border: 1px solid var(--el-border-color-lighter);
+    background-color: var(--el-bg-color-page);
+    border-radius: 8px;
+    transition: background-color 0.3s ease, border-color 0.3s ease;
 }
 
 /* 1. 左侧物料库 */
 .component-list {
     width: 250px;
-    /* background: #ffffff; */
-    border-right: 1px solid #e4e7ed;
+    background: var(--el-bg-color);
+    border-right: 1px solid var(--el-border-color-lighter);
     display: flex;
     flex-direction: column;
+    transition: background-color 0.3s ease, border-color 0.3s ease;
 }
 
 .widget-group-title {
     font-size: 12px;
     font-weight: 600;
-    /* color: #909399; */
+    color: var(--el-text-color-secondary);
     margin-bottom: 8px;
     padding-left: 2px;
 }
@@ -786,20 +794,20 @@ const handleResetPreview = () => {
     align-items: center;
     gap: 6px;
     padding: 8px 10px;
-    /* background: #f8fafc; */
-    border: 1px solid #e2e8f0;
+    background: var(--el-fill-color-light);
+    border: 1px solid var(--el-border-color-lighter);
     border-radius: 4px;
     cursor: move;
     font-size: 12px;
-    /* color: #334155; */
+    color: var(--el-text-color-regular);
     transition: all 0.2s ease;
     user-select: none;
 }
 
 .component-item:hover {
-    /* color: #409eff; */
-    border-color: #b3d8ff;
-    /* background: #ecf5ff; */
+    color: var(--el-color-primary);
+    border-color: var(--el-color-primary-light-5);
+    background: var(--el-color-primary-light-9);
 }
 
 /* 2. 中间画布区 */
@@ -808,7 +816,8 @@ const handleResetPreview = () => {
     display: flex;
     flex-direction: column;
     overflow: hidden;
-    /* background: #f1f5f9; */
+    background: var(--el-bg-color-page);
+    transition: background-color 0.3s ease;
 }
 
 .canvas-header-bar {
@@ -821,7 +830,7 @@ const handleResetPreview = () => {
 .form-title-badge {
     font-weight: 600;
     font-size: 15px;
-    /* color: #1e293b; */
+    color: var(--el-text-color-primary);
 }
 
 .canvas-scroll {
@@ -831,11 +840,12 @@ const handleResetPreview = () => {
 }
 
 .form-canvas {
-    /* background: #ffffff; */
+    background: var(--el-bg-color);
     min-height: calc(100vh - 204px);
-    /* padding: 12px; */
+    border: 1px solid var(--el-border-color-lighter);
     border-radius: 8px;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    box-shadow: var(--el-box-shadow-lighter);
+    transition: background-color 0.3s ease, border-color 0.3s ease;
 }
 
 .canvas-item-slot-wrapper {
@@ -848,23 +858,24 @@ const handleResetPreview = () => {
     align-items: center;
     justify-content: center;
     height: 380px;
-    color: #94a3b8;
+    color: var(--el-text-color-secondary);
     gap: 12px;
 }
 
 .ghost-canvas-item {
-    border: 2px dashed #409eff !important;
-    background: #ecf5ff !important;
+    border: 2px dashed var(--el-color-primary) !important;
+    background: var(--el-color-primary-light-9) !important;
     opacity: 0.7;
 }
 
 /* 3. 右侧配置面板 */
 .config-panel {
     width: 320px;
-    /* background: #ffffff; */
-    border-left: 1px solid #e4e7ed;
+    background: var(--el-bg-color);
+    border-left: 1px solid var(--el-border-color-lighter);
     display: flex;
     flex-direction: column;
+    transition: background-color 0.3s ease, border-color 0.3s ease;
 }
 
 .section-header {
@@ -872,14 +883,15 @@ const handleResetPreview = () => {
     padding: 0 16px;
     display: flex;
     align-items: center;
-    border-bottom: 1px solid #e4e7ed;
-    /* background: #ffffff; */
+    border-bottom: 1px solid var(--el-border-color-lighter);
+    background: var(--el-bg-color);
+    transition: background-color 0.3s ease, border-color 0.3s ease;
 }
 
 .section-header h4 {
     margin: 0;
     font-size: 14px;
-    /* color: #1e293b; */
+    color: var(--el-text-color-primary);
 }
 
 .tab-header {
@@ -900,10 +912,10 @@ const handleResetPreview = () => {
 .config-section-title {
     font-size: 12px;
     font-weight: 700;
-    /* color: #475569; */
+    color: var(--el-text-color-regular);
     margin: 12px 0 10px;
     padding-bottom: 4px;
-    border-bottom: 1px solid #f1f5f9;
+    border-bottom: 1px solid var(--el-border-color-lighter);
 }
 
 .config-section-title:first-child {
@@ -912,14 +924,14 @@ const handleResetPreview = () => {
 
 .empty-selection-tip {
     text-align: center;
-    color: #94a3b8;
+    color: var(--el-text-color-secondary);
     font-size: 13px;
     padding-top: 80px;
 }
 
 .field-hint {
     font-size: 12px;
-    color: #909399;
+    color: var(--el-text-color-secondary);
     margin-top: 4px;
     line-height: 1.4;
 }
@@ -933,12 +945,12 @@ const handleResetPreview = () => {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    background: #f0fdf4;
-    border: 1px solid #bbf7d0;
+    background: var(--app-ai-clean-bg);
+    border: 1px solid var(--app-ai-clean-border);
     border-radius: 8px;
     padding: 8px 14px;
     font-size: 13px;
-    color: #166534;
+    color: var(--app-ai-clean-text);
     margin-bottom: 14px;
 }
 
@@ -990,7 +1002,7 @@ const handleResetPreview = () => {
     justify-content: center;
     align-items: center;
     padding: 12px 0;
-    background: #f1f5f9;
+    background: var(--el-fill-color-light);
     border-radius: 12px;
 }
 
@@ -998,8 +1010,8 @@ const handleResetPreview = () => {
     position: relative;
     width: 375px;
     height: 620px;
-    background: #ffffff;
-    /* 曜石黑铝合金精密金属外壳 */
+    background: var(--el-bg-color);
+    /* 曜石黑铝合金精密金属外壳 (保持仿真硬件工业级深黑金属质感) */
     border: 11px solid #0f172a;
     border-radius: 48px;
     box-shadow: 0 25px 50px -12px rgba(15, 23, 42, 0.35), 0 0 0 1px rgba(255, 255, 255, 0.12) inset;
@@ -1007,6 +1019,7 @@ const handleResetPreview = () => {
     flex-direction: column;
     overflow: hidden;
     user-select: none;
+    transition: background-color 0.3s ease;
 }
 
 /* 灵动岛 (Dynamic Island) 黑色打孔胶囊 */
@@ -1034,20 +1047,21 @@ const handleResetPreview = () => {
     border: 1px solid #312e81;
 }
 
-/* iOS 顶部状态栏 */
+/* iOS 顶部状态栏：全面自适应系统昼夜模式 */
 .iphone-status-bar {
     position: relative;
     height: 38px;
-    background: #ffffff;
+    background: var(--el-bg-color);
     display: flex;
     justify-content: space-between;
     align-items: center;
     padding: 0 22px;
     font-size: 12px;
     font-weight: 600;
-    color: #0f172a;
+    color: var(--el-text-color-primary);
     z-index: 10;
-    border-bottom: 1px solid #f8fafc;
+    border-bottom: 1px solid var(--el-border-color-lighter);
+    transition: background-color 0.3s ease, border-color 0.3s ease;
 }
 
 .status-time {
@@ -1063,13 +1077,13 @@ const handleResetPreview = () => {
 .signal-tag {
     font-size: 10px;
     font-weight: 700;
-    color: #334155;
+    color: var(--el-text-color-primary);
 }
 
 .battery-shell {
     width: 19px;
     height: 10px;
-    border: 1.5px solid #0f172a;
+    border: 1.5px solid var(--el-text-color-primary);
     border-radius: 3px;
     padding: 1px;
     display: flex;
@@ -1083,47 +1097,51 @@ const handleResetPreview = () => {
     border-radius: 1px;
 }
 
-/* 手机屏幕内部可滚动视口 */
+/* 手机屏幕内部可滚动视口：自适应页面级底色 */
 .iphone-screen-viewport {
     flex: 1;
     overflow-y: auto;
-    background: #f8fafc;
+    background: var(--el-bg-color-page);
     display: flex;
     flex-direction: column;
+    transition: background-color 0.3s ease;
 }
 
+/* 移动端顶部标题导航条：消除硬编码白底与边框 */
 .mobile-nav-header {
-    background: #ffffff;
+    background: var(--el-bg-color);
     padding: 10px 14px;
-    border-bottom: 1px solid #e2e8f0;
+    border-bottom: 1px solid var(--el-border-color-lighter);
     font-size: 14px;
     font-weight: 600;
-    color: #0f172a;
+    color: var(--el-text-color-primary);
     text-align: center;
     position: sticky;
     top: 0;
     z-index: 5;
+    transition: background-color 0.3s ease, border-color 0.3s ease;
 }
 
 .mobile-form-body {
     padding: 12px 10px 24px;
 }
 
-/* 底部 Home Indicator 手势操作横条 */
+/* 底部 Home Indicator 手势操作横条：自适应底座与手势条 */
 .iphone-home-indicator {
     height: 18px;
-    background: #ffffff;
+    background: var(--el-bg-color);
     display: flex;
     justify-content: center;
     align-items: center;
     z-index: 10;
+    transition: background-color 0.3s ease;
 }
 
 .iphone-home-indicator::after {
     content: '';
     width: 112px;
     height: 4px;
-    background: #334155;
+    background: var(--el-text-color-secondary);
     border-radius: 10px;
 }
 </style>

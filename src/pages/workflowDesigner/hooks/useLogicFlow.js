@@ -15,6 +15,98 @@ export const EDGE_TYPES = [
 ];
 
 /**
+ * 根据是否为暗黑模式生成 LogicFlow 主题配置
+ * @param {boolean} isDark
+ * @returns {Object}
+ */
+export function getLogicFlowTheme(isDark) {
+    if (isDark) {
+        return {
+            baseNode: {
+                fill: '#1e293b',
+                stroke: '#475569',
+                strokeWidth: 1.5,
+            },
+            baseEdge: {
+                stroke: '#94a3b8',
+                strokeWidth: 2,
+            },
+            nodeText: {
+                color: '#f1f5f9',
+                fontSize: 13,
+                overflowMode: 'ellipsis',
+            },
+            edgeText: {
+                color: '#e2e8f0',
+                fontSize: 12,
+                background: {
+                    fill: '#1e293b',
+                    stroke: '#475569',
+                    radius: 4,
+                },
+            },
+            bezier: {
+                stroke: '#94a3b8',
+                strokeWidth: 2,
+            },
+            polyline: {
+                stroke: '#94a3b8',
+                strokeWidth: 2,
+            },
+            line: {
+                stroke: '#94a3b8',
+                strokeWidth: 2,
+            },
+            arrow: {
+                offset: 8,
+                verticalLength: 6,
+            },
+        };
+    }
+    return {
+        baseNode: {
+            fill: '#ffffff',
+            stroke: '#cbd5e1',
+            strokeWidth: 1.5,
+        },
+        baseEdge: {
+            stroke: '#64748b',
+            strokeWidth: 2,
+        },
+        nodeText: {
+            color: '#1e293b',
+            fontSize: 13,
+            overflowMode: 'ellipsis',
+        },
+        edgeText: {
+            color: '#334155',
+            fontSize: 12,
+            background: {
+                fill: '#ffffff',
+                stroke: '#cbd5e1',
+                radius: 4,
+            },
+        },
+        bezier: {
+            stroke: '#64748b',
+            strokeWidth: 2,
+        },
+        polyline: {
+            stroke: '#64748b',
+            strokeWidth: 2,
+        },
+        line: {
+            stroke: '#64748b',
+            strokeWidth: 2,
+        },
+        arrow: {
+            offset: 8,
+            verticalLength: 6,
+        },
+    };
+}
+
+/**
  * LogicFlow 核心实例生命周期与画布管理 Hook
  * @param {Object} options - 初始化配置项
  * @param {string} options.defaultEdgeType - 默认连线类型，支持 'bezier' | 'polyline' | 'line'，默认 'bezier'
@@ -78,12 +170,22 @@ export function useLogicFlow(options = {}) {
             lf.value = null;
         }
 
+        const isDark = typeof document !== 'undefined' && document.documentElement.classList.contains('dark');
+
         // 实例化 LogicFlow
         const instance = new LogicFlow({
             container,
             edgeType: currentEdgeType.value, // 🌟 活的 edgeType，响应式配置
-            grid: options.grid ?? true,
-            background: options.background || { color: '#f8f9fa' },
+            grid: options.grid ?? {
+                size: 15,
+                visible: true,
+                type: 'dot',
+                config: {
+                    color: isDark ? '#334155' : '#e2e8f0',
+                    thickness: 1,
+                },
+            },
+            background: options.background || { color: 'transparent' }, // 🌟 透明背景，透出自适应底色
             keyboard: { enabled: true },
             plugins: [DndPanel, SelectionSelect, Menu, Control],
             // 🌟 开启边动画支持（官方规范：animation: { edge: true }）
@@ -93,8 +195,22 @@ export function useLogicFlow(options = {}) {
             ...customOptions,
         });
 
+        // 🌟 初始化即应用自适应主题
+        instance.setTheme(getLogicFlowTheme(isDark));
+
         lf.value = instance;
         return instance;
+    };
+
+    /**
+     * 动态切换 LogicFlow 主题并刷新视图
+     * @param {boolean} [isDark]
+     */
+    const applyTheme = (isDark) => {
+        if (!lf.value) return;
+        const dark = isDark ?? (typeof document !== 'undefined' && document.documentElement.classList.contains('dark'));
+        const theme = getLogicFlowTheme(dark);
+        lf.value.setTheme(theme);
     };
 
     /**
@@ -148,8 +264,9 @@ export function useLogicFlow(options = {}) {
         currentEdgeType,
         setEdgeType,
         createLogicFlow,
-        destroyLogicFlow,
+        applyTheme,
         openEdgeAnimation,
         closeEdgeAnimation,
+        destroyLogicFlow,
     };
 }

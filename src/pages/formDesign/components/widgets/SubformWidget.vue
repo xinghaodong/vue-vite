@@ -374,14 +374,19 @@ onMounted(() => {
 </script>
 
 <style scoped>
+/* ========================================================================
+ * 🎨 子表单运行时容器：Design Tokens 规范重构
+ * 彻底消除硬编码 Hex 颜色，自动响应全局暗黑/亮色主题切换
+ * ======================================================================== */
 .subform-runtime-card {
     width: 100%;
     margin-bottom: 16px;
-    background: #f8fafc;
-    border: 1px solid #e2e8f0;
+    background: var(--el-fill-color-light);
+    border: 1px solid var(--el-border-color-lighter);
     border-radius: 8px;
     padding: 12px 14px;
     box-sizing: border-box;
+    transition: background 0.3s ease, border-color 0.3s ease;
 }
 
 .subform-top-bar {
@@ -400,13 +405,13 @@ onMounted(() => {
 .subform-main-title {
     font-size: 15px;
     font-weight: 600;
-    color: #1e293b;
+    color: var(--el-text-color-primary);
 }
 
 .subform-count-badge {
     font-size: 12px;
-    color: #64748b;
-    background: #e2e8f0;
+    color: var(--el-text-color-secondary);
+    background: var(--el-fill-color);
     padding: 1px 8px;
     border-radius: 10px;
 }
@@ -417,8 +422,8 @@ onMounted(() => {
 }
 
 .empty-data-block {
-    background: #ffffff;
-    border: 1px dashed #cbd5e1;
+    background: var(--el-bg-color);
+    border: 1px dashed var(--el-border-color);
     border-radius: 6px;
     padding: 16px;
     margin-bottom: 10px;
@@ -432,8 +437,8 @@ onMounted(() => {
     display: flex;
     align-items: center;
     gap: 12px;
-    background: #ffffff;
-    border: 1px solid #e2e8f0;
+    background: var(--el-bg-color);
+    border: 1px solid var(--el-border-color-lighter);
     border-radius: 6px;
     padding: 8px 12px;
     margin-bottom: 10px;
@@ -445,7 +450,7 @@ onMounted(() => {
     gap: 4px;
     font-size: 13px;
     font-weight: 600;
-    color: #475569;
+    color: var(--el-text-color-regular);
 }
 
 .summary-tags {
@@ -462,8 +467,8 @@ onMounted(() => {
 .table-container {
     width: 100%;
     overflow-x: auto;
-    background: #ffffff;
-    border: 1px solid #e2e8f0;
+    background: var(--el-bg-color);
+    border: 1px solid var(--el-border-color-lighter);
     border-radius: 6px;
     margin-bottom: 10px;
 }
@@ -475,11 +480,11 @@ onMounted(() => {
 }
 
 .subform-custom-table th {
-    background: #f1f5f9;
-    color: #475569;
+    background: var(--el-fill-color-light);
+    color: var(--el-text-color-regular);
     font-weight: 600;
     padding: 8px 10px;
-    border: 1px solid #e2e8f0;
+    border: 1px solid var(--el-border-color-lighter);
     text-align: left;
     white-space: nowrap;
 }
@@ -495,19 +500,19 @@ onMounted(() => {
 }
 
 .required-star {
-    color: #f56c6c;
+    color: var(--el-color-danger);
     margin-right: 2px;
 }
 
 .subform-custom-table td {
     padding: 6px 10px;
-    border: 1px solid #e2e8f0;
+    border: 1px solid var(--el-border-color-lighter);
     vertical-align: middle;
 }
 
 .td-index {
     text-align: center;
-    color: #64748b;
+    color: var(--el-text-color-secondary);
     font-weight: 500;
 }
 
@@ -522,17 +527,17 @@ onMounted(() => {
 }
 
 .table-summary-row {
-    background: #f8fafc;
+    background: var(--el-fill-color-light);
     font-weight: 600;
 }
 
 .td-summary-label {
     text-align: center;
-    color: #3b82f6;
+    color: var(--el-color-primary);
 }
 
 .td-summary-val {
-    color: #16a34a;
+    color: var(--el-color-success);
 }
 
 .subform-bottom-add {
