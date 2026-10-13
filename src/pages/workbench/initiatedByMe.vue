@@ -92,7 +92,15 @@ const govueFlow = async row => {
             proxy.$api.getApprovalHistory({ id: row.id }),
         ]);
 
-        if (res?.data) {
+        if (historyRes?.data?.formSchemaSnapshot) {
+            // 🌟 核心防漂移：优先使用发起审批时固化的表单排版快照，即使后来模板删改字段也绝对不会错乱
+            formSchema.value = typeof historyRes.data.formSchemaSnapshot === 'string'
+                ? JSON.parse(historyRes.data.formSchemaSnapshot)
+                : historyRes.data.formSchemaSnapshot;
+            uiConfig.value = historyRes.data.uiConfigSnapshot || {};
+            formName.value = res?.data?.name || row.title || '审批详情';
+        } else if (res?.data) {
+            // 历史存量单据向下兼容
             formSchema.value = res.data.schema ? JSON.parse(res.data.schema) : {};
             uiConfig.value = res.data.ui_config || {};
             formName.value = res.data.name || row.title || '审批详情';

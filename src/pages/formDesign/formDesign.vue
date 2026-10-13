@@ -658,12 +658,12 @@ const saveFormSchema = async () => {
                 size: formConfig.size,
                 labelPosition: formConfig.labelPosition,
             },
-            status: 2, // 1=发布, 2=草稿
+            ...(idkey ? {} : { status: 2 }), // 仅新增表单时默认设为草稿(2)，编辑保存时不传 status，防止将已发布表单降级
         };
 
-        const res = await proxy.$api.designAdd(payload);
+        const res = idkey ? await proxy.$api.designUpdate(payload) : await proxy.$api.designAdd(payload);
         if (res.code === 200) {
-            ElMessage.success('表单已成功保存！');
+            ElMessage.success(idkey ? '表单已成功更新！' : '表单已成功保存！');
             router.push('/home/formDesignList');
         } else {
             ElMessage.error(res.message || '保存失败');

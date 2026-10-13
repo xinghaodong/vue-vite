@@ -342,9 +342,12 @@ watch(
 
                             const exprFn = new Function('context', `with(context) { return ${field.props.computedExpression}; }`);
                             const result = exprFn(context);
+                            const precision = typeof field.props?.precision === 'number' ? field.props.precision : 2;
                             let finalVal = '';
                             if (result !== undefined && result !== null && !Number.isNaN(result)) {
-                                finalVal = Number.isFinite(result) ? (Number.isInteger(result) ? String(result) : result.toFixed(1)) : String(result);
+                                finalVal = Number.isFinite(result)
+                                    ? (Number.isInteger(result) ? String(result) : Number(result).toFixed(precision))
+                                    : String(result);
                             }
 
                             if (innerData.value[field.id] !== finalVal) {
