@@ -18,12 +18,16 @@
   * [x] 顶栏功能集 [`HeaderActions.vue`](file:///e:/nest/mynest1/vue-vite/vue-vite/src/layout/components/Header/HeaderActions.vue)：集成全屏切换 (FullScreen)、用户头像与退出登录二次确认；
   * [x] 顶栏总控 [`index.vue`](file:///e:/nest/mynest1/vue-vite/vue-vite/src/layout/components/Header/index.vue)：标准化 50px 高度规范，彻底清除原 90px 硬编码与内边距错乱问题；
 * [x] **Element Plus / VitePress 官网同款 View Transitions 暗黑扩散动效（精细化调优）**：
-  * [x] 全局图层动画样式 [`theme-transition.css`](file:///e:/nest/mynest1/vue-vite/vue-vite/src/assets/css/theme-transition.css)：精准修复 `::view-transition-old/new` 伪元素 z-index 层级反转 Bug，确保新旧图层不发生误遮挡；
-  * [x] 组合式函数 [`useTheme.js`](file:///e:/nest/mynest1/vue-vite/vue-vite/src/composables/useTheme.js)：基于 `document.startViewTransition` 捕获点击圆心，通过 `Math.hypot` 计算全屏最大半径，精准映射 `pseudoElement` 分发扩散与收缩动画；
-  * [x] **彻底根除 F5 刷新白闪 (Zero Flash / Anti-FOUC)**：在 [`index.html`](file:///e:/nest/mynest1/vue-vite/vue-vite/index.html) 的 `<head>` 中注入首屏阻塞式同步脚本，首帧渲染前强制完成 `class="dark"` 嗅探与注入，时间差缩减至 0ms，彻底消除白屏晃眼；
+  * [x] 全局图层动画样式 [`theme-transition.css`](file:///d:/xuexi/vue-vite/src/assets/css/theme-transition.css)：100% 对齐 Element Plus 官网图层层叠规范（变暗时白色旧视图置顶 z-index: 9999 收缩，变亮时白色新视图置顶 z-index: 9999 扩散）；
+  * [x] 组合式函数 [`useTheme.js`](file:///d:/xuexi/vue-vite/src/composables/useTheme.js)：基于 `document.startViewTransition` 与 `await nextTick()`，白变黑时白色收拢向圆心（回缩变黑），黑变白时白色自圆心扩散至全屏（扩散变白），0 毫秒闪烁，完美还原官网质感；
+  * [x] **彻底根除 F5 刷新白闪 (Zero Flash / Anti-FOUC)**：在 [`index.html`](file:///d:/xuexi/vue-vite/index.html) 的 `<head>` 中注入首屏阻塞式同步脚本，首帧渲染前强制完成 `class="dark"` 嗅探与注入，时间差缩减至 0ms，彻底消除白屏晃眼；
 * [x] **多标签栏导航 TagsView (`src/layout/components/Tabs`)**：
   * [x] 标签栏总控 [`index.vue`](file:///e:/nest/mynest1/vue-vite/vue-vite/src/layout/components/Tabs/index.vue)：卡片风格扁平化重构，支持固定首页不可关闭；
   * [x] 右键菜单与更多操作：支持刷新当前、关闭当前、关闭左侧、关闭右侧、关闭其他、全部关闭，并计算视口边界彻底杜绝溢出屏幕；
+  * [x] **根除全局视口原生滚动条 (Zero Outer Scrollbar)**：
+    * 为 TagsView 下拉菜单与顶栏用户菜单明确指定 `placement="bottom-end"`，防止贴边菜单向右侧视口外溢出；
+    * 在 [`App.vue`](file:///d:/xuexi/vue-vite/src/App.vue) 中为 `html, body, #app` 锁死 `width: 100%; height: 100%; overflow: hidden;`，彻底禁止 Teleport 浮层（Popper/Tooltip/Drawer）撑破全局视口；
+    * 将 Layout 根容器由 `100vw/100vh` 优化为 `100%`，Main 内容区优化为 `flex: 1; min-height: 0;`，根除 Windows 缩放下亚像素引起的滚动条闪现。
 * [x] **主体内容区 (`src/layout/components/Main`)**：
   * [x] 内容区总控 [`index.vue`](file:///e:/nest/mynest1/vue-vite/vue-vite/src/layout/components/Main/index.vue)：移除脆弱的 `<transition mode="out-in">` 规避业务页面多根节点 (Vue 3 Fragment) 渲染白屏 Bug，恢复原生稳定且高性能的 `<router-view>`；
   * [x] 无感局部刷新机制：通过 `reloadCurrentRoute()` 驱动单路由重载，免去整页白屏重刷；

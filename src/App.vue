@@ -56,16 +56,19 @@ const jq = () => {
     padding: 0 !important;
 }
 html,
-body,
-#app {
+body {
+    width: 100%;
+    height: 100%;
     margin: 0;
     padding: 0;
-    height: 100%;
-    position: relative;
+    overflow: hidden;
 }
 
 #app {
     width: 100%;
+    height: 100%;
+    overflow: hidden;
+    position: relative;
 }
 .mb-4 {
     margin-bottom: 16px;

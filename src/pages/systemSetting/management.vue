@@ -25,14 +25,14 @@
             </el-table-column>
             <el-table-column prop="legalEntityName" label="法定全称 (发票购买方抬头)" min-width="190">
                 <template #default="scope">
-                    <span v-if="scope.row.legalEntityName" style="font-weight: 500; color: #303133">{{ scope.row.legalEntityName }}</span>
-                    <span v-else style="color: #909399; font-size: 13px">{{ scope.row.orgType === 'company' ? '未设置' : '向上继承上级公司' }}</span>
+                    <span v-if="scope.row.legalEntityName" style="font-weight: 500;">{{ scope.row.legalEntityName }}</span>
+                    <span v-else style="font-size: 13px">{{ scope.row.orgType === 'company' ? '未设置' : '向上继承上级公司' }}</span>
                 </template>
             </el-table-column>
             <el-table-column prop="taxCode" label="统一社会信用代码 (税号)" min-width="190">
                 <template #default="scope">
-                    <span v-if="scope.row.taxCode" style="font-family: monospace; font-size: 13px; color: #409eff">{{ scope.row.taxCode }}</span>
-                    <span v-else style="color: #909399; font-size: 13px">{{ scope.row.orgType === 'company' ? '未设置' : '向上继承上级公司' }}</span>
+                    <span v-if="scope.row.taxCode" style="font-family: monospace; font-size: 13px">{{ scope.row.taxCode }}</span>
+                    <span v-else style="font-size: 13px">{{ scope.row.orgType === 'company' ? '未设置' : '向上继承上级公司' }}</span>
                 </template>
             </el-table-column>
             <el-table-column label="操作" width="140" align="left">

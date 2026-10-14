@@ -32,7 +32,7 @@
         </el-tooltip>
 
         <!-- 3. 用户头像与下拉菜单 -->
-        <el-dropdown trigger="click" class="user-dropdown-box" @command="handleUserCommand">
+        <el-dropdown trigger="click" placement="bottom-end" class="user-dropdown-box" @command="handleUserCommand">
             <div class="user-profile-trigger">
                 <el-avatar
                     v-if="avatarUrl"

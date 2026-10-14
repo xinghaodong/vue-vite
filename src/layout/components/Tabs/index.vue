@@ -42,7 +42,7 @@
             </el-tooltip>
 
             <!-- 批量关闭下拉菜单 -->
-            <el-dropdown trigger="click" @command="handleCommand">
+            <el-dropdown trigger="click" placement="bottom-end" @command="handleCommand">
                 <div class="tab-action-icon-btn more-btn">
                     <el-icon :size="14"><ArrowDown /></el-icon>
                 </div>

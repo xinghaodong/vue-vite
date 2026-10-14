@@ -1,0 +1,450 @@
+<!doctype html>
+<html lang="zh-CN">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>航测实景三维原生预览 (OpenDroneMap 3D Tiles)</title>
+        <script src="./Cesium/Cesium.js"></script>
+        <link rel="stylesheet" href="./Cesium/Widgets/widgets.css" />
+        <style>
+            * {
+                box-sizing: border-box;
+                margin: 0;
+                padding: 0;
+            }
+            html,
+            body,
+            #cesiumContainer {
+                width: 100%;
+                height: 100%;
+                overflow: hidden;
+                background-color: #050811;
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            }
+            /* 顶部状态浮层 - 极简毛玻璃卡片 */
+            .hud-panel {
+                position: absolute;
+                top: 24px;
+                left: 24px;
+                z-index: 100;
+                width: 380px;
+                background: rgba(15, 23, 42, 0.88);
+                backdrop-filter: blur(16px);
+                border: 1px solid rgba(255, 255, 255, 0.15);
+                border-radius: 14px;
+                padding: 20px 22px;
+                color: #f8fafc;
+                box-shadow: 0 16px 40px rgba(0, 0, 0, 0.6);
+                transition: all 0.3s ease;
+            }
+            .hud-header {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                margin-bottom: 12px;
+            }
+            .hud-title {
+                font-size: 16px;
+                font-weight: 700;
+                letter-spacing: -0.2px;
+                display: flex;
+                align-items: center;
+                gap: 8px;
+            }
+            .hud-title .dot {
+                width: 8px;
+                height: 8px;
+                border-radius: 50%;
+                background: #10b981;
+                box-shadow: 0 0 10px #10b981;
+            }
+            .badge-success {
+                font-size: 11px;
+                background: rgba(16, 185, 129, 0.18);
+                color: #34d399;
+                border: 1px solid rgba(52, 211, 153, 0.4);
+                padding: 2px 10px;
+                border-radius: 9999px;
+                font-weight: 600;
+            }
+            .hud-desc {
+                font-size: 13px;
+                color: #94a3b8;
+                line-height: 1.5;
+                margin-bottom: 16px;
+            }
+            /* 信息微型表格 */
+            .info-grid {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 8px;
+                background: rgba(0, 0, 0, 0.28);
+                border: 1px solid rgba(255, 255, 255, 0.08);
+                border-radius: 8px;
+                padding: 10px 12px;
+                margin-bottom: 16px;
+                font-size: 12px;
+            }
+            .info-item {
+                display: flex;
+                flex-direction: column;
+                gap: 2px;
+            }
+            .info-label {
+                color: #64748b;
+                font-size: 11px;
+            }
+            .info-value {
+                color: #e2e8f0;
+                font-weight: 600;
+                font-family: ui-monospace, SFMono-Regular, monospace;
+            }
+            /* 操作按钮组 */
+            .btn-group {
+                display: flex;
+                gap: 8px;
+                margin-bottom: 14px;
+            }
+            .btn {
+                flex: 1;
+                padding: 8px 12px;
+                border-radius: 8px;
+                border: 1px solid rgba(255, 255, 255, 0.15);
+                background: rgba(255, 255, 255, 0.08);
+                color: #f1f5f9;
+                font-size: 12px;
+                font-weight: 500;
+                cursor: pointer;
+                transition: all 0.2s ease;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                gap: 6px;
+            }
+            .btn:hover {
+                background: rgba(255, 255, 255, 0.16);
+                border-color: rgba(255, 255, 255, 0.3);
+                transform: translateY(-1px);
+            }
+            .btn-primary {
+                background: #2563eb;
+                border-color: #3b82f6;
+            }
+            .btn-primary:hover {
+                background: #1d4ed8;
+            }
+            /* 代码展示卡 */
+            .code-card {
+                background: rgba(0, 0, 0, 0.45);
+                border: 1px solid rgba(255, 255, 255, 0.1);
+                border-radius: 8px;
+                padding: 10px 12px;
+            }
+            .code-header {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                font-size: 11px;
+                color: #94a3b8;
+                margin-bottom: 6px;
+            }
+            .code-content {
+                font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
+                font-size: 11.5px;
+                color: #38bdf8;
+                line-height: 1.45;
+                white-space: pre-wrap;
+                word-break: break-all;
+            }
+            /* 状态指示条 */
+            #statusBar {
+                font-size: 12px;
+                color: #38bdf8;
+                display: flex;
+                align-items: center;
+                gap: 6px;
+                margin-top: 10px;
+            }
+        </style>
+    </head>
+    <body>
+        <div id="cesiumContainer"></div>
+
+        <div class="hud-panel">
+            <div class="hud-header">
+                <div class="hud-title">
+                    <span class="dot"></span>
+                    <span>航测实景三维模型</span>
+                </div>
+                <span class="badge-success">原生 Z-Up 对齐</span>
+            </div>
+
+            <div class="hud-desc" id="statusDesc">
+                已应用底层 <code>-t (--y-up-to-z-up)</code> 规范，模型天然正立，零矩阵魔改，原生贴合卫星底图。
+            </div>
+
+            <div class="info-grid">
+                <div class="info-item">
+                    <span class="info-label">航测中心纬度</span>
+                    <span class="info-value" id="valLat">46.84265° N</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">航测中心经度</span>
+                    <span class="info-value" id="valLon">-91.99401° W</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">三维地形状态</span>
+                    <span class="info-value" id="terrainStatus" style="color: #38bdf8">加载地形中...</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">模型绝对高程</span>
+                    <span class="info-value" id="valAlt">~163.2 米 (真实GPS)</span>
+                </div>
+            </div>
+
+            <div class="btn-group">
+                <button class="btn btn-primary" onclick="flyToModel()">
+                    <span>🎯</span> 聚焦模型
+                </button>
+                <button class="btn" id="btnTerrain" onclick="toggleTerrain()">
+                    <span>⛰️</span> 三维地形开/关
+                </button>
+                <button class="btn" id="btnClamp" onclick="toggleClampToGround()">
+                    <span>🌍</span> 贴平椭球基准面
+                </button>
+            </div>
+
+            <div class="btn-group" style="margin-top:-6px;">
+                <button class="btn" id="btnWireframe" onclick="toggleWireframe()">
+                    <span>🔲</span> 网格线框
+                </button>
+                <button class="btn" onclick="toggleBasemap()">
+                    <span>🛰️</span> 切换卫星底图
+                </button>
+            </div>
+
+            <div class="code-card">
+                <div class="code-header">
+                    <span>前端标准加载代码 (Vue / React 通用)</span>
+                    <span style="color: #10b981">无需任何旋转平移</span>
+                </div>
+                <pre class="code-content" id="sampleCode">// 标准原生方式加载，严丝合缝对齐
+const tileset = await Cesium.Cesium3DTileset.fromUrl(url, {
+  maximumScreenSpaceError: 16,
+  skipLevelOfDetail: true,
+});
+viewer.scene.primitives.add(tileset);
+viewer.zoomTo(tileset);</pre>
+            </div>
+
+            <div id="statusBar">⏳ 正在连接 3D Tiles 瓦片服务...</div>
+        </div>
+
+        <script>
+            window.CESIUM_BASE_URL = './Cesium';
+
+            Cesium.Ion.defaultAccessToken =
+                'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI5NWEyM2E2Ni1mNDdmLTQ2NjYtYWQ0Mi0xYmE5OWVkYjIxNTUiLCJpZCI6Mjg3NzA3LCJpYXQiOjE3NDI5NTQ1ODR9.iyxiNumkb8sc6jM8EFk72wtwKmLOPAKqsxgeLqs1Nio';
+
+            const viewer = new Cesium.Viewer('cesiumContainer', {
+                timeline: false,
+                animation: false,
+                baseLayerPicker: false,
+                geocoder: false,
+                homeButton: false,
+                sceneModePicker: false,
+                navigationHelpButton: false,
+                infoBox: false,
+            });
+
+            viewer.scene.globe.depthTestAgainstTerrain = true;
+
+            let currentTileset = null;
+            let wireframeMode = false;
+            let currentBasemapIndex = 0;
+            let worldTerrainProvider = null;
+            let isTerrainEnabled = true;
+            let isClamped = false;
+
+            // 初始化加载 Cesium World Terrain (三维全球高程地形)
+            async function initTerrain() {
+                const terrainStatus = document.getElementById('terrainStatus');
+                const btnTerrain = document.getElementById('btnTerrain');
+                try {
+                    worldTerrainProvider = await Cesium.createWorldTerrainAsync({
+                        requestWaterMask: true,
+                        requestVertexNormals: true,
+                    });
+                    viewer.terrainProvider = worldTerrainProvider;
+                    if (terrainStatus) {
+                        terrainStatus.innerHTML = '✅ <b style="color:#34d399">真实三维地形 (已开启)</b>';
+                    }
+                    if (btnTerrain) {
+                        btnTerrain.style.background = '#2563eb';
+                    }
+                } catch (e) {
+                    console.warn('加载 createWorldTerrainAsync 失败，尝试 IonAssetId(1):', e);
+                    try {
+                        worldTerrainProvider = await Cesium.CesiumTerrainProvider.fromIonAssetId(1);
+                        viewer.terrainProvider = worldTerrainProvider;
+                        if (terrainStatus) {
+                            terrainStatus.innerHTML = '✅ <b style="color:#34d399">真实三维地形 (已开启)</b>';
+                        }
+                    } catch (e2) {
+                        console.error('地形加载失败:', e2);
+                        if (terrainStatus) {
+                            terrainStatus.innerHTML = '⚠️ <span style="color:#f59e0b">默认椭球面 (地形离线)</span>';
+                        }
+                    }
+                }
+            }
+
+            function toggleTerrain() {
+                isTerrainEnabled = !isTerrainEnabled;
+                const terrainStatus = document.getElementById('terrainStatus');
+                const btnTerrain = document.getElementById('btnTerrain');
+                if (isTerrainEnabled && worldTerrainProvider) {
+                    viewer.terrainProvider = worldTerrainProvider;
+                    terrainStatus.innerHTML = '✅ <b style="color:#34d399">真实三维地形 (已开启)</b>';
+                    btnTerrain.style.background = '#2563eb';
+                } else {
+                    viewer.terrainProvider = new Cesium.EllipsoidTerrainProvider();
+                    terrainStatus.innerHTML = '🌍 <span style="color:#94a3b8">椭球基准面 (无地形模式)</span>';
+                    btnTerrain.style.background = 'rgba(255, 255, 255, 0.08)';
+                }
+            }
+
+            // 针对无地形（纯椭球面）场景的“一键贴地”下沉演示（等同于业务系统 newcesium.vue 中的 applyHeightOffset）
+            function toggleClampToGround() {
+                if (!currentTileset) return;
+                isClamped = !isClamped;
+                const btn = document.getElementById('btnClamp');
+                const valAlt = document.getElementById('valAlt');
+                if (isClamped) {
+                    // 下沉约 163 米（刚好消除 Lake Superior 岸线的绝对海拔高度，紧贴 0 米椭球面）
+                    const cartographic = Cesium.Cartographic.fromCartesian(currentTileset.boundingSphere.center);
+                    const surface = Cesium.Cartesian3.fromRadians(cartographic.longitude, cartographic.latitude, 0.0);
+                    const offset = Cesium.Cartesian3.fromRadians(cartographic.longitude, cartographic.latitude, -163.2);
+                    const translation = Cesium.Cartesian3.subtract(offset, surface, new Cesium.Cartesian3());
+                    currentTileset.modelMatrix = Cesium.Matrix4.fromTranslation(translation);
+                    btn.innerHTML = '⛰️ 还原真实高程 (163m)';
+                    btn.style.background = '#10b981';
+                    valAlt.innerText = '0 米 (已贴平椭球面)';
+                } else {
+                    currentTileset.modelMatrix = Cesium.Matrix4.IDENTITY;
+                    btn.innerHTML = '🌍 贴平椭球基准面';
+                    btn.style.background = 'rgba(255, 255, 255, 0.08)';
+                    valAlt.innerText = '~163.2 米 (真实GPS)';
+                }
+            }
+
+            // 获取最新瓦片服务地址 (支持 URL query: ?uuid=xxx 或动态探测 latest_task.json)
+            async function resolveTilesetUrl() {
+                const params = new URLSearchParams(window.location.search);
+                const queryUuid = params.get('uuid');
+                if (queryUuid) {
+                    return `http://localhost:8088/${queryUuid}/3d_tiles/model/tileset.json`;
+                }
+
+                // 探测最新完成的任务
+                try {
+                    const res = await fetch('http://localhost:8088/latest_task.json', { cache: 'no-cache' });
+                    if (res.ok) {
+                        const data = await res.json();
+                        if (data.tilesetUrl) return data.tilesetUrl;
+                    }
+                } catch (e) {
+                    console.log('未探测到 latest_task.json，使用默认路径');
+                }
+
+                // 默认退回到最新运行任务目录
+                return 'http://localhost:8088/d8149d5f-0390-4fc8-b94a-18d849ed4486/3d_tiles/model/tileset.json';
+            }
+
+            async function initViewer() {
+                const statusBar = document.getElementById('statusBar');
+                
+                // 并行初始化三维地形
+                initTerrain();
+
+                try {
+                    const tilesetUrl = await resolveTilesetUrl();
+                    statusBar.innerText = `⏳ 正在拉取 3D Tiles: ${tilesetUrl.split('/').slice(-4, -1).join('/')}...`;
+
+                    // 【核心】：纯原生加载，无需任何 modelMatrix 魔改！
+                    currentTileset = await Cesium.Cesium3DTileset.fromUrl(tilesetUrl, {
+                        maximumScreenSpaceError: 16,
+                        skipLevelOfDetail: true,
+                        dynamicScreenSpaceError: true,
+                        cullWithChildrenBounds: true,
+                    });
+
+                    viewer.scene.primitives.add(currentTileset);
+
+                    statusBar.innerHTML = '✅ <b style="color:#10b981;">3D Tiles 已原生渲染，姿态与坐标严丝合缝！</b>';
+
+                    // 平滑飞往模型
+                    await flyToModel();
+
+                    // 更新代码面板
+                    document.getElementById('sampleCode').innerText = 
+`// 业务组件（如 newcesium.vue）原生加载代码：
+const tileset = await Cesium.Cesium3DTileset.fromUrl('${tilesetUrl}', {
+  maximumScreenSpaceError: 16,
+  skipLevelOfDetail: true,
+});
+viewer.scene.primitives.add(tileset);
+viewer.zoomTo(tileset);`;
+                } catch (err) {
+                    console.error('3D Tiles 加载失败:', err);
+                    statusBar.innerHTML = `⚠️ <span style="color:#ef4444;">瓦片生成中或地址不可达: ${err.message}</span>`;
+                }
+            }
+
+            async function flyToModel() {
+                if (!currentTileset) return;
+                await viewer.flyTo(currentTileset, {
+                    duration: 1.6,
+                    offset: new Cesium.HeadingPitchRange(
+                        Cesium.Math.toRadians(15),
+                        Cesium.Math.toRadians(-40),
+                        currentTileset.boundingSphere.radius * 2.3
+                    ),
+                });
+            }
+
+            function toggleWireframe() {
+                if (!currentTileset) return;
+                wireframeMode = !wireframeMode;
+                currentTileset.debugWireframe = wireframeMode;
+                document.getElementById('btnWireframe').style.background = wireframeMode 
+                    ? 'rgba(59, 130, 246, 0.4)' 
+                    : 'rgba(255, 255, 255, 0.08)';
+            }
+
+            function toggleBasemap() {
+                currentBasemapIndex = (currentBasemapIndex + 1) % 3;
+                viewer.scene.imageryLayers.removeAll();
+
+                if (currentBasemapIndex === 0) {
+                    // Cesium 默认影像
+                    viewer.scene.imageryLayers.addImageryProvider(
+                        new Cesium.IonImageryProvider({ assetId: 2 })
+                    );
+                } else if (currentBasemapIndex === 1) {
+                    // Esri World Imagery
+                    viewer.scene.imageryLayers.addImageryProvider(
+                        new Cesium.ArcGisMapServerImageryProvider({
+                            url: 'https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer',
+                        })
+                    );
+                } else {
+                    // 深色无底图（纯看三维模型细节）
+                    // 空图层
+                }
+            }
+
+            initViewer();
+        </script>
+    </body>
+</html>

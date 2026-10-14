@@ -11,7 +11,7 @@
  * ========================================================================
  */
 
-import { ref } from 'vue';
+import { ref, nextTick } from 'vue';
 import api from '@/utils/request';
 
 // 全局单例响应式暗黑模式状态
@@ -58,12 +58,15 @@ export function useTheme() {
         // 记录切换前是否处于暗黑模式
         const wasDark = document.documentElement.classList.contains('dark');
 
-        // 4. 开启原生 View Transition 快照
+        // 4. 开启原生 View Transition 快照 (配合 await nextTick 确保 DOM 彻底结算后再捕获新视图)
         const transition = document.startViewTransition(async () => {
             applyTheme(!wasDark, userInfo);
+            await nextTick();
         });
 
-        // 5. 动画就绪后，对 DOM 执行自定义圆形裁剪扩散/收缩动画
+        // 5. 动画就绪后，执行 Element Plus 官网同款极客动效：
+        // - 白 -> 黑 (isNowDark=true)：白色旧视图 (old) 在顶层向圆心收缩，露出底层黑色（回缩变黑）
+        // - 黑 -> 白 (isNowDark=false)：白色新视图 (new) 在顶层从圆心向全屏扩散，覆盖底层黑色（扩散变白）
         transition.ready.then(() => {
             const clipPath = [
                 `circle(0px at ${x}px ${y}px)`,
@@ -72,20 +75,24 @@ export function useTheme() {
 
             const isNowDark = document.documentElement.classList.contains('dark');
 
-            // 浅色 -> 深色：新视图(::view-transition-new)在最顶层，从小圆扩散至全屏
-            // 深色 -> 浅色：旧视图(::view-transition-old)在最顶层，从全屏向圆心收缩至0
-            document.documentElement.animate(
+            const anim = document.documentElement.animate(
                 {
-                    clipPath: isNowDark ? clipPath : [...clipPath].reverse(),
+                    clipPath: isNowDark ? [...clipPath].reverse() : clipPath,
                 },
                 {
                     duration: 400,
-                    easing: 'ease-in-out',
+                    easing: 'ease-in',
+                    fill: 'forwards', // 🌟 关键点 1：过渡期间锁定最终状态 (0px)，不给旧视图任何回弹闪烁机会
                     pseudoElement: isNowDark
-                        ? '::view-transition-new(root)'
-                        : '::view-transition-old(root)',
+                        ? '::view-transition-old(root)'
+                        : '::view-transition-new(root)',
                 }
             );
+
+            // 🌟 关键点 2：在本次视图过渡伪元素被浏览器彻底注销后，立刻释放动画对象，清除样式锁定，绝不污染下次切换
+            transition.finished.finally(() => {
+                anim.cancel();
+            });
         });
     };
 

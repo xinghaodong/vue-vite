@@ -59,6 +59,7 @@ defineExpose({
     padding: 16px;
     min-height: 100%;
     box-sizing: border-box;
+    padding-bottom: 0px;
 }
 
 /* 页面路由平滑切换过渡动效 (fade-transform) */

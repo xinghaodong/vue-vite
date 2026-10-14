@@ -67,13 +67,13 @@
                 </div>
             </div>
 
-            <div class="section-content canvas-scroll">
-                <div class="form-canvas">
+            <div class="section-content canvas-scroll" style="overflow: hidden;">
+                <div class="form-canvas" style="height: calc(100vh - 171px);overflow: auto;">
                     <el-form
                         :label-position="formConfig.labelPosition"
                         :size="formConfig.size"
                         :label-width="formConfig.labelWidth + 'px'"
-                        style="min-height: 100%"
+                        style="min-height: 100%;padding: 12px;"
                     >
                         <draggable
                             v-model="formItems"

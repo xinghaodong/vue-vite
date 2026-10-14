@@ -14,20 +14,18 @@
     mix-blend-mode: normal;
 }
 
-/* 1. 浅色 -> 深色模式：html 添加了 .dark 类，新视图 (dark) 在最上层进行圆形遮罩展开 */
-.dark::view-transition-old(root) {
+/* 默认状态 (黑 -> 白，即正在变亮)：白色新视图 (new) 在最顶层扩散覆盖黑色旧视图 (old) */
+::view-transition-old(root) {
     z-index: 1;
 }
-
-.dark::view-transition-new(root) {
-    z-index: 99999;
-}
-
-/* 2. 深色 -> 浅色模式：html 移除了 .dark 类，旧视图 (dark) 在最上层收缩向圆心，露出底层浅色 */
-::view-transition-old(root) {
-    z-index: 99999;
-}
-
 ::view-transition-new(root) {
+    z-index: 9999;
+}
+
+/* 暗黑生效状态 (白 -> 黑，即正在变暗)：白色旧视图 (old) 在最顶层向圆心收缩，露出底层黑色新视图 (new) */
+.dark::view-transition-old(root) {
+    z-index: 9999;
+}
+.dark::view-transition-new(root) {
     z-index: 1;
 }

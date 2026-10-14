@@ -72,7 +72,7 @@ onMounted(() => {
 
 <style scoped>
 .layout-app-wrapper {
-    width: 100vw;
+    width: 100%;
     height: 100vh;
     overflow: hidden;
     background: var(--el-bg-color-page);
