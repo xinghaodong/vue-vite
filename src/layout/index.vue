@@ -45,9 +45,13 @@ import Tabs from './components/Tabs/index.vue';
 import Main from './components/Main/index.vue';
 import menuStore from '@/stortes/menu';
 import { initTheme } from '@/composables/useTheme';
+import { useReconstructionStream } from '@/composables/useReconstructionStream';
 
 const menuInfoStore = menuStore();
 const { allArray } = storeToRefs(menuInfoStore);
+
+// 实景三维建模全局按需单例
+const { checkBackgroundTasks } = useReconstructionStream();
 
 // 侧边栏折叠状态
 const isCollapse = ref(false);
@@ -67,6 +71,8 @@ const handleRefreshCurrentRoute = () => {
 onMounted(() => {
     // 确保暗黑模式初始类名正确同步
     initTheme();
+    // 检查后台是否有进行中的实景三维建模任务（有则自动激活跨页面监听，无则完全静默零开销）
+    checkBackgroundTasks();
 });
 </script>
 

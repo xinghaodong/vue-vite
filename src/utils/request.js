@@ -160,7 +160,10 @@ export const oPost = (url, params) => {
     });
 };
 
-//接口方法 地址
+// 导出统一配置了拦截器与 Token 的 Axios 底座实例
+export const request = axios;
+
+// 兼容老代码的默认对象导出
 export default {
     baseUrl,
     img_url,

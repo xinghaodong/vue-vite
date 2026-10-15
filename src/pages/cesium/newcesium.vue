@@ -1,7 +1,24 @@
-﻿<template>
+<template>
     <div style="width: 100%; height: 100%; display: flex; position: relative">
         <div id="cesiumContainer1"></div>
-        <!-- 底部海拔信息栏 -->
+
+        <!-- 实景三维漫游状态工具栏 -->
+        <div v-if="isModelPreviewMode" class="model-preview-toolbar">
+            <div class="model-preview-title">
+                <span class="model-badge">实景三维</span>
+                <span class="model-name" :title="currentModelName">{{ currentModelName }}</span>
+            </div>
+            <div class="model-preview-actions">
+                <el-button size="small" type="primary" :icon="Aim" @click="refocusModel">
+                    聚焦模型
+                </el-button>
+                <el-button size="small" :icon="Refresh" @click="reloadModel">
+                    重载
+                </el-button>
+            </div>
+        </div>
+
+        <!-- 底部高程与相机状态信息栏 -->
         <div class="altitude-info-bar">
             <div class="altitude-info-item">
                 <span class="altitude-info-label">经度</span>
@@ -19,39 +36,64 @@
             </div>
             <div class="altitude-info-divider"></div>
             <div class="altitude-info-item">
-                <span class="altitude-info-label">HAE</span>
+                <span class="altitude-info-label">HAE (椭球高)</span>
                 <span class="altitude-info-value hae">{{ cursorHAE }} m</span>
             </div>
             <div class="altitude-info-divider"></div>
             <div class="altitude-info-item">
-                <span class="altitude-info-label">ASL</span>
+                <span class="altitude-info-label">ASL (正高海拔)</span>
                 <span class="altitude-info-value asl">{{ cursorASL }} m</span>
             </div>
+            <div class="altitude-info-divider"></div>
+            <div class="altitude-info-item">
+                <span class="altitude-info-label">俯仰 / 偏航</span>
+                <span class="altitude-info-value">{{ cameraPitch }}° / {{ cameraHeading }}°</span>
+            </div>
         </div>
+
     </div>
 </template>
 
 <script setup>
 import { ref, onMounted, onUnmounted, getCurrentInstance, watch, onBeforeUnmount } from 'vue';
-import * as egm96 from 'egm96-universal';
+import { ElMessage } from 'element-plus';
+import { Aim, Refresh, Back } from '@element-plus/icons-vue';
 import * as Cesium from 'cesium';
 import 'cesium/Build/Cesium/Widgets/widgets.css';
 import { createDroneFrustum, calculateRouteInfo } from '@/assets/js/common';
-// import droneImage from '@/assets/WRJ.png';
 import droneImage from '@/assets/5cb4d4a54db5bef6.gltf';
-const { proxy } = getCurrentInstance();
 import { useRoute } from 'vue-router';
 import { settings } from 'nprogress';
-const TIANDITU_TOKEN = '959c9868a67971f32236533362422954';
-const TIANDITU_TOKEN1 = 'e79aa17ec84f6336a17a688c018da4f8';
-const TIANDITU_TOKEN2 = '242483665fa18dda32c41b7e397f12dd';
+import { useCesiumViewer } from '@/composables/useCesiumViewer';
+import { useCesiumModels } from '@/composables/useCesiumModels';
+
+const { proxy } = getCurrentInstance();
+const route = useRoute();
+const { idkey } = route.query;
 
 // 配置Cesium基础URL
 window.CESIUM_BASE_URL = './Cesium';
 
-// Cesium Ion访问令牌
-Cesium.Ion.defaultAccessToken =
-    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI5NWEyM2E2Ni1mNDdmLTQ2NjYtYWQ0Mi0xYmE5OWVkYjIxNTUiLCJpZCI6Mjg3NzA3LCJpYXQiOjE3NDI5NTQ1ODR9.iyxiNumkb8sc6jM8EFk72wtwKmLOPAKqsxgeLqs1Nio';
+// 使用封装的 useCesiumViewer composable 统一管控地图实例、全球地形、影像与坐标测量
+const {
+    viewer,
+    cursorLon,
+    cursorLat,
+    cameraHeight,
+    cursorHAE,
+    cursorASL,
+    cameraPitch,
+    cameraHeading,
+    initCesium,
+} = useCesiumViewer('cesiumContainer1');
+
+// 使用实景三维与 3D Tiles 专属 composable
+const {
+    loadedTilesets,
+    loadModel,
+    unloadAllModels,
+    flyToModel,
+} = useCesiumModels();
 
 // 陀螺仪所需数据
 const currentPitch = ref(0);
@@ -74,11 +116,68 @@ const rules = {
         },
     ],
 };
-// 编辑回显获取 vue 路由参数
-const route = useRoute();
-const { idkey } = route.query;
-// 响应式状态
-const viewer = ref(null);
+
+// 实景三维漫游相关状态
+const isModelPreviewMode = ref(!!route.query.modelUrl);
+const currentModelName = ref(decodeURIComponent(route.query.modelName || '实景三维模型'));
+
+const handleLoadReconstructionTileset = async ({ name, url }) => {
+    if (!viewer.value) {
+        ElMessage.warning('Cesium 地图尚未初始化完成，请稍候');
+        return;
+    }
+    currentModelName.value = name || '实景三维模型';
+    // 兼容绝对与相对地址
+    const targetUrl = url.startsWith('http') ? url : `http://127.0.0.1:3001${url}`;
+    console.log('开始通过 useCesiumModels 加载实景三维 3D Tiles:', { name, targetUrl });
+
+    try {
+        // 先卸载已有的旧模型
+        unloadAllModels(viewer.value);
+
+        // 通过 Hook 加载 3D Tiles 并自动计算贴地高程偏移
+        const tileset = await loadModel(viewer.value, {
+            id: 'reconstruction_model',
+            name: currentModelName.value,
+            url: targetUrl,
+            heightOffset: 0,
+        });
+
+        // 缩放并平滑聚焦到三维模型倾斜视角
+        await flyToModel(viewer.value, 'reconstruction_model', 2);
+
+        // 确保主动触发重绘
+        viewer.value.scene.requestRender();
+        ElMessage.success(`实景三维模型【${name}】已成功加载并贴地聚焦！`);
+    } catch (err) {
+        console.error('加载实景三维 3D Tiles 异常:', err);
+        ElMessage.error(`加载三维模型失败: ${err.message}`);
+    }
+};
+
+const refocusModel = async () => {
+    if (!viewer.value) {
+        ElMessage.warning('Cesium 地图尚未初始化完成');
+        return;
+    }
+    await flyToModel(viewer.value, 'reconstruction_model', 1.5);
+    viewer.value.scene.requestRender();
+};
+
+const reloadModel = () => {
+    if (route.query.modelUrl) {
+        let url = route.query.modelUrl;
+        while (typeof url === 'string' && (url.includes('%2F') || url.includes('%2f'))) {
+            url = decodeURIComponent(url);
+        }
+        handleLoadReconstructionTileset({
+            name: currentModelName.value,
+            url,
+        });
+    }
+};
+
+
 const isDrawing = ref(false);
 const currentHeight = ref(800);
 const keyStates = ref({
@@ -91,8 +190,6 @@ const keyStates = ref({
     z: false,
     c: false,
 });
-
-const tiandituToken = ref(TIANDITU_TOKEN);
 
 const followDrone = ref(true);
 const animationFrameId = ref(null);
@@ -127,14 +224,6 @@ const frustumcurrentGimbalPitch = ref(null); // 存储当前视椎体俯仰角
 
 // 获取当前地形高度变量
 const terrainHeight = ref(0);
-
-// 底部信息栏：鼠标位置的经纬度、HAE、ASL、相机高度
-const cursorLon = ref('--');
-const cursorLat = ref('--');
-const cursorHAE = ref('--');
-const cursorASL = ref('--');
-const cameraHeight = ref('--');
-let altitudeHandler = null; // ScreenSpaceEventHandler 引用
 
 // 模型
 const modelList = ref([
@@ -934,19 +1023,20 @@ const initKeyboardControl = async () => {
         const centerLatitude = 37.900612779;
         const positionToSample = [Cesium.Cartographic.fromDegrees(centerLongitude, centerLatitude)];
 
-        // 异步查询地形高度
-        const updatedPositions = await Cesium.sampleTerrainMostDetailed(viewer.value.terrainProvider, positionToSample);
-
-        if (updatedPositions && updatedPositions.length > 0 && updatedPositions[0].height !== undefined) {
-            terrainHeight.value = updatedPositions[0].height;
-            console.log(`成功获取初始地形高度: ${terrainHeight.value.toFixed(2)} 米`);
+        // 异步查询地形高度 (仅在支持地形采样的 Provider 上调用，避免 EllipsoidTerrain 报错)
+        if (viewer.value?.terrainProvider?.availability) {
+            const updatedPositions = await Cesium.sampleTerrainMostDetailed(viewer.value.terrainProvider, positionToSample);
+            if (updatedPositions && updatedPositions.length > 0 && updatedPositions[0].height !== undefined) {
+                terrainHeight.value = updatedPositions[0].height;
+            } else {
+                terrainHeight.value = 0;
+            }
         } else {
-            console.warn('无法获取地形高度，将使用默认值 0');
             terrainHeight.value = 0;
         }
     } catch (error) {
-        console.error('获取地形高度时发生错误:', error);
-        terrainHeight.value = 0; // 出错时使用默认值
+        console.warn('获取地形高度未就绪，使用基准高度 0:', error);
+        terrainHeight.value = 0;
     }
 
     // 初始化飞行器
@@ -1397,32 +1487,6 @@ const stopAnimationLoop = () => {
         animationFrameId.value = null;
     }
 };
-const tiMapCia = () => {
-    viewer.value.imageryLayers.addImageryProvider(
-        new Cesium.WebMapTileServiceImageryProvider({
-            url: 'http://t0.tianditu.gov.cn/cva_w/wmts?tk=' + tiandituToken.value,
-            layer: 'cva',
-            style: 'default',
-            tileMatrixSetID: 'w',
-            format: 'tiles',
-            maximumLevel: 18,
-        }),
-    );
-};
-
-const tiMapImg = () => {
-    viewer.value.imageryLayers.addImageryProvider(
-        new Cesium.WebMapTileServiceImageryProvider({
-            url: 'http://t0.tianditu.gov.cn/img_w/wmts?tk=' + tiandituToken.value,
-            layer: 'img',
-            style: 'default',
-            tileMatrixSetID: 'w',
-            format: 'tiles',
-            maximumLevel: 18,
-        }),
-    );
-};
-
 const loadTMSWithUrlTemplate = async serviceBaseUrl => {
     try {
         // Step 1: 用 TMS 加载元数据（不加到图层）
@@ -1476,122 +1540,44 @@ const loadTMSWithUrlTemplate = async serviceBaseUrl => {
 
 // 生命周期钩子
 onMounted(async () => {
-    const tokens = [TIANDITU_TOKEN, TIANDITU_TOKEN1, TIANDITU_TOKEN2];
-    tiandituToken.value = tokens[Math.floor(Math.random() * tokens.length)];
-    console.log(tiandituToken.value, 'tiandituToken');
-
-    viewer.value = new Cesium.Viewer('cesiumContainer1', {
-        infoBox: false,
-        animation: false,
-        baseLayerPicker: false,
-        fullscreenButton: false,
-        geocoder: false,
-        homeButton: false,
-        sceneModePicker: false,
-        selectionIndicator: false,
-        timeline: false,
-        navigationHelpButton: false,
-        shouldAnimate: true,
-        requestRenderMode: true, // 启用按需渲染
-        maximumRenderTimeChange: Infinity, // 确保仅在需要时渲染
-        terrainProvider: new Cesium.EllipsoidTerrainProvider(),
-        // terrainProvider: await Cesium.createWorldTerrainAsync(), // 添加地形
-        // vrButton: true, //开启VR
-        sceneMode: Cesium.SceneMode.SCENE3D,
+    // 1. 调用 useCesiumViewer 统一初始化地图，自动挂载 Cesium 官方原生全球高精地形与全球影像底图
+    await initCesium('cesiumContainer1', {
+        requestRenderMode: false,
+        depthTestAgainstTerrain: true,
     });
 
-    // viewer.value.terrainProvider = await Cesium.CesiumTerrainProvider.fromUrl('https://data.mars3d.cn/terrain', {
-    //     requestWaterMask: true, // 请求水面掩膜
-    //     requestVertexNormals: true, // 请求顶点法线用于光照效果
-    // });
-    viewer.value.imageryLayers.remove(viewer.value.imageryLayers.get(0));
-    let target1 = Cesium.Cartesian3.fromDegrees(116.4074, 39.9042, 16500000);
-    // 开启高分辨率
-    viewer.value.resolutionScale = window.devicePixelRatio || 1.25;
-    // 开启cesium 帧率
-    viewer.value.scene.debugShowFramesPerSecond = true;
-    tiMapImg();
-    // cesium 开启光照
-    viewer.value.scene.globe.enableLighting = true;
-    startDrawing();
-
-    // ========== 实时海拔高度检测（HAE & ASL） ==========
-    altitudeHandler = new Cesium.ScreenSpaceEventHandler(viewer.value.scene.canvas);
-    altitudeHandler.setInputAction(movement => {
-        // 1. 更新相机高度
-        const camCartographic = viewer.value.camera.positionCartographic;
-        cameraHeight.value = camCartographic ? camCartographic.height.toFixed(1) : '--';
-
-        // 2. 获取鼠标所在位置的经纬度
-        const ray = viewer.value.camera.getPickRay(movement.endPosition);
-        if (!ray) return;
-        const cartesian = viewer.value.scene.globe.pick(ray, viewer.value.scene);
-        if (!cartesian) return;
-
-        // 从 Cartesian3 提取经纬度（度）
-        const tmpCartographic = Cesium.Cartographic.fromCartesian(cartesian);
-        const lon = Cesium.Math.toDegrees(tmpCartographic.longitude);
-        const lat = Cesium.Math.toDegrees(tmpCartographic.latitude);
-
-        cursorLon.value = lon.toFixed(6);
-        cursorLat.value = lat.toFixed(6);
-
-        // 3. 用 fromDegrees 创建干净的 cartographic，再采样地形 HAE
-        const cartographic = Cesium.Cartographic.fromDegrees(lon, lat);
-        // HAE: globe.getHeight 返回的是地形在 WGS84 椭球面以上的高度
-        const hae = viewer.value.scene.globe.getHeight(cartographic);
-        if (hae !== undefined && hae !== null) {
-            cursorHAE.value = hae.toFixed(2);
-
-            // 4. 获取大地水准面差距 N（EGM96 Geoid Undulation）
-            //    N = 大地水准面相对于 WGS84 椭球面的高度
-            //    ASL = HAE - N（海拔 = 椭球面高 - 大地水准面差距）
-            try {
-                const N = egm96.meanSeaLevel(lat, lon); // 单位：米
-                const asl = hae - N;
-                cursorASL.value = asl.toFixed(2);
-            } catch (e) {
-                cursorASL.value = '--';
-            }
-        } else {
-            cursorHAE.value = '--';
-            cursorASL.value = '--';
+    // 2. 核心模式分流：三维漫游模式 VS 航线规划模式
+    if (route.query.modelUrl) {
+        // 【实景三维漫游模式】：完全跳过无人机初始化与太原规划视角，杜绝绘制无人机模型与坐标跳转
+        isModelPreviewMode.value = true;
+        let url = route.query.modelUrl;
+        while (typeof url === 'string' && (url.includes('%2F') || url.includes('%2f'))) {
+            url = decodeURIComponent(url);
         }
-    }, Cesium.ScreenSpaceEventType.MOUSE_MOVE);
-    // 定义瓦片服务
-    // const provider = await Cesium.TileMapServiceImageryProvider.fromUrl('http://192.168.8.111:9003/', {
-    //     // 层级
-    //     minimumLevel: 14,
-    //     maximumLevel: 18,
-    // });
-    // console.log(provider);
-    // viewer.value.imageryLayers.addImageryProvider(provider);
-
-    // await loadTMSWithUrlTemplate('http://192.168.8.111:9003/');
-
-    // await loadTMSWithUrlTemplate('http://192.168.8.111:9003/');
-    // await loadTMSWithUrlTemplate('http://192.168.8.111:9004/');
-    setTimeout(async () => {
-        // await load3DTilesModels();
-    }, 5500);
-
-    // 编辑回显
-    if (idkey) {
-        // 调用详情接口
-        getDetail(idkey);
+        let name = route.query.modelName || '实景三维模型';
+        if (typeof name === 'string' && name.includes('%')) {
+            try { name = decodeURIComponent(name); } catch (e) {}
+        }
+        console.log('检测到实景三维模型参数，直接加载模型并聚焦:', { name, url });
+        await handleLoadReconstructionTileset({ name, url });
+    } else {
+        // 【常规无人机航线规划模式】
+        startDrawing();
+        if (idkey) {
+            getDetail(idkey);
+        }
     }
 });
 
 onUnmounted(() => {
-    console.log('即将离开当前路由，清理 Cesium 资源');
+    console.log('即将离开当前路由，清理航线与无人机资源');
     stopAnimationLoop();
     window.removeEventListener('keydown', handleKeyDown);
     window.removeEventListener('keyup', handleKeyUp);
 
-    // 清理海拔检测 handler
-    if (altitudeHandler) {
-        altitudeHandler.destroy();
-        altitudeHandler = null;
+    // 卸载三维实景模型
+    if (viewer.value) {
+        unloadAllModels(viewer.value);
     }
 
     // 移除航线动画监听
@@ -1606,19 +1592,6 @@ onUnmounted(() => {
         flightPathPrimitive.value = null;
         flightPathMaterialRef.value = null;
     }
-
-    if (viewer.value && !viewer.value.isDestroyed()) {
-        viewer.value.destroy();
-    }
-
-    // 销毁容器
-    const container = document.getElementById('cesiumContainer');
-    if (container && container.parentNode) {
-        container.parentNode.removeChild(container);
-    }
-
-    // 清空引用
-    viewer.value = null;
 });
 </script>
 
@@ -1895,5 +1868,54 @@ button:disabled {
     width: 1px;
     height: 18px;
     background: rgba(255, 255, 255, 0.12);
+}
+
+/* 实景三维漫游悬浮工具条 */
+.model-preview-toolbar {
+    position: absolute;
+    top: 16px;
+    left: 20px;
+    z-index: 99;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 16px;
+    background: var(--el-bg-color-overlay, rgba(20, 20, 20, 0.88));
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border: 1px solid var(--el-border-color, rgba(255, 255, 255, 0.15));
+    border-radius: 8px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+}
+
+.model-preview-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.model-badge {
+    background: var(--el-color-primary, #409eff);
+    color: #fff;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 6px;
+    border-radius: 4px;
+}
+
+.model-name {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--el-text-color-primary, #f3f4f6);
+    max-width: 240px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.model-preview-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
 }
 </style>

@@ -41,6 +41,12 @@ const router = createRouter({
                     path: '/index',
                     component: () => import('@/pages/index.vue'),
                 },
+                {
+                    path: '/reconstruction',
+                    name: 'reconstruction',
+                    component: () => import('@/pages/cesium/reconstructionList.vue'),
+                    meta: { title: '实景三维建模' },
+                },
                 // {
                 //     path: '/vueFlow',
                 //     component: () => import('@/pages/vueFlow/index.vue'),
@@ -69,11 +75,6 @@ const router = createRouter({
         //     path: '/cesium',
         //     component: () => import('@/pages/cesium/cesium.vue'),
         // },
-        {
-            name: 'cesium2d',
-            path: '/cesium2d',
-            component: () => import('@/pages/cesium/cesium2d.vue'),
-        },
         {
             name: 'newcesium',
             path: '/newcesium',
