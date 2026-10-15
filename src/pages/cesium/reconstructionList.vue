@@ -55,6 +55,9 @@
                     <span class="sse-dot"></span>
                     <span>{{ isSseConnected ? '实时推送在线' : '通道连接中...' }}</span>
                 </div>
+                <el-button type="success" plain :icon="VideoPlay" @click="openRealtimeDemo">
+                    🛸 边飞边建流式仿真 (Demo)
+                </el-button>
                 <el-button type="primary" plain :icon="Plus" @click="openCreateDialog">
                     新建实景三维建模
                 </el-button>
@@ -311,6 +314,7 @@ import {
     View,
     Document,
     Delete,
+    VideoPlay,
 } from '@element-plus/icons-vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import {
@@ -553,6 +557,14 @@ const flyToCesiumViewer = (row) => {
             modelName: row.name,
             token: sessionStorage.getItem('token') || '',
         },
+    });
+    window.open(routeData.href, '_blank');
+};
+
+// 打开边飞边建流式仿真演示 (新标签页)
+const openRealtimeDemo = () => {
+    const routeData = router.resolve({
+        path: '/realtime-fly-demo',
     });
     window.open(routeData.href, '_blank');
 };

@@ -80,6 +80,12 @@ const router = createRouter({
             path: '/newcesium',
             component: () => import('@/pages/cesium/newcesium.vue'),
         },
+        {
+            name: 'realtimeFlyDemo',
+            path: '/realtime-fly-demo',
+            component: () => import('@/pages/cesium/realtimeFlyDemo.vue'),
+            meta: { title: '边飞边建实时三维建模仿真' },
+        },
         // {
         //     name: 'cesium3d',
         //     path: '/cesium3d',

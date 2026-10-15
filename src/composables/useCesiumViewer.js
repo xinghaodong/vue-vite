@@ -20,6 +20,14 @@ import * as egm96 from 'egm96-universal';
 const DEFAULT_ION_TOKEN =
     'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI5NWEyM2E2Ni1mNDdmLTQ2NjYtYWQ0Mi0xYmE5OWVkYjIxNTUiLCJpZCI6Mjg3NzA3LCJpYXQiOjE3NDI5NTQ1ODR9.iyxiNumkb8sc6jM8EFk72wtwKmLOPAKqsxgeLqs1Nio';
 
+// 全局锁定 Cesium 静态资源基准路径，防止 skybox 和贴图 404 引发 InvalidStateError
+// if (typeof window !== 'undefined') {
+//     window.CESIUM_BASE_URL = window.CESIUM_BASE_URL || '/Cesium';
+//     try {
+//         Cesium.buildModuleUrl.setBaseUrl('/Cesium/');
+//     } catch (e) {}
+// }
+
 export function useCesiumViewer(defaultContainerId = 'cesiumContainer1') {
     // Viewer 实例（使用 shallowRef 避免深层响应式代理损耗 WebGL 性能）
     const viewer = shallowRef(null);
@@ -48,6 +56,14 @@ export function useCesiumViewer(defaultContainerId = 'cesiumContainer1') {
      * @param {object} [customOptions] 自定义配置
      */
     const initCesium = async (containerId = defaultContainerId, customOptions = {}) => {
+        // 确保 Cesium 模块基础路径正确注入
+        if (typeof window !== 'undefined') {
+            window.CESIUM_BASE_URL = window.CESIUM_BASE_URL || '/Cesium';
+            try {
+                Cesium.buildModuleUrl.setBaseUrl('/Cesium/');
+            } catch (e) {}
+        }
+
         // 1. 设置并发请求数，大幅减少 3D Tiles 和地形瓦片排队等待时间
         Cesium.RequestScheduler.maximumRequestsPerServer = 18;
 
@@ -68,7 +84,7 @@ export function useCesiumViewer(defaultContainerId = 'cesiumContainer1') {
             try {
                 console.log('正在加载 Cesium 官方原生全球高精地形 (createWorldTerrainAsync)...');
                 terrainProvider = await Cesium.createWorldTerrainAsync({
-                    requestWaterMask: true,     // 请求水面掩膜反射
+                    requestWaterMask: true,    // 航测陆地场景关闭水面法线贴图，防止纹理解码报错
                     requestVertexNormals: true, // 请求顶点法线用于光照效果
                 });
                 console.log('Cesium 官方全球真实地形已成功挂载');
