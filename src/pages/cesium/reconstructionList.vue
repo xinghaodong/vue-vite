@@ -1,56 +1,16 @@
 <template>
     <div class="reconstruction-container">
-        <!-- 顶部搜索与操作筛选栏 -->
-        <div class="table-toolbar">
-            <el-form :inline="true" :model="queryForm" class="filter-form">
-                <el-form-item label="任务名称">
-                    <el-input
-                        v-model="queryForm.name"
-                        placeholder="请输入任务名称搜索"
-                        clearable
-                        style="width: 200px"
-                        @clear="handleSearch"
-                        @keyup.enter="handleSearch"
-                    />
-                </el-form-item>
-
-                <el-form-item label="飞行架次">
-                    <el-input
-                        v-model="queryForm.flightId"
-                        placeholder="请输入架次编号"
-                        clearable
-                        style="width: 180px"
-                        @clear="handleSearch"
-                        @keyup.enter="handleSearch"
-                    />
-                </el-form-item>
-
-                <el-form-item label="状态">
-                    <el-select
-                        v-model="queryForm.status"
-                        placeholder="全部状态"
-                        clearable
-                        style="width: 140px"
-                        @change="handleSearch"
-                    >
-                        <el-option label="全部状态" value="" />
-                        <el-option label="排队中" value="PENDING" />
-                        <el-option label="解压相片中" value="EXTRACTING" />
-                        <el-option label="上传引擎中" value="UPLOADING" />
-                        <el-option label="三维重建中" value="PROCESSING" />
-                        <el-option label="建模完成" value="SUCCESS" />
-                        <el-option label="建模失败" value="FAILED" />
-                        <el-option label="已取消" value="CANCELED" />
-                    </el-select>
-                </el-form-item>
-
-                <el-form-item>
-                    <el-button type="primary" :icon="Search" @click="handleSearch">查询</el-button>
-                    <el-button :icon="Refresh" @click="handleReset">重置</el-button>
-                </el-form-item>
-            </el-form>
-
-            <div class="action-btns">
+        <!-- 接入大厂级超级表格 ProTable (自动融合响应式搜索、底部分页、自适应高度微滚动与表头吸顶) -->
+        <ProTable
+            ref="proTableRef"
+            title="航拍实景三维建模管理"
+            :columns="columns"
+            :request-api="fetchListApi"
+            row-key="id"
+            :border="true"
+        >
+            <!-- 头部自定义工具栏插槽 -->
+            <template #tableHeader>
                 <div class="sse-indicator" :class="{ connected: isSseConnected }" :title="isSseConnected ? '实时推送通道已连接' : '实时推送通道连接中...'">
                     <span class="sse-dot"></span>
                     <span>{{ isSseConnected ? '实时推送在线' : '通道连接中...' }}</span>
@@ -58,150 +18,99 @@
                 <el-button type="success" plain :icon="VideoPlay" @click="openRealtimeDemo">
                     🛸 边飞边建流式仿真 (Demo)
                 </el-button>
-                <el-button type="primary" plain :icon="Plus" @click="openCreateDialog">
+                <el-button type="primary" :icon="Plus" @click="openCreateDialog">
                     新建实景三维建模
                 </el-button>
-            </div>
-        </div>
+            </template>
 
-        <!-- 标准 Element Plus 表格 -->
-        <el-table
-            v-loading="loading"
-            :data="tableData"
-            border
-            style="width: 100%"
-        >
-            <el-table-column type="index" label="序号" width="60" align="center" />
+            <!-- 任务名称自定义插槽 (名称 + ID) -->
+            <template #name="{ row }">
+                <div class="task-name-text">{{ row.name }}</div>
+                <div class="sub-id-text">ID: {{ row.id }}</div>
+            </template>
 
-            <el-table-column prop="name" label="任务名称" min-width="240">
-                <template #default="{ row }">
-                    <div class="task-name-text">{{ row.name }}</div>
-                    <div class="sub-id-text">ID: {{ row.id }}</div>
-                </template>
-            </el-table-column>
+            <!-- 关联架次插槽 -->
+            <template #flightId="{ row }">
+                <span v-if="row.flightId" class="font-mono text-sm">{{ row.flightId }}</span>
+                <span v-else class="sub-placeholder-text">未绑定</span>
+            </template>
 
-            <el-table-column prop="flightId" label="关联架次" width="160">
-                <template #default="{ row }">
-                    <span v-if="row.flightId" class="font-mono text-sm">{{ row.flightId }}</span>
-                    <span v-else class="sub-placeholder-text">未绑定</span>
-                </template>
-            </el-table-column>
-
-            <el-table-column prop="photoCount" label="照片数" width="90" align="center">
-                <template #default="{ row }">
-                    <span class="font-mono">{{ row.photoCount || 0 }}</span>
-                </template>
-            </el-table-column>
-
-            <el-table-column prop="status" label="状态" width="120" align="center">
-                <template #default="{ row }">
-                    <el-tag :type="getStatusTagType(row.status)">
-                        {{ getStatusText(row.status) }}
-                    </el-tag>
-                </template>
-            </el-table-column>
-
-            <el-table-column label="重建进度与阶段" min-width="220">
-                <template #default="{ row }">
-                    <div v-if="isWorking(row.status)">
-                        <div class="progress-info-row">
-                            <span class="stage-text">{{ row.stage || '处理中...' }}</span>
-                            <span class="font-mono">{{ Math.round(row.progress || 0) }}%</span>
-                        </div>
-                        <el-progress
-                            :percentage="Math.round(row.progress || 0)"
-                            :stroke-width="6"
-                            :striped="true"
-                            :striped-flow="true"
-                            :show-text="false"
-                        />
+            <!-- 重建进度与阶段插槽 -->
+            <template #progress="{ row }">
+                <div v-if="isWorking(row.status)">
+                    <div class="progress-info-row">
+                        <span class="stage-text">{{ row.stage || '处理中...' }}</span>
+                        <span class="font-mono">{{ Math.round(row.progress || 0) }}%</span>
                     </div>
-                    <div v-else-if="row.status === 'SUCCESS'" class="status-ready-text">
-                        3D Tiles 已就绪 (可直接漫游查看)
-                    </div>
-                    <div v-else-if="row.status === 'FAILED'" class="status-failed-text truncate" :title="row.errorMessage">
-                        {{ row.errorMessage || '引擎处理异常' }}
-                    </div>
-                    <div v-else class="sub-placeholder-text">
-                        {{ row.stage || '--' }}
-                    </div>
-                </template>
-            </el-table-column>
+                    <el-progress
+                        :percentage="Math.round(row.progress || 0)"
+                        :stroke-width="6"
+                        :striped="true"
+                        :striped-flow="true"
+                        :show-text="false"
+                    />
+                </div>
+                <div v-else-if="row.status === 'SUCCESS'" class="status-ready-text">
+                    3D Tiles 已就绪 (可直接漫游查看)
+                </div>
+                <div v-else-if="row.status === 'FAILED'" class="status-failed-text truncate" :title="row.errorMessage">
+                    {{ row.errorMessage || '引擎处理异常' }}
+                </div>
+                <div v-else class="sub-placeholder-text">
+                    {{ row.stage || '--' }}
+                </div>
+            </template>
 
-            <el-table-column prop="processingTime" label="耗时(秒)" width="100" align="center">
-                <template #default="{ row }">
-                    <span v-if="row.processingTime" class="font-mono">{{ row.processingTime }}s</span>
-                    <span v-else class="sub-placeholder-text">--</span>
-                </template>
-            </el-table-column>
+            <!-- 操作列插槽 -->
+            <template #operation="{ row }">
+                <!-- 漫游至 Cesium 视窗 -->
+                <el-button
+                    v-if="row.status === 'SUCCESS' && row.tilesetUrl"
+                    link
+                    type="success"
+                    :icon="View"
+                    @click="flyToCesiumViewer(row)"
+                >
+                    三维漫游
+                </el-button>
 
-            <el-table-column prop="createdAt" label="创建时间" width="170" align="center">
-                <template #default="{ row }">
-                    <span class="text-xs">{{ formatTime(row.createdAt) }}</span>
-                </template>
-            </el-table-column>
+                <!-- 查看日志 -->
+                <el-button link type="primary" :icon="Document" @click="openLogsDialog(row)">
+                    日志
+                </el-button>
 
-            <!-- 操作列 -->
-            <el-table-column label="操作" width="240" fixed="right">
-                <template #default="{ row }">
-                    <!-- 漫游至 Cesium 视窗 -->
-                    <el-button
-                        v-if="row.status === 'SUCCESS' && row.tilesetUrl"
-                        link
-                        type="success"
-                        :icon="View"
-                        @click="flyToCesiumViewer(row)"
-                    >
-                        三维漫游
-                    </el-button>
+                <!-- 中止任务 -->
+                <el-button
+                    v-if="isWorking(row.status)"
+                    link
+                    type="warning"
+                    @click="handleCancel(row.id)"
+                >
+                    中止
+                </el-button>
 
-                    <!-- 查看日志 -->
-                    <el-button link type="primary" :icon="Document" @click="openLogsDialog(row)">
-                        日志
-                    </el-button>
+                <!-- 删除任务 -->
+                <el-button
+                    link
+                    type="danger"
+                    :icon="Delete"
+                    @click="handleDelete(row.id)"
+                >
+                    删除
+                </el-button>
+            </template>
+        </ProTable>
 
-                    <!-- 中止任务 -->
-                    <el-button
-                        v-if="isWorking(row.status)"
-                        link
-                        type="warning"
-                        @click="handleCancel(row.id)"
-                    >
-                        中止
-                    </el-button>
-
-                    <!-- 删除任务 -->
-                    <el-button
-                        link
-                        type="danger"
-                        :icon="Delete"
-                        @click="handleDelete(row.id)"
-                    >
-                        删除
-                    </el-button>
-                </template>
-            </el-table-column>
-        </el-table>
-
-        <!-- 分页组件 -->
-        <el-pagination
-            style="padding: 16px 0"
-            background
-            :current-page="currentPage"
-            :page-sizes="[10, 20, 50, 100]"
-            :page-size="pageSize"
-            layout="total, sizes, ->, prev, pager, next, jumper"
-            :total="total"
-            @size-change="handleSizeChange"
-            @current-change="handleCurrentChange"
-        />
-
-        <!-- 新建模任务弹窗 -->
-        <el-dialog
+        <!-- 新建模任务弹窗 (使用 ProDialog 高定容器，局部按钮转圈防连击，支持拖拽与全屏) -->
+        <ProDialog
             v-model="createDialogVisible"
             title="新建航拍实景三维建模任务"
-            width="620px"
+            sub-title="上传航拍相片压缩包并一键提交至三维重建集群"
+            width="640px"
+            confirm-text="提交并启动建模"
+            :confirm-loading="submitting"
             :destroy-on-close="true"
+            @confirm="submitCreateTask"
         >
             <el-form label-width="120px" :model="form">
                 <el-form-item label="任务名称" required>
@@ -259,36 +168,22 @@
                     <el-progress :percentage="uploadProgress" :stroke-width="6" status="success" :show-text="false" />
                 </div>
             </el-form>
+        </ProDialog>
 
-            <template #footer>
-                <div class="flex justify-end gap-2">
-                    <el-button @click="createDialogVisible = false">取消</el-button>
-                    <el-button
-                        type="primary"
-                        :disabled="!selectedFile || submitting"
-                        :loading="submitting"
-                        @click="submitCreateTask"
-                    >
-                        提交并启动建模
-                    </el-button>
-                </div>
-            </template>
-        </el-dialog>
-
-        <!-- 查看日志弹窗 -->
-        <el-dialog
+        <!-- 查看日志弹窗 (使用 ProDialog 增强容器，全屏最大化展开浏览控制台日志) -->
+        <ProDialog
             v-model="logsDialogVisible"
             :title="`引擎运行实时日志 - ${activeTask?.name || ''}`"
-            width="820px"
+            :sub-title="`ODM UUID: ${activeTask?.odmUuid || '排队准备中'}`"
+            width="860px"
             :destroy-on-close="true"
+            :show-confirm="false"
+            cancel-text="关闭"
         >
-            <div class="logs-header-meta">
-                <span>ODM UUID: {{ activeTask?.odmUuid || '排队中' }}</span>
-                <div class="logs-header-actions">
-                    <el-checkbox v-model="autoRefreshLogs" size="small">自动刷新 (3秒)</el-checkbox>
-                    <el-button size="small" :icon="Refresh" @click="fetchLogs(activeTask?.id)">刷新</el-button>
-                </div>
-            </div>
+            <template #header-actions>
+                <el-checkbox v-model="autoRefreshLogs" size="small" style="margin-right: 8px;">自动刷新 (3秒)</el-checkbox>
+                <el-button size="small" :icon="Refresh" @click="fetchLogs(activeTask?.id)">刷新</el-button>
+            </template>
 
             <div ref="logContainerRef" class="terminal-log-viewer">
                 <div v-if="logLines.length === 0" class="empty-logs">
@@ -299,7 +194,7 @@
                     <span class="row-content">{{ line }}</span>
                 </div>
             </div>
-        </el-dialog>
+        </ProDialog>
     </div>
 </template>
 
@@ -337,20 +232,9 @@ const {
 } = useReconstructionStream();
 let unsubscribeSse = null;
 
-// 搜索查询表单
-const queryForm = reactive({
-    name: '',
-    flightId: '',
-    status: '',
-});
+const proTableRef = ref(null);
 
-const loading = ref(false);
-const tableData = ref([]);
-const currentPage = ref(1);
-const pageSize = ref(10);
-const total = ref(0);
-
-// 新建弹窗
+// 新建模任务弹窗相关状态
 const createDialogVisible = ref(false);
 const submitting = ref(false);
 const selectedFile = ref(null);
@@ -364,7 +248,7 @@ const form = reactive({
     withDem: false,
 });
 
-// 日志弹窗
+// 日志弹窗相关状态
 const logsDialogVisible = ref(false);
 const activeTask = ref(null);
 const logLines = ref([]);
@@ -372,9 +256,9 @@ const autoRefreshLogs = ref(true);
 let logPollTimer = null;
 const logContainerRef = ref(null);
 
+// 挂载与卸载生命周期（驱动 SSE 订阅与连接激活）
 onMounted(() => {
-    fetchList();
-    // 订阅全局单例事件流
+    // 订阅全局单例事件流，激活 SSE 长连接
     unsubscribeSse = subscribe(handleRealtimeEvent);
 });
 
@@ -386,55 +270,178 @@ onUnmounted(() => {
     stopLogPolling();
 });
 
+// 状态标签语义化颜色推导 (必须返回 primary/success/info/warning/danger 之一，杜绝空字符串 '')
+const getStatusTagType = (status) => {
+    switch (status) {
+        case 'SUCCESS':
+            return 'success';
+        case 'PROCESSING':
+            return 'primary';
+        case 'UPLOADING':
+        case 'EXTRACTING':
+        case 'PENDING':
+            return 'info';
+        case 'FAILED':
+            return 'danger';
+        case 'CANCELED':
+            return 'warning';
+        default:
+            return 'info';
+    }
+};
+
+const getStatusText = (status) => {
+    const map = {
+        PENDING: '排队就绪',
+        EXTRACTING: '解压相片中',
+        UPLOADING: '上传引擎中',
+        PROCESSING: '三维重建中',
+        SUCCESS: '建模完成',
+        FAILED: '建模失败',
+        CANCELED: '已取消',
+    };
+    return map[status] || status;
+};
+
 const isWorking = (status) => {
     return status === 'PROCESSING' || status === 'UPLOADING' || status === 'EXTRACTING' || status === 'PENDING';
 };
 
-// 获取表格数据
-const fetchList = async () => {
-    loading.value = true;
+const formatTime = (timeStr) => {
+    if (!timeStr) return '--';
+    const d = new Date(timeStr);
+    return `${d.getFullYear()}-${(d.getMonth() + 1).toString().padStart(2, '0')}-${d.getDate().toString().padStart(2, '0')} ${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`;
+};
+
+// ProTable 列配置
+const columns = [
+    { type: 'index', label: '序号', width: 60, align: 'center' },
+    {
+        prop: 'name',
+        label: '任务名称',
+        minWidth: 240,
+        search: {
+            el: 'input',
+            order: 1,
+            props: { placeholder: '请输入任务名称搜索' }
+        }
+    },
+    {
+        prop: 'flightId',
+        label: '飞行架次',
+        width: 160,
+        search: {
+            el: 'input',
+            order: 2,
+            props: { placeholder: '请输入架次编号' }
+        }
+    },
+    {
+        prop: 'photoCount',
+        label: '照片数',
+        width: 90,
+        align: 'center'
+    },
+    {
+        prop: 'status',
+        label: '状态',
+        width: 120,
+        align: 'center',
+        // 动态通用组件 el-tag 声明式配置
+        component: 'el-tag',
+        props: (row) => ({
+            type: getStatusTagType(row.status),
+            round: true
+        }),
+        formatter: (row) => getStatusText(row.status),
+        search: {
+            el: 'select',
+            order: 3,
+            options: [
+                { label: '全部状态', value: '' },
+                { label: '排队中', value: 'PENDING' },
+                { label: '解压相片中', value: 'EXTRACTING' },
+                { label: '上传引擎中', value: 'UPLOADING' },
+                { label: '三维重建中', value: 'PROCESSING' },
+                { label: '建模完成', value: 'SUCCESS' },
+                { label: '建模失败', value: 'FAILED' },
+                { label: '已取消', value: 'CANCELED' }
+            ]
+        }
+    },
+    {
+        prop: 'progress',
+        label: '重建进度与阶段',
+        minWidth: 220
+    },
+    {
+        prop: 'processingTime',
+        label: '耗时(秒)',
+        width: 100,
+        align: 'center',
+        formatter: (row) => (row.processingTime ? `${row.processingTime}s` : '--')
+    },
+    {
+        prop: 'createdAt',
+        label: '创建时间',
+        width: 170,
+        align: 'center',
+        formatter: (row) => formatTime(row.createdAt)
+    },
+    {
+        prop: 'operation',
+        label: '操作',
+        width: 240,
+        fixed: 'right',
+        align: 'center'
+    }
+];
+
+// 接口请求适配器 (对接 ProTable request-api)
+const fetchListApi = async (params) => {
     try {
-        const params = {
-            page: currentPage.value,
-            pageSize: pageSize.value,
-            name: queryForm.name || undefined,
-            flightId: queryForm.flightId || undefined,
-            status: queryForm.status || undefined,
+        const query = {
+            page: params.pageNum,
+            pageSize: params.pageSize,
+            name: params.name || undefined,
+            flightId: params.flightId || undefined,
+            status: params.status || undefined,
         };
-        const res = await getReconstructionList(params);
+        // 过滤空字段
+        Object.keys(query).forEach((k) => {
+            if (query[k] === '' || query[k] === undefined || query[k] === null) {
+                delete query[k];
+            }
+        });
+
+        const res = await getReconstructionList(query);
         const data = res?.data || res;
-        tableData.value = data?.list || [];
-        total.value = data?.total || 0;
+        const list = data?.list || [];
+        const total = data?.total || 0;
+
         // 同步当前页任务状态至全局按需单例
-        syncActiveTasks(tableData.value);
+        syncActiveTasks(list);
+
+        return {
+            data: {
+                list,
+                total,
+            },
+        };
     } catch (err) {
         console.error('获取实景三维列表失败:', err);
-    } finally {
-        loading.value = false;
+        return {
+            data: {
+                list: [],
+                total: 0,
+            },
+        };
     }
 };
 
-const handleSearch = () => {
-    currentPage.value = 1;
-    fetchList();
-};
-
-const handleReset = () => {
-    queryForm.name = '';
-    queryForm.flightId = '';
-    queryForm.status = '';
-    currentPage.value = 1;
-    fetchList();
-};
-
-const handleSizeChange = (val) => {
-    pageSize.value = val;
-    fetchList();
-};
-
-const handleCurrentChange = (val) => {
-    currentPage.value = val;
-    fetchList();
+// 触发 ProTable 刷新 (兼容弹窗新建、删除等操作的刷新调用)
+const fetchList = () => {
+    proTableRef.value?.getTableList();
 };
 
 // 处理来自服务端的实时推送事件（更新当前表格视图）
@@ -444,19 +451,14 @@ const handleRealtimeEvent = (payload) => {
     if (type === 'ping') return; // 心跳直接略过
 
     console.log(`[reconstructionList] 消费实时事件 [${type}]:`, data);
+    const currentList = proTableRef.value?.tableData || [];
 
     if (type === 'task_created') {
-        // 新任务被提交：若在第一页且本地尚无此项，则直接前置插入
-        if (currentPage.value === 1) {
-            const exists = tableData.value.some((t) => t.id === data.id);
-            if (!exists) {
-                tableData.value.unshift(data);
-                total.value += 1;
-            }
-        }
+        // 新任务被提交：局部静默重新拉取
+        fetchList();
     } else if (type === 'task_updated') {
         // 进度或状态更新：原地响应式更新表格行，无页面刷新与抖动
-        const target = tableData.value.find((t) => t.id === data.id);
+        const target = currentList.find((t) => t.id === data.id);
         if (target) {
             if (data.status !== undefined) target.status = data.status;
             if (data.progress !== undefined) target.progress = data.progress;
@@ -469,25 +471,24 @@ const handleRealtimeEvent = (payload) => {
             Object.assign(activeTask.value, data);
         }
     } else if (type === 'task_completed') {
-        // 建模成功完成：就地更新表格（全局弹窗已由 useReconstructionStream 统一触发）
-        const target = tableData.value.find((t) => t.id === data.id);
+        // 建模成功完成：就地更新表格，或静默刷新
+        const target = currentList.find((t) => t.id === data.id);
         if (target) {
             Object.assign(target, data);
-        } else if (currentPage.value === 1) {
-            tableData.value.unshift(data);
+        } else {
+            fetchList();
         }
     } else if (type === 'task_failed') {
-        // 建模失败或中断：就地更新状态（全局报错弹窗已由 useReconstructionStream 统一触发）
-        const target = tableData.value.find((t) => t.id === data.id);
+        // 建模失败或中断：就地更新状态
+        const target = currentList.find((t) => t.id === data.id);
         if (target) {
             if (data.status !== undefined) target.status = data.status;
             if (data.stage !== undefined) target.stage = data.stage;
             if (data.errorMessage !== undefined) target.errorMessage = data.errorMessage;
         }
     } else if (type === 'task_deleted') {
-        // 任务被删除
-        tableData.value = tableData.value.filter((t) => t.id !== data.id);
-        total.value = Math.max(0, total.value - 1);
+        // 任务被删除：局部静默刷新
+        fetchList();
     }
 };
 
@@ -643,45 +644,6 @@ const handleDelete = (id) => {
     });
 };
 
-// 状态标签
-const getStatusTagType = (status) => {
-    switch (status) {
-        case 'SUCCESS':
-            return 'success';
-        case 'PROCESSING':
-            return 'primary';
-        case 'UPLOADING':
-        case 'EXTRACTING':
-        case 'PENDING':
-            return 'info';
-        case 'FAILED':
-            return 'danger';
-        case 'CANCELED':
-            return 'warning';
-        default:
-            return '';
-    }
-};
-
-const getStatusText = (status) => {
-    const map = {
-        PENDING: '排队就绪',
-        EXTRACTING: '解压相片中',
-        UPLOADING: '上传引擎中',
-        PROCESSING: '三维重建中',
-        SUCCESS: '建模完成',
-        FAILED: '建模失败',
-        CANCELED: '已取消',
-    };
-    return map[status] || status;
-};
-
-const formatTime = (timeStr) => {
-    if (!timeStr) return '--';
-    const d = new Date(timeStr);
-    return `${d.getFullYear()}-${(d.getMonth() + 1).toString().padStart(2, '0')}-${d.getDate().toString().padStart(2, '0')} ${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`;
-};
-
 const getLogLineClass = (line) => {
     if (/\[ERROR\]|error|failed/i.test(line)) return 'line-error';
     if (/\[WARNING\]|warn/i.test(line)) return 'line-warn';
@@ -693,26 +655,11 @@ const getLogLineClass = (line) => {
 <style scoped>
 .reconstruction-container {
     width: 100%;
-}
-
-.table-toolbar {
+    height: 100%;
     display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 16px;
-    flex-wrap: wrap;
-    gap: 12px;
-}
-
-.filter-form {
-    display: flex;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 8px;
-}
-
-.filter-form :deep(.el-form-item) {
-    margin-bottom: 0 !important;
+    flex-direction: column;
+    overflow: hidden;
+    box-sizing: border-box;
 }
 
 .task-name-text {

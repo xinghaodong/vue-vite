@@ -225,15 +225,13 @@ const handleUploadSuccess = (response, file) => {
     display: flex;
     align-items: center;
     padding: 8px 12px;
-    background: #f8fafc;
-    border: 1px solid #e2e8f0;
+    border: 1px solid var(--el-border-color-lighter);
     border-radius: 6px;
     transition: all 0.2s ease;
     box-sizing: border-box;
 }
 
 .custom-file-item:hover {
-    background: #ffffff;
     border-color: #cbd5e1;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
 }
@@ -295,7 +293,6 @@ const handleUploadSuccess = (response, file) => {
 .file-name {
     font-size: 13px;
     font-weight: 500;
-    color: #1e293b;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;

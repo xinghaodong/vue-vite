@@ -20,7 +20,7 @@
             >
                 <el-icon :size="20"><Fold /></el-icon>
             </div>
-            <Breadcrumb />
+            <Breadcrumb v-if="showBreadcrumb" />
         </div>
 
         <!-- 2. 右侧：功能操作集与用户中心 -->
@@ -31,9 +31,14 @@
 </template>
 
 <script setup>
+import { storeToRefs } from 'pinia';
 import { Fold } from '@element-plus/icons-vue';
 import Breadcrumb from './Breadcrumb.vue';
 import HeaderActions from './HeaderActions.vue';
+import useLayoutStore from '@/stores/layout';
+
+const layoutStore = useLayoutStore();
+const { showBreadcrumb } = storeToRefs(layoutStore);
 
 defineProps({
     isCollapse: {
@@ -53,7 +58,7 @@ defineEmits(['toggle-collapse']);
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 0 16px;
+    padding: 0 14px;
     box-sizing: border-box;
     transition: background-color 0.3s ease;
 }

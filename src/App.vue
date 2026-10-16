@@ -1,28 +1,35 @@
 <template>
-    <div id="app">
-        <router-view></router-view>
-        <!-- 聊天机器人 -->
-        <div style="position: absolute; bottom: 0; right: 0" @click="jq">机器人</div>
-        <el-drawer v-model="drawer" title="AI" :destroy-on-close="true" class="drawer1" @close="hclose" :with-header="false">
-            <!-- 嵌入子应用  -->
-            <div v-if="drawer">
-                <!-- 参数 alive 保活子应用 -->
-                <WujieVue
-                    v-if="drawer"
-                    name="ai-chat-drawer"
-                    :url="VITE_WUJIE_AI_URL"
-                    :sync="true"
-                    :alive="true"
-                    :props="microProps"
-                    style="width: 100%; height: 100%; border: none"
-                />
-            </div>
-        </el-drawer>
-    </div>
+    <el-config-provider :locale="zhCn" :size="componentSize">
+        <div id="app">
+            <router-view></router-view>
+            <!-- 聊天机器人 -->
+            <div style="position: absolute; bottom: 0; right: 0" @click="jq">机器人</div>
+            <el-drawer v-model="drawer" title="AI" :destroy-on-close="true" class="drawer1" @close="hclose" :with-header="false">
+                <!-- 嵌入子应用  -->
+                <div v-if="drawer">
+                    <!-- 参数 alive 保活子应用 -->
+                    <WujieVue
+                        v-if="drawer"
+                        name="ai-chat-drawer"
+                        :url="VITE_WUJIE_AI_URL"
+                        :sync="true"
+                        :alive="true"
+                        :props="microProps"
+                        style="width: 100%; height: 100%; border: none"
+                    />
+                </div>
+            </el-drawer>
+        </div>
+    </el-config-provider>
 </template>
 <script setup>
 import WujieVue from 'wujie-vue3';
-import { ref, watch } from 'vue';
+import { ref, watch, computed } from 'vue';
+import zhCn from 'element-plus/es/locale/lang/zh-cn';
+import useLayoutStore from '@/stores/layout.js';
+
+const layoutStore = useLayoutStore();
+const componentSize = computed(() => layoutStore.componentSize);
 const { VITE_WUJIE_AI_URL } = import.meta.env;
 const drawer = ref(false);
 defineProps({

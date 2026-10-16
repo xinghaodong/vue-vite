@@ -71,16 +71,25 @@
 
 ---
 
-### ⏳ 阶段三：业务开发提效核心三大件封装（待推进）
+### ⏳ 阶段三：业务开发提效核心三大件封装（推进中）
 
-* [ ] **`ProTable` 超级表格组件 + `useTable` 组合式函数**：
-  * [ ] 传入 `requestApi` 异步函数，内置分页、Loading 状态、空数据兜底；
-  * [ ] 表头右侧集成“刷新表格”、“列显隐配置”、“紧凑/常规密度切换”三大工具栏；
-  * [ ] 彻底消灭每个页面重复编写的 `el-pagination` 与 `pageSize/currentPage`。
-* [ ] **`SearchForm` 高级搜索筛选栏**：
-  * [ ] 基于响应式栅格布局（Grid）；
-  * [ ] 超过 3 项自动提供【展开/收起】切换；
-  * [ ] 内置【查询】（回车防抖触发）与【重置】（自动清空并触发表格重新加载）。
+* [x] **`ProTable` 超级表格组件 + `useTable` 组合式函数**（详见 [ProTable 使用指南](file:///d:/xuexi/vue-vite/src/components/ProTable/README.md)）：
+  * [x] 传入 `requestApi` 异步函数，内置分页、Loading 状态、空数据兜底；
+  * [x] 表头右侧集成“无感局部刷新”、“列显隐抽屉配置”、“表格密度精准行高切换”、“一键全屏”大厂效能工具箱；
+  * [x] 视口 100% 撑满自适应，表头原生吸顶、底部分页常驻吸底、仅数据区内部微滚动；
+  * [x] 彻底消灭每个页面重复编写的 `el-pagination` 与 `pageSize/currentPage`；
+  * [x] `inheritAttrs: false` 配合 `v-bind="$attrs"`，原生树形、懒加载、单元格合并 100% 零损透传；
+  * [x] 彻底移除特化兼容代码，单元格全面转向纯 `<template>` + 通用动态组件 `<component :is="...">`；
+  * [x] 全面联动系统全局组件尺寸控制（small / default / large）；
+  * [x] **生产业务页面实战接入**：
+    * [x] **树形菜单权限页**：[`menuResource.vue`](file:///d:/xuexi/vue-vite/src/pages/systemSetting/menuResource.vue) 成功改造成 ProTable 树形表格驱动；
+    * [x] **标准 CRUD 用户管理页**：[`internalusers.vue`](file:///d:/xuexi/vue-vite/src/pages/systemSetting/internalusers.vue) 成功改造成 ProTable 驱动，集成动态搜索栏（账号/姓名/状态）、自动分页与状态胶囊 Tag；
+    * [x] **复杂流式三维管理页**：[`reconstructionList.vue`](file:///d:/xuexi/vue-vite/src/pages/cesium/reconstructionList.vue)（实景三维建模管理）全面接入 ProTable，实现 SSE 实时推送原地响应式无抖动刷新、动态搜索、三维成果展示与分页管控。
+* [x] **`SearchForm` 响应式动态搜索筛选栏**：
+  * [x] 基于 Grid 智能断点响应式栅格系统（宽屏一行 4 列，收起态刚好占满首行，按钮稳居首行末尾）；
+  * [x] 展开/收起平滑联动，展开态按钮自动计算 offset 动态吸附最后一行最右侧；
+  * [x] 内置【查询】（回车防抖触发）与【重置】（自动清空并触发表格重新加载）；
+  * [x] 按需声明（Opt-in）机制：仅配置了 search 的列进入查询栏，未配置列作为纯表格展示列。
 * [ ] **`ProDialog` / `ProDrawer` 弹窗与抽屉增强容器**：
   * [ ] 统一 Header、Body 滚动容器与 Footer；
   * [ ] 支持一键切换全屏最大化 (Maximize) 与拖拽移动；

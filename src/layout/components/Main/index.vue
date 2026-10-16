@@ -55,11 +55,17 @@ defineExpose({
     height: 100%;
 }
 
+:deep(.main-scrollbar .el-scrollbar__view) {
+    height: 100%;
+}
+
 .main-content-box {
-    padding: 16px;
+    padding: 14px;
+    height: 100%;
     min-height: 100%;
     box-sizing: border-box;
-    padding-bottom: 0px;
+    display: flex;
+    flex-direction: column;
 }
 
 /* 页面路由平滑切换过渡动效 (fade-transform) */

@@ -26,11 +26,6 @@ const router = createRouter({
             redirect: '/home',
         },
         {
-            path: '/aaa',
-            name: 'aaa',
-            component: () => import('@/pages/aaa.vue'),
-        },
-        {
             path: '/home',
             name: 'home',
             component: home,
@@ -47,10 +42,12 @@ const router = createRouter({
                     component: () => import('@/pages/cesium/reconstructionList.vue'),
                     meta: { title: '实景三维建模' },
                 },
-                // {
-                //     path: '/vueFlow',
-                //     component: () => import('@/pages/vueFlow/index.vue'),
-                // },
+                {
+                    path: '/dialogDemo',
+                    name: 'dialogDemo',
+                    component: () => import('@/pages/componentLibrary/dialogDemo.vue'),
+                    meta: { title: 'ProDialog & ProDrawer 交互演示' },
+                },
             ],
         },
         {

@@ -1,29 +1,58 @@
 <template>
-    <div>
-        <!--首页 -->
-        <div class="mb-4">
-            <el-button v-has-permi="['menu:add']" type="primary" plain @click="add">新增</el-button>
-            <el-button style="width: 100px" plain type="primary" @click="handleSort()">一级资源排序 </el-button>
-            <div>{{ aimessage }}</div>
-        </div>
-        <!-- 生成一个菜单树表格 -->
-        <el-table :data="treeData" style="width: 100%; margin-bottom: 20px" row-key="id" border default-expand-all>
-            <el-table-column prop="name" label="菜单名" />
-            <el-table-column prop="url" label="菜单名地址" />
-            <el-table-column prop="menutype" label="资源类型">
-                <template #default="{ row }">
-                    <el-tag v-if="row.menutype == 1" type="success">菜单</el-tag>
-                    <el-tag v-if="row.menutype == 2">按钮</el-tag>
-                </template>
-            </el-table-column>
-            <el-table-column label="操作" width="200" align="left">
-                <template #default="scope">
-                    <el-button v-has-permi="['menu:add']" v-if="scope.row.id" type="primary" link @click="handleEdit(scope.row)">编辑</el-button>
-                    <el-button v-has-permi="['menu:add']" v-if="scope.row.id" type="primary" link @click="handleDelete(scope.row.id)">删除</el-button>
-                    <el-button link type="primary" v-show="scope.row.children && scope.row.id != 0" @click.stop="handleSort(scope.row.id)">子资源排序</el-button>
-                </template>
-            </el-table-column>
-        </el-table>
+    <div class="menu-resource-container">
+        <!-- 接入大厂级超级表格 ProTable (仅展开顶级菜单) -->
+        <ProTable
+            ref="proTableRef"
+            title="菜单与权限资源管理"
+            :columns="columns"
+            :request-api="getMenuList"
+            row-key="id"
+            :pagination="false"
+            :is-show-search="false"
+            :border="true"
+            :expand-row-keys="expandRowKeys"
+        >
+            <!-- 头部操作按钮区域 -->
+            <template #tableHeader>
+                <el-button v-has-permi="['menu:add']" type="primary" :icon="Plus" @click="add">
+                    新增菜单
+                </el-button>
+                <el-button type="primary" plain :icon="Sort" @click="handleSort()">
+                    一级资源排序
+                </el-button>
+                <span v-if="aimessage" class="ml-2 text-sm text-gray-500">{{ aimessage }}</span>
+            </template>
+
+            <!-- 操作列插槽 (使用具名插槽支持业务判断与权限指令，移除写死的 size 以联动全局尺寸) -->
+            <template #operation="{ row }">
+                <el-button
+                    v-has-permi="['menu:add']"
+                    v-if="row.id"
+                    type="primary"
+                    link
+                    @click="handleEdit(row)"
+                >
+                    编辑
+                </el-button>
+                <el-button
+                    v-has-permi="['menu:add']"
+                    v-if="row.id"
+                    type="danger"
+                    link
+                    @click="handleDelete(row.id)"
+                >
+                    删除
+                </el-button>
+                <el-button
+                    link
+                    type="primary"
+                    v-show="row.children && row.id != 0"
+                    @click.stop="handleSort(row.id)"
+                >
+                    子资源排序
+                </el-button>
+            </template>
+        </ProTable>
 
         <el-dialog v-model="dialogVisible" :title="form.id ? '修改菜单' : '新增菜单'" width="650" :before-close="handleClose">
             <el-form :model="form" :label-width="formLabelWidth" :rules="rules" ref="ruleFormRef">
@@ -223,6 +252,7 @@
 
 <script setup>
 import { ref, reactive, onMounted, getCurrentInstance, onBeforeUnmount, nextTick } from 'vue';
+import { Plus, Sort } from '@element-plus/icons-vue';
 import useUserInfoStore from '@/stores/user'; //引入仓库
 import { storeToRefs } from 'pinia'; //引入pinia转换
 import Sortable from 'sortablejs';
@@ -231,10 +261,60 @@ const dialogVisible = ref(false);
 const userInfoStore = useUserInfoStore();
 
 const { userInfo } = storeToRefs(userInfoStore); // 响应式
+const proTableRef = ref(null);
+const expandRowKeys = ref([]);
 const sortTableRef = ref(null);
 const aimessage = ref('');
 const formLabelWidth = '100px';
 const ruleFormRef = ref();
+
+// ProTable 列配置
+const columns = [
+    {
+        prop: 'name',
+        label: '菜单名称',
+        minWidth: 180,
+        align: 'left'
+    },
+    {
+        prop: 'url',
+        label: '路由地址',
+        minWidth: 160,
+        align: 'left'
+    },
+    {
+        prop: 'code',
+        label: '资源编码',
+        minWidth: 140,
+        align: 'left'
+    },
+    {
+        prop: 'component',
+        label: '组件路径',
+        minWidth: 180,
+        align: 'left'
+    },
+    {
+        prop: 'menutype',
+        label: '资源类型',
+        width: 100,
+        align: 'center',
+        // 动态通用组件 el-tag 声明式配置
+        component: 'el-tag',
+        props: (row) => ({
+            type: row.menutype == 1 ? 'success' : 'primary',
+            round: true
+        }),
+        formatter: (row) => (row.menutype == 1 ? '菜单' : row.menutype == 2 ? '按钮' : '--')
+    },
+    {
+        prop: 'operation',
+        label: '操作',
+        width: 220,
+        fixed: 'right',
+        align: 'center'
+    }
+];
 const treeProps = {
     children: 'children',
     label: 'name',
@@ -403,11 +483,48 @@ const handleEdit = async row => {
     }
 };
 
-// 获取菜单
+// 获取菜单树列表（透传给 ProTable 的 request-api）
+const getMenuList = async () => {
+    try {
+        const res = await proxy.$api.menus();
+        const list = res?.data || [];
+        const treedata = getParentMenuTree(list);
+        treeData.value = treedata; // 同步给新增/编辑弹窗中的 el-tree-select 使用
+
+        // 在表格数据就绪并挂载后，精准展开顶级菜单（根节点）
+        setTimeout(() => {
+            expandRowKeys.value = [0, '0'];
+            const rootNode = proTableRef.value?.tableData?.[0] || treedata[0];
+            if (rootNode && proTableRef.value) {
+                proTableRef.value.toggleRowExpansion(rootNode, true);
+            }
+        }, 100);
+
+        return {
+            data: {
+                list: treedata,
+                total: treedata.length
+            }
+        };
+    } catch (error) {
+        console.error('获取菜单树列表失败:', error);
+        return {
+            data: {
+                list: [],
+                total: 0
+            }
+        };
+    }
+};
+
+// 获取/刷新菜单（兼容弹窗保存、删除、排序后的统一触发）
 const getTreeData = async () => {
-    const res = await proxy.$api.menus();
-    const treedata = getParentMenuTree(res.data);
-    treeData.value = treedata;
+    if (proTableRef.value) {
+        await proTableRef.value.getTableList();
+    } else {
+        const res = await proxy.$api.menus();
+        treeData.value = getParentMenuTree(res?.data || []);
+    }
 };
 
 const getParentMenuTree = tableTreeDdata => {
@@ -424,7 +541,7 @@ onMounted(async () => {
     try {
         // 监听点击事件
         document.addEventListener('mousedown', handleClickOutside);
-        await getTreeData();
+        // 加载角色下拉列表
         proxy.$api.getRolsList().then(res => {
             roleList.value = res.data;
         });
@@ -440,6 +557,15 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
+.menu-resource-container {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    box-sizing: border-box;
+}
+
 :deep(.el-popper) {
     height: 500px !important;
 }

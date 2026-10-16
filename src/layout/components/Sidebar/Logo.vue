@@ -13,12 +13,12 @@
         <transition name="sidebar-logo-fade">
             <router-link v-if="isCollapse" key="collapse" class="sidebar-logo-link" to="/index">
                 <div class="logo-icon-box">
-                    <el-icon :size="24" color="#409eff"><Platform /></el-icon>
+                    <img src="/vite.svg" class="sidebar-logo-img" alt="Logo" />
                 </div>
             </router-link>
             <router-link v-else key="expand" class="sidebar-logo-link" to="/index">
                 <div class="logo-icon-box">
-                    <el-icon :size="24" color="#409eff"><Platform /></el-icon>
+                    <img src="/vite.svg" class="sidebar-logo-img" alt="Logo" />
                 </div>
                 <h1 class="sidebar-title">管理系统</h1>
             </router-link>
@@ -27,7 +27,6 @@
 </template>
 
 <script setup>
-import { Platform } from '@element-plus/icons-vue';
 
 defineProps({
     isCollapse: {
@@ -70,8 +69,19 @@ defineProps({
     width: 32px;
     height: 32px;
     border-radius: 8px;
-    background: rgba(64, 158, 255, 0.1);
+    background: transparent;
     flex-shrink: 0;
+}
+
+.sidebar-logo-img {
+    width: 26px;
+    height: 26px;
+    vertical-align: middle;
+    transition: transform 0.3s ease;
+}
+
+.sidebar-logo-container:hover .sidebar-logo-img {
+    transform: rotate(20deg);
 }
 
 .sidebar-title {

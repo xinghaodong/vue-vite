@@ -31,7 +31,16 @@
             </div>
         </el-tooltip>
 
-        <!-- 3. 用户头像与下拉菜单 -->
+        <!-- 3. 系统偏好设置抽屉触发入口 -->
+        <el-tooltip content="系统偏好设置" placement="bottom">
+            <div class="action-icon-btn setting-btn" @click="handleOpenSettingDrawer">
+                <el-icon :size="18">
+                    <Setting />
+                </el-icon>
+            </div>
+        </el-tooltip>
+
+        <!-- 4. 用户头像与下拉菜单 -->
         <el-dropdown trigger="click" placement="bottom-end" class="user-dropdown-box" @command="handleUserCommand">
             <div class="user-profile-trigger">
                 <el-avatar
@@ -63,14 +72,16 @@
 import { ref, computed, onMounted, onBeforeUnmount, getCurrentInstance } from 'vue';
 import { useRouter } from 'vue-router';
 import { storeToRefs } from 'pinia';
-import { Moon, Sunny, FullScreen, Aim, ArrowDown, SwitchButton } from '@element-plus/icons-vue';
+import { Moon, Sunny, FullScreen, Aim, ArrowDown, SwitchButton, Setting } from '@element-plus/icons-vue';
 import { ElMessageBox } from 'element-plus';
 import useUserInfoStore from '@/stores/user';
+import useLayoutStore from '@/stores/layout';
 import { useTheme } from '@/composables/useTheme';
 
 const { proxy } = getCurrentInstance();
 const router = useRouter();
 const userStore = useUserInfoStore();
+const layoutStore = useLayoutStore();
 const { userInfo } = storeToRefs(userStore);
 
 // 🌟 引入基于 View Transitions API 的圆形扩散主题切换
@@ -78,6 +89,11 @@ const { isDark, toggleTheme } = useTheme();
 
 const handleToggleTheme = (event) => {
     toggleTheme(event, userInfo.value);
+};
+
+// 打开系统偏好设置抽屉
+const handleOpenSettingDrawer = () => {
+    layoutStore.setSettingDrawerVisible(true);
 };
 
 // 头像与昵称计算

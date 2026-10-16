@@ -11,7 +11,7 @@
   ========================================================================
 -->
 <template>
-    <div class="layout-tabs-container">
+    <div :class="['layout-tabs-container', 'tabs-style-' + tabsStyle]">
         <!-- 1. 标签页主体 -->
         <div class="tabs-scroll-wrapper">
             <el-tabs
@@ -25,10 +25,18 @@
                 <el-tab-pane
                     v-for="(item, index) in activeTabArray"
                     :key="item.url"
-                    :label="item.name"
                     :name="item.url"
                     :closable="item.url !== '/index' && index !== 0"
-                />
+                >
+                    <template #label>
+                        <div class="custom-tab-item-box">
+                            <el-icon v-if="showTabsIcon" class="tab-label-icon">
+                                <component :is="getTabIcon(item)" />
+                            </el-icon>
+                            <span class="tab-label-text">{{ item.name }}</span>
+                        </div>
+                    </template>
+                </el-tab-pane>
             </el-tabs>
         </div>
 
@@ -114,14 +122,70 @@ import {
     Back,
     Right,
     FolderDelete,
+    Document,
+    HomeFilled,
 } from '@element-plus/icons-vue';
 import menuStore from '@/stores/menu';
+import useLayoutStore from '@/stores/layout';
 
 const emit = defineEmits(['refresh-route']);
 
 const router = useRouter();
 const menuInfoStore = menuStore();
-const { activeTabArray, editableTabsValue } = storeToRefs(menuInfoStore);
+const layoutStore = useLayoutStore();
+const { activeTabArray, editableTabsValue, allArray } = storeToRefs(menuInfoStore);
+const { showTabsIcon, tabsStyle } = storeToRefs(layoutStore);
+
+/**
+ * 动态解析标签页图标：
+ * 1. 首页固定展示 HomeFilled；
+ * 2. 优先使用 tab 项自身的 icon；
+ * 3. 递归从菜单树 allArray 中按 url 反查菜单配置的 icon；
+ * 4. 从路由元信息 meta.icon 中提取；
+ * 5. 最终若均为空，才回退兜底使用默认图标 Document。
+ */
+const getTabIcon = (tabItem) => {
+    if (!tabItem) return 'Document';
+    if (tabItem.url === '/index' || tabItem.url === '/home') {
+        return 'HomeFilled';
+    }
+    // 1. 自身携带的有效 icon
+    if (tabItem.icon) {
+        return tabItem.icon;
+    }
+
+    // 2. 深度在菜单树中按 url 反查
+    const findIconInTree = (list, targetUrl) => {
+        if (!Array.isArray(list)) return null;
+        for (const node of list) {
+            if (node.url === targetUrl && node.icon) {
+                return node.icon;
+            }
+            if (Array.isArray(node.children) && node.children.length > 0) {
+                const sub = findIconInTree(node.children, targetUrl);
+                if (sub) return sub;
+            }
+        }
+        return null;
+    };
+
+    const treeIcon = findIconInTree(allArray.value, tabItem.url);
+    if (treeIcon) {
+        return treeIcon;
+    }
+
+    // 3. 尝试从路由表匹配
+    try {
+        const routes = router.getRoutes();
+        const matched = routes.find(r => r.path === tabItem.url || `/home/${r.path}` === tabItem.url);
+        if (matched?.meta?.icon) {
+            return matched.meta.icon;
+        }
+    } catch (_) {}
+
+    // 4. 为空时兜底默认图标
+    return 'Document';
+};
 
 // 右键菜单状态
 const contextMenuVisible = ref(false);
@@ -265,6 +329,17 @@ onBeforeUnmount(() => {
     gap: 4px;
 }
 
+:deep(.el-tabs__nav-next),
+:deep(.el-tabs__nav-prev) {
+    color: var(--el-text-color-secondary);
+    line-height: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+}
+
 :deep(.el-tabs__item) {
     height: 28px !important;
     line-height: 26px !important;
@@ -366,5 +441,37 @@ onBeforeUnmount(() => {
 .context-menu-fade-leave-to {
     opacity: 0;
     transform: scale(0.95);
+}
+
+/* 标签内容与图标 */
+.custom-tab-item-box {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.tab-label-icon {
+    font-size: 13px;
+}
+
+/* 风格 2: 胶囊风格 (Capsule) */
+.tabs-style-capsule :deep(.el-tabs__item) {
+    border-radius: 14px !important;
+    padding: 0 12px !important;
+}
+
+/* 风格 3: 极简无框风格 (Plain) */
+.tabs-style-plain :deep(.el-tabs__item) {
+    background: transparent !important;
+    border: none !important;
+    border-bottom: 2px solid transparent !important;
+    border-radius: 0 !important;
+    padding: 0 8px !important;
+}
+
+.tabs-style-plain :deep(.el-tabs__item.is-active) {
+    color: var(--el-color-primary) !important;
+    background: transparent !important;
+    border-bottom-color: var(--el-color-primary) !important;
 }
 </style>

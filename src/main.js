@@ -19,8 +19,10 @@ import '@/assets/css/theme-transition.css';
 import MyInputNumber from 'element-plus-input-number-thousands';
 // import { enableKatex, enableMermaid } from 'markstream-vue';
 
-// enableKatex(); // KaTeX 公式
-// enableMermaid(); // Mermaid 图表（可选）
+import ProTable from '@/components/ProTable/index.vue';
+import ProDialog from '@/components/ProDialog/index.vue';
+import ProDrawer from '@/components/ProDrawer/index.vue';
+
 const app = createApp(App);
 app.config.globalProperties.$api = axios;
 app.config.globalProperties.$icon = ElementPlusIconsVue;
@@ -30,6 +32,9 @@ app.config.globalProperties.$checkPermissions = checkPermissions;
 app.directive('has-permi', hasPermi);
 // size: 'small',
 app.component('MyInputNumber', MyInputNumber);
+app.component('ProTable', ProTable);
+app.component('ProDialog', ProDialog);
+app.component('ProDrawer', ProDrawer);
 app.use(router).use(pinia).use(ElementPlus, { locale: zhCn, zIndex: 3000 });
 for (const [key, component] of Object.entries(ElementPlusIconsVue)) {
     app.component(key, component);

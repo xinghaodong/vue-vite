@@ -1,77 +1,53 @@
 <template>
-    <div>
-        <!--用户管理 -->
-        <div class="mb-4">
-            <el-button
-                v-has-permi="['add:user']"
-                type="primary"
-                plain
-                @click="
-                    dialogVisible = true;
-                    resetForm(ruleFormRef);
-                "
-                >新增</el-button
-            >
-        </div>
-        <el-table :data="tableData" border style="width: 100%">
-            <el-table-column prop="username" label="账号" width="180"> </el-table-column>
-            <el-table-column prop="name" label="姓名" width="180"> </el-table-column>
-            <el-table-column prop="email" label="邮箱" width="180"> </el-table-column>
-            <el-table-column prop="role" label="权限"> </el-table-column>
-            <el-table-column prop="is_active" label="状态">
-                <template #default="scope">
-                    <span v-if="scope.row.is_active == 1">可用</span>
-                    <span v-if="scope.row.is_active == 0">禁用</span>
-                </template>
-            </el-table-column>
-            <!-- 头像 -->
-            <!-- el-table-column  居中 -->
-            <el-table-column prop="avatar" label="头像" center>
-                <template #default="scope">
-                    <!-- <div class="demo-image__preview"> -->
-                    <div>
-                        <el-image
-                            v-if="scope.row?.avatar?.filePath"
-                            preview-teleported
-                            style="width: 30px; height: 30px; border-radius: 50%"
-                            :src="formatAvatarUrl(scope.row?.avatar?.filePath)"
-                            :zoom-rate="1.2"
-                            :max-scale="7"
-                            :min-scale="0.2"
-                            :initial-index="0"
-                            :z-index="999"
-                            fit="cover"
-                            :preview-src-list="[formatAvatarUrl(scope.row?.avatar?.filePath)]"
-                        />
-                        <el-avatar v-else :size="30">
-                            {{ scope.row?.name ? scope.row.name.slice(0, 1) : scope.row?.username ? scope.row.username.slice(0, 1) : '用' }}
-                        </el-avatar>
-                    </div>
-                </template>
-            </el-table-column>
-            <el-table-column prop="created_at" label="创建时间" width="180"> </el-table-column>
-            <el-table-column prop="updated_at" label="更新时间" width="180"> </el-table-column>
-            <!-- 操作 -->
-            <el-table-column label="操作" width="130" fixed="right">
-                <template #default="scope">
-                    <!-- v-has-permi="['add:user']" -->
-                    <el-button link type="primary" @click="handleEdit(scope.row)">编辑</el-button>
-                    <el-button link type="primary" @click="handleDelete(scope.row)">删除</el-button>
-                    <!-- <el-button link type="primary" @click="handleRelieve(scope.row)" v-text="scope.row.is_active == 0 ? '解除' : '禁用'"></el-button> -->
-                </template>
-            </el-table-column>
-        </el-table>
-        <el-pagination
-            style="padding: 16px"
-            background
-            @size-change="handleSizeChange"
-            @current-change="handleCurrentChange"
-            :current-page="currentPage"
-            :page-sizes="[10, 20, 50, 100]"
-            :page-size="pageSize"
-            layout="total, sizes,->, prev, pager, next, jumper"
-            :total="total"
-        ></el-pagination>
+    <div class="internal-users-container">
+        <!-- 接入大厂级超级表格 ProTable (内置响应式搜索、自动分页、密度切换、列显隐、全屏与局部刷新) -->
+        <ProTable
+            ref="proTableRef"
+            title="内部用户与权限管理"
+            :columns="columns"
+            :request-api="getUserList"
+            row-key="id"
+            :border="true"
+        >
+            <!-- 头部操作按钮区域 -->
+            <template #tableHeader>
+                <el-button
+                    type="primary"
+                    :icon="Plus"
+                    @click="handleAdd"
+                >
+                    新增用户
+                </el-button>
+            </template>
+
+            <!-- 头像列具名插槽 -->
+            <template #avatar="{ row }">
+                <div class="avatar-cell">
+                    <el-image
+                        v-if="row?.avatar?.filePath"
+                        preview-teleported
+                        class="user-table-avatar"
+                        :src="formatAvatarUrl(row?.avatar?.filePath)"
+                        :zoom-rate="1.2"
+                        :max-scale="7"
+                        :min-scale="0.2"
+                        :initial-index="0"
+                        :z-index="999"
+                        fit="cover"
+                        :preview-src-list="[formatAvatarUrl(row?.avatar?.filePath)]"
+                    />
+                    <el-avatar v-else :size="32" class="user-table-avatar-fallback">
+                        {{ row?.name ? row.name.slice(0, 1) : row?.username ? row.username.slice(0, 1) : '用' }}
+                    </el-avatar>
+                </div>
+            </template>
+
+            <!-- 操作列插槽 -->
+            <template #operation="{ row }">
+                <el-button link type="primary" @click="handleEdit(row)">编辑</el-button>
+                <el-button link type="danger" @click="handleDelete(row)">删除</el-button>
+            </template>
+        </ProTable>
         <el-dialog :title="ruleForm.id ? '编辑' : '新增'" v-model="dialogVisible" width="50%">
             <el-form ref="ruleFormRef" :rules="rules" :model="ruleForm" label-width="100px">
                 <el-form-item label="账号" prop="username">
@@ -131,15 +107,144 @@
 
 <script setup>
 import { ref, reactive, onMounted, onBeforeUnmount, getCurrentInstance } from 'vue';
+import { Plus } from '@element-plus/icons-vue';
 const { proxy } = getCurrentInstance();
-const tableData = ref([]);
+const proTableRef = ref(null);
 const ruleFormRef = ref(null);
 const uploadUrl = `${proxy.$api.baseUrl}/upload/uploadFile`;
 const headers = { Authorization: sessionStorage.getItem('token') };
-const currentPage = ref(1);
-const pageSize = ref(10);
-const total = ref(0);
 const roleList = ref([]);
+
+// ProTable 列配置与搜索配置
+const columns = [
+    {
+        type: 'index',
+        label: '#',
+        width: 60,
+        align: 'center'
+    },
+    {
+        prop: 'username',
+        label: '账号',
+        minWidth: 140,
+        align: 'center',
+        search: {
+            el: 'input',
+            order: 1,
+            props: { placeholder: '请输入用户账号' }
+        }
+    },
+    {
+        prop: 'name',
+        label: '姓名',
+        minWidth: 140,
+        align: 'center',
+        search: {
+            el: 'input',
+            order: 2,
+            props: { placeholder: '请输入用户姓名' }
+        }
+    },
+    {
+        prop: 'avatar',
+        label: '头像',
+        width: 80,
+        align: 'center'
+    },
+    {
+        prop: 'email',
+        label: '邮箱',
+        minWidth: 180,
+        align: 'center'
+    },
+    {
+        prop: 'role',
+        label: '权限角色',
+        minWidth: 140,
+        align: 'center'
+    },
+    {
+        prop: 'is_active',
+        label: '状态',
+        width: 100,
+        align: 'center',
+        // 动态通用组件 el-tag 声明式配置
+        component: 'el-tag',
+        props: (row) => ({
+            type: row.is_active == 1 ? 'success' : 'info',
+            round: true
+        }),
+        formatter: (row) => (row.is_active == 1 ? '可用' : '禁用'),
+        search: {
+            el: 'select',
+            order: 3,
+            options: [
+                { label: '全部', value: '' },
+                { label: '可用', value: 1 },
+                { label: '禁用', value: 0 }
+            ]
+        }
+    },
+    {
+        prop: 'created_at',
+        label: '创建时间',
+        minWidth: 170,
+        align: 'center'
+    },
+    {
+        prop: 'updated_at',
+        label: '更新时间',
+        minWidth: 170,
+        align: 'center'
+    },
+    {
+        prop: 'operation',
+        label: '操作',
+        width: 140,
+        fixed: 'right',
+        align: 'center'
+    }
+];
+
+// 请求列表函数，对接 ProTable 的 request-api
+const getUserList = async (params) => {
+    try {
+        const query = {
+            page: params.pageNum,
+            pageSize: params.pageSize,
+            username: params.username,
+            name: params.name,
+            is_active: params.is_active
+        };
+        // 过滤空查询字段
+        Object.keys(query).forEach(key => {
+            if (query[key] === '' || query[key] === undefined || query[key] === null) {
+                delete query[key];
+            }
+        });
+        const res = await proxy.$api.find(query);
+        return {
+            data: {
+                list: res?.data?.data || [],
+                total: res?.data?.total || 0
+            }
+        };
+    } catch (error) {
+        console.error('获取用户列表失败:', error);
+        return {
+            data: {
+                list: [],
+                total: 0
+            }
+        };
+    }
+};
+
+// 新增用户触发
+const handleAdd = () => {
+    dialogVisible.value = true;
+    resetForm();
+};
 // 初始模板对象
 const formTemplate = {
     username: '',
@@ -182,24 +287,14 @@ const resetForm = () => {
     if (ruleFormRef.value) ruleFormRef.value.resetFields();
 };
 const dialogVisible = ref(false);
-const handleSizeChange = val => {
-    pageSize.value = val;
-    getInternalUsers();
-};
 
-const handleCurrentChange = val => {
-    currentPage.value = val;
-    getInternalUsers();
-};
 onMounted(() => {
-    getInternalUsers();
     proxy.$api.getRolsList().then(res => {
         roleList.value = res.data;
     });
     // 组织列表
     proxy.$api.getOrganizationList().then(res => {
         zztree.value = res.data;
-        // ruleForm.organizationId = res.data[0].id;
     });
 });
 onBeforeUnmount(() => {
@@ -218,24 +313,12 @@ const formatAvatarUrl = path => {
 };
 
 const beforeAvatarUpload = rawFile => {
-    // if (rawFile.type != 'image/jpeg' && rawFile.type != 'image/png') {
-    //     proxy.$message.error('图片必须是jpg或png格式');
-    //     return false;
-    // } else if (rawFile.size / 1024 / 1024 > 5) {
-    //     proxy.$message.error('图片不能超过5M');
-    //     return false;
-    // }
     return true;
 };
-// 查询用户的函数
-const getInternalUsers = async () => {
-    let obj = {
-        page: currentPage.value,
-        pageSize: pageSize.value,
-    };
-    const res = await proxy.$api.find(obj);
-    tableData.value = res.data.data;
-    total.value = res.data.total;
+
+// 触发 ProTable 局部刷新（兼容新增、修改、删除后的调用）
+const getInternalUsers = () => {
+    proTableRef.value?.getTableList();
 };
 const onSubmit = formEl => {
     formEl.validate(async valid => {
@@ -310,6 +393,35 @@ const handleRelieve = row => {
 };
 </script>
 <style scoped>
+.internal-users-container {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    box-sizing: border-box;
+}
+
+.avatar-cell {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.user-table-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    vertical-align: middle;
+}
+
+.user-table-avatar-fallback {
+    background-color: var(--el-color-primary);
+    color: #fff;
+    font-size: 13px;
+    font-weight: 500;
+}
+
 th.el-table__cell,
 td.el-table__cell {
     position: static !important;
