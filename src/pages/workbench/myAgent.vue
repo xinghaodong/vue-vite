@@ -122,7 +122,7 @@ import { ref, onMounted, getCurrentInstance, reactive, toRefs, watch, computed }
 import ApprovalDrawer from './components/ApprovalDrawer.vue';
 import DynamicForm from '@/pages/formDesign/components/DynamicForm.vue';
 import LogicFlow from '@/pages/workflowDesigner/logicFlow.vue';
-import useUserInfoStore from '@/stortes/user'; //引入仓库
+import useUserInfoStore from '@/stores/user.js'; //引入仓库
 const userInfoStore = useUserInfoStore();
 const { proxy } = getCurrentInstance();
 const tableData = ref([]);

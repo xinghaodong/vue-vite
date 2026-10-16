@@ -26,7 +26,7 @@
 <script setup>
 import useDragAndDrop from './useDnD';
 import { ref, reactive, onMounted, getCurrentInstance } from 'vue';
-import menuStore from '@/stortes/menu'; //引入仓库
+import menuStore from '@/stores/menu'; //引入仓库
 import { storeToRefs } from 'pinia'; //引入pinia转换
 const menuInfoStore = menuStore();
 const { editableTabsValue } = storeToRefs(menuInfoStore); // 响应式

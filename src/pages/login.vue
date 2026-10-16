@@ -33,8 +33,8 @@
 
 <script setup>
 import { ref, reactive, onMounted, onUnmounted, getCurrentInstance } from 'vue';
-import useUserInfoStore from '@/stortes/user'; //引入仓库
-import menuStore from '@/stortes/menu'; //引入仓库
+import useUserInfoStore from '@/stores/user'; //引入仓库
+import menuStore from '@/stores/menu'; //引入仓库
 import { storeToRefs } from 'pinia'; //引入pinia转换
 const userInfoStore = useUserInfoStore();
 const { userInfo } = storeToRefs(userInfoStore); // 响应式

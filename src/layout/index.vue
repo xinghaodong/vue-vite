@@ -43,7 +43,7 @@ import Sidebar from './components/Sidebar/index.vue';
 import Header from './components/Header/index.vue';
 import Tabs from './components/Tabs/index.vue';
 import Main from './components/Main/index.vue';
-import menuStore from '@/stortes/menu';
+import menuStore from '@/stores/menu.js';
 import { initTheme } from '@/composables/useTheme';
 import { useReconstructionStream } from '@/composables/useReconstructionStream';
 

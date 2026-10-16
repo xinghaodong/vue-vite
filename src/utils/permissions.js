@@ -1,4 +1,4 @@
-import useMenuStore from '@/stortes/menu'; // 引入仓库
+import useMenuStore from '@/stores/menu'; // 引入仓库
 // 把函数proxy 代理到vue 全局 在模板的用法 v-if="proxy.$checkPermissions(['add:user'])"
 export function checkPermissions(value) {
     const useMenuStoresdata = useMenuStore();

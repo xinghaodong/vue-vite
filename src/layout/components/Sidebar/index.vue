@@ -43,7 +43,7 @@ import { computed } from 'vue';
 import { useRoute } from 'vue-router';
 import Logo from './Logo.vue';
 import SidebarItem from './SidebarItem.vue';
-import menuStore from '@/stortes/menu';
+import menuStore from '@/stores/menu.js';
 
 const props = defineProps({
     isCollapse: {

@@ -3,7 +3,7 @@ import home from '@/home.vue';
 import api from '../utils/request';
 import NProgress from 'nprogress';
 import 'nprogress/nprogress.css';
-import useMenuStore from '@/stortes/menu'; // 引入仓库
+import useMenuStore from '@/stores/menu'; // 引入仓库
 // 预加载所有 Vue 文件
 const components = import.meta.glob('@/pages/**/*.vue');
 // 添加主题类

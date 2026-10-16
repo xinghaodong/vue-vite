@@ -115,7 +115,7 @@ import {
     Right,
     FolderDelete,
 } from '@element-plus/icons-vue';
-import menuStore from '@/stortes/menu';
+import menuStore from '@/stores/menu';
 
 const emit = defineEmits(['refresh-route']);
 

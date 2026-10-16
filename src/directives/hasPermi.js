@@ -1,4 +1,4 @@
-import useMenuStore from '@/stortes/menu'; // 引入仓库
+import useMenuStore from '@/stores/menu'; // 引入仓库
 // 自定义指令 v-has-permi
 export default {
     mounted(el, binding) {

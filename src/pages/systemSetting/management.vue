@@ -143,7 +143,7 @@
 
 <script setup>
 import { ref, reactive, onMounted, getCurrentInstance } from 'vue';
-import useUserInfoStore from '@/stortes/user'; //引入仓库
+import useUserInfoStore from '@/stores/user'; //引入仓库
 import { storeToRefs } from 'pinia'; //引入pinia转换
 const { proxy } = getCurrentInstance();
 const dialogVisible = ref(false);

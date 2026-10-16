@@ -65,7 +65,7 @@ import { useRouter } from 'vue-router';
 import { storeToRefs } from 'pinia';
 import { Moon, Sunny, FullScreen, Aim, ArrowDown, SwitchButton } from '@element-plus/icons-vue';
 import { ElMessageBox } from 'element-plus';
-import useUserInfoStore from '@/stortes/user';
+import useUserInfoStore from '@/stores/user';
 import { useTheme } from '@/composables/useTheme';
 
 const { proxy } = getCurrentInstance();

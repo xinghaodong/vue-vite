@@ -58,7 +58,7 @@
 <script setup>
 import { ref, onMounted, getCurrentInstance } from 'vue';
 import DynamicForm from './components/DynamicForm.vue';
-import useUserInfoStore from '@/stortes/user'; //引入仓库
+import useUserInfoStore from '@/stores/user.js'; //引入仓库
 const userInfoStore = useUserInfoStore();
 const { proxy } = getCurrentInstance();
 const tableData = ref([]);

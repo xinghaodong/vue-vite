@@ -247,7 +247,7 @@ import { ref, computed, watch, getCurrentInstance, onMounted, onUnmounted } from
 import { WarningFilled, CircleCheckFilled, Loading, UserFilled } from '@element-plus/icons-vue';
 import DynamicForm from '@/pages/formDesign/components/DynamicForm.vue';
 import LogicFlow from '@/pages/workflowDesigner/logicFlow.vue';
-import useUserInfoStore from '@/stortes/user'; //引入仓库
+import useUserInfoStore from '@/stores/user'; //引入仓库
 const userInfoStore = useUserInfoStore();
 const { proxy } = getCurrentInstance();
 const props = defineProps({

@@ -4,7 +4,7 @@ import router from '@/router';
 import ElementPlus from 'element-plus';
 import 'element-plus/dist/index.css';
 import axios from './utils/request';
-import pinia from './stortes'; //引入
+import pinia from './stores/index.js'; //引入
 import * as ElementPlusIconsVue from '@element-plus/icons-vue';
 import zhCn from 'element-plus/es/locale/lang/zh-cn'; // 引入中文语言包
 import { checkPermissions } from './utils/permissions';
