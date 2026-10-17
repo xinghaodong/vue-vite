@@ -109,6 +109,7 @@ function transformRoute(route) {
             icon: route.icon,
             keepalive: String(route.keepalive) === '1',
             title: route.name,
+            breadcrumbs: route.breadcrumbs || [],
         },
         url: `${route.url}`,
         keepalive: String(route.keepalive) === '1',
@@ -260,19 +261,44 @@ function generateUrls(tree) {
 }
 function flattenTree(tree) {
     let result = [];
-    function traverse(node) {
+    function traverse(node, breadcrumbs = []) {
+        // 仅目录 (0) 与 菜单 (1) 计入面包屑链路，按钮 (2) 排除
+        let currentBreadcrumbs = breadcrumbs;
+        if (node.menutype !== 2 && node.name) {
+            const nodePath =
+                node.component || node.menutype === 1
+                    ? node.isscreen === '2'
+                        ? `/${node.url}`
+                        : `/home/${node.url}`
+                    : '';
+
+            currentBreadcrumbs = [
+                ...breadcrumbs,
+                {
+                    title: node.name,
+                    icon: node.icon,
+                    path: nodePath,
+                    code: node.code,
+                },
+            ];
+        }
+
+        // 挂载预计算好的完整祖先链路
+        node.breadcrumbs = currentBreadcrumbs;
+
         // 将当前节点添加到结果数组中
         result.push(node);
-        // 如果当前节点有子节点，递归遍历子节点
+
+        // 如果当前节点有子节点，递归遍历子节点并将链路向下累加
         if (node.children && node.children.length > 0) {
             node.children.forEach(child => {
-                traverse(child);
+                traverse(child, currentBreadcrumbs);
             });
         }
     }
     // 遍历树形结构中的每个节点
     tree.forEach(node => {
-        traverse(node);
+        traverse(node, []);
     });
     return result;
 }
