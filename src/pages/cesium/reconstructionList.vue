@@ -512,6 +512,7 @@ const handleFileSelected = (uploadFile) => {
 };
 
 const submitCreateTask = async () => {
+    if (submitting.value) return;
     if (!selectedFile.value) {
         ElMessage.warning('请选择航拍相片 ZIP 文件');
         return;

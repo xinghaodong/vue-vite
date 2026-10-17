@@ -275,9 +275,7 @@ const handleCancel = () => {
 const handleConfirm = async () => {
   if (mergedLoading.value) return;
 
-  emit('confirm');
-
-  // 若传入了异步 onConfirm 回调，则由组件自动托管确定按钮 loading 与关闭流
+  // 1. 若传入了异步 onConfirm 回调（或 Vue 3 将 @confirm 注入到 props.onConfirm），由组件安全执行并管理 loading
   if (props.onConfirm && typeof props.onConfirm === 'function') {
     try {
       innerLoading.value = true;
@@ -291,7 +289,12 @@ const handleConfirm = async () => {
     } finally {
       innerLoading.value = false;
     }
+    // 已经执行过 onConfirm，直接返回，杜绝重复触发 emit('confirm') 导致双重执行！
+    return;
   }
+
+  // 2. 否则通过自定义事件抛出
+  emit('confirm');
 };
 </script>
 
@@ -338,12 +341,6 @@ const handleConfirm = async () => {
   padding: 0 !important;
   border-top: 1px solid var(--el-border-color-lighter, rgba(226, 232, 240, 0.8));
   background: var(--el-bg-color-overlay, var(--app-card-bg, #ffffff));
-}
-
-/* 深色模式适配 */
-html.dark .el-dialog.pro-dialog-root {
-  border-color: rgba(255, 255, 255, 0.08) !important;
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.06) !important;
 }
 </style>
 

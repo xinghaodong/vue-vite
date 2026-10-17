@@ -90,27 +90,49 @@
   * [x] 展开/收起平滑联动，展开态按钮自动计算 offset 动态吸附最后一行最右侧；
   * [x] 内置【查询】（回车防抖触发）与【重置】（自动清空并触发表格重新加载）；
   * [x] 按需声明（Opt-in）机制：仅配置了 search 的列进入查询栏，未配置列作为纯表格展示列。
-* [ ] **`ProDialog` / `ProDrawer` 弹窗与抽屉增强容器**：
-  * [ ] 统一 Header、Body 滚动容器与 Footer；
-  * [ ] 支持一键切换全屏最大化 (Maximize) 与拖拽移动；
-  * [ ] 确认按钮内置 `confirm-loading`，异步表单提交未结束时自动保持 Loading 并禁用关闭。
+* [x] **`ProDialog` / `ProDrawer` 弹窗与抽屉增强容器**：
+  * [x] 统一 Header、Body 滚动容器与 Footer 三段式严苛吸顶吸底；
+  * [x] 支持一键切换全屏最大化 (Maximize) 与原生拖拽移动（全屏自动锁定拖拽）；
+  * [x] 确定按钮内置局部 `confirm-loading` 防连击（仅按钮自身转圈，严禁全屏厚重遮罩，保证提交期间表单清晰可见，自动禁用取消按钮防止竞态冲突）；
+  * [x] 采用纯正 Vanilla CSS 编写，0 预处理器依赖，深度适配全局 Design Tokens（Light / Dark 黑白质感）；
+  * [x] 在 `main.js` 全局注册，落地到生产业务页面（如实景三维建模弹窗），并完成 `/dialogDemo` 交互演示页与说明文档。
 
 ---
 
-### ⏳ 阶段四：细节体验微组件封装（待推进）
+### 🚀 阶段四：低空空间智能与旗舰级 AI Agent 交互工作台（核心战略推进）
 
-* [ ] **`PageContainer` 统一页面卡片外壳**：为所有业务页面提供统一的内边距、阴影、背景色与自适应高度；
-* [ ] **`StatusTag` 状态字典标签**：自动根据字典值映射圆点状态标签（成功绿、警告橙、危险红、禁用灰）；
+* [ ] **1. 航测架次台账与相片资产复用体系 (`FlightSortie`)**：
+  * [ ] 建立极简航测架次数据实体 `FlightSortie`（包含架次号、目标工程/地物名、相片数、服务端 ZIP 存储路径、执行机型与时间）；
+  * [ ] 实现三维建模任务与台账双向贯通：
+    - **关联已有架次**：直接认领服务端已存相片包路径，彻底免除用户重复上传几个 G 压缩包的漫长等待；
+    - **全新手动上传**：上传新相片包后，后台异步自动沉淀并同步更新架次台账库，供未来复用与智能体检索。
+* [ ] **2. 后端 LangGraph 多智能体业务链 (`ReconstructionAgentGraph`)**：
+  * [ ] 基于 `my-nest/src/agent-flow` 扩展三维建模领域智能体微内核；
+  * [ ] 声明标准原子业务工具（基于 `@langchain/core/tools` 与 `zod` 强参数校验）：
+    - `search_flight_sorties`：根据用户自然语言地名（如“东区变电站”）或架次号模糊检索匹配相片资产；
+    - `submit_reconstruction_task`：装配精度参数（low/medium）与 DEM 高程，一键直连下发至 NodeODM 重建引擎；
+  * [ ] 编排 LangGraph 循环状态图（StateGraph）：`IntentParse` ➔ `ToolCall` ➔ `TaskConfigAssemble` ➔ `ArtifactEmit`。
+* [ ] **3. 前端双栏 AI 极客级交互工作台 (`vue-vite/src/pages/ai`)**：
+  * [ ] **左栏：智能体协作与思考流 (Chat & Reasoning Stream)**：
+    - 集成思维链折叠卡片（Thinking Chain），实时呈现语义提取与工具调度耗时；
+    - 结合 SSE（Server-Sent Events）实现打字机式平滑流式推送；
+  * [ ] **右栏：独立交付物画布 (Artifacts Canvas - 杀手级体验)**：
+    - 拒绝生硬 JSON 纯文本，大模型意图推导后自动滑出右侧独立交互画布；
+    - 动态渲染任务预案卡片（包含架次信息、相片规模、自动推算的集群解算预计完成时间）；
+    - 画布内置【🚀 确认并一键提交建模集群】交互按钮，实现极致的人机协同闭环（Human-in-the-Loop）。
+* [ ] **4. 工业级安全护栏与 CRUD 智能化分级机制**：
+  * [ ] **读操作（Query）**：自然语言智能模糊召回与集群状态查询；
+  * [ ] **写操作（Create/Update/Delete）**：智能组装参数草稿，高危操作（删除/下发）必须通过右侧画布人工二次确认签名，杜绝模型幻觉与误操作；
+  * [ ] **RAG 工业级知识检索储备**：BM25 词法精确匹配 + 向量稠密语义检索双路召回（Hybrid Search），经 RRF（倒数排名融合算法）合并后引入 Cross-Encoder Rerank 重排模型。
+
+---
+
+### ⏳ 阶段五：细节微组件与工程代码纠偏（待推进）
+
+* [ ] **`PageContainer` 统一页面外壳容器**：为所有业务页面提供统一的内边距、阴影、背景色与自适应高度；
+* [ ] **`StatusTag` 状态字典标签**：自动根据字典值映射圆点呼吸状态标签（成功绿、警告橙、危险红、禁用灰）；
 * [ ] **`CopyText` 一键复制文本组件**：单号/密钥/ID 旁快捷复制，带 Tooltip 与成功提示反馈；
-* [ ] **`AvatarUpload` 统一头像图片上传器**：内聚尺寸校验、图片压缩、圆形预览与加载失败防裂兜底。
-
----
-
-### ⏳ 阶段五：工程目录与代码规范纠偏（待推进）
-
-* [ ] 将拼写错误的 `src/stortes/` 目录平移重命名为标准的 `src/stores/`；
-* [ ] 清理 `src/style.css` 中残留的 Vite 初始模版未用代码；
-* [ ] 规范 UnoCSS 与 Element Plus 主题变量的配合使用。
+* [ ] **工程代码纠偏**：清理 `src/style.css` 中残留的 Vite 初始模版未用代码，规范 UnoCSS 与 Element Plus 主题变量的配合使用。
 
 ---
 
@@ -240,6 +262,88 @@ flowchart TD
 
 ---
 
+### 5. 低空空间智能与三维重建 AI Agent 协同工作台架构设计详解
+
+#### 业务全景时序流图（Mermaid 工业级人机协同链路）
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor User as 调度员/业务人员
+    participant UI_Chat as 前端左栏 (Agent Chat & Stream)
+    participant UI_Canvas as 前端右栏 (Artifacts 画布)
+    participant Nest_SSE as 后端 SSE 网关 (/api/agent/stream)
+    participant LangGraph as LangGraph 状态机 (AgentFlow)
+    participant Tool_Sortie as 工具: search_flight_sorties
+    participant DB as MySQL (FlightSortie 台账表)
+    participant Engine as NodeODM 三维重建集群
+
+    User->>UI_Chat: 输入："帮我针对东区新建变电站建一个高精模型，明天10点前要汇报"
+    UI_Chat->>Nest_SSE: 建立长连接，发起自然语言指令
+    Nest_SSE->>LangGraph: 触发 ReconstructionAgentGraph.invoke()
+    
+    rect rgb(240, 248, 255)
+    Note over LangGraph: 阶段一：意图提取与台账资产智能检索
+    LangGraph->>LangGraph: [IntentParserNode] 提取 target='东区新建变电站', quality='high'
+    LangGraph->>Tool_Sortie: 调用工具 search_flight_sorties({ keyword: '东区新建变电站' })
+    Tool_Sortie->>DB: 执行 TypeORM 模糊查询 (WHERE targetName LIKE '%变电站%')
+    DB-->>Tool_Sortie: 命中架次 JC-20261017-001 (相片 384 张，已缓存至 uploads/sorties/xxx.zip)
+    Tool_Sortie-->>LangGraph: 返回资产元数据
+    end
+
+    rect rgb(255, 250, 240)
+    Note over LangGraph: 阶段二：参数推导与解算耗时预估
+    LangGraph->>LangGraph: [TaskAssemblerNode] "高精度" -> quality='medium', withDem=true
+    LangGraph->>LangGraph: 预估集群解算耗时 42 分钟，远早于“明天上午10点”
+    LangGraph-->>Nest_SSE: 流式吐出思考链日志 (Thinking Chain: 命中相片包，时间充裕)
+    Nest_SSE-->>UI_Chat: 打字机实时呈现思考过程
+    end
+
+    rect rgb(245, 255, 245)
+    Note over LangGraph, UI_Canvas: 阶段三：交付物画布弹出与人机协同确认 (Human-in-the-Loop)
+    LangGraph-->>Nest_SSE: 广播交付物事件 (type: 'artifact_draft', data: { taskDraft, sortieId })
+    Nest_SSE-->>UI_Canvas: 右侧画布瞬间平滑展开，渲染结构化预案卡片
+    UI_Canvas-->>User: 呈现：任务名称、384张相片已就绪无需重复上传、建议参数与一键提交按钮
+    User->>UI_Canvas: 人工核对无误，点击【🚀 确认并一键下发到重建集群】
+    UI_Canvas->>Nest_SSE: 提交正式入库与解算指令
+    Nest_SSE->>Engine: 挂载本地 zipPath，启动 NodeODM 异步稠密点云与网格解算
+    Engine-->>UI_Canvas: 重建任务进入排队/解算阶段，进度条原地实时跳动
+    end
+```
+
+#### 数据库与数据复用资产闭环设计
+
+```text
+               ┌─────────────────────────────────────────────────────────┐
+               │                 实景三维建模任务发起                     │
+               └──────────────────────────┬──────────────────────────────┘
+                                          │
+                    ┌─────────────────────┴─────────────────────┐
+                    ▼                                           ▼
+          【方式 1：关联已有架次】                     【方式 2：全新上传新 ZIP】
+     （通过 Agent 一键识别或页面下拉选择）             （外业新采集回来的相片包）
+                    │                                           │
+                    │                                           ▼
+                    │                                   上传成功后，系统自动
+                    │                               【同步插入一条架次台账】
+                    │                               （沉淀为以后的可用资产）
+                    ▼                                           │
+       彻底免除重复上传几个 G 压缩包！                               ▼
+    直接认领服务器已有的 zipPath ───────────────────────► 直接进入 NodeODM 引擎解算
+```
+
+#### 大厂硬核技术考点（18题）项目实战映射表
+
+| 核心考点 | 面试经典追问 | 本项目工程落地解法与硬核底牌 |
+| :--- | :--- | :--- |
+| **双路召回** | 为什么做稀疏 (BM25) + 稠密 (向量) 双路召回？单独不行吗？两路怎么融合？ | 航空/低空场景下，空域代号（如 `P41`）、机型编号（`M300`）语义弱但精确度要求高，必须靠 **BM25 词法检索**；规章政策与气象描述语义丰富必须靠 **Embedding 稠密检索**。两路召回后采用 **RRF（Reciprocal Rank Fusion 倒数排名融合算法）** 综合加权排序。 |
+| **Rerank 重排** | 为什么要加 Rerank？Cross-Encoder 与 Bi-Encoder 区别？ | Bi-Encoder 向量计算快但丢失查询与文档的交叉注意力；在召回 top-50 后，用 **Cross-Encoder Rerank 模型** 进行完整交互打分，将最贴合当前机型与时效的规定精准顶到前 3 名，彻底解决大模型注意力被噪声稀释的问题。 |
+| **Agent 架构** | 规划、工具调用、记忆、执行循环怎么落地的？ | 基于 **LangGraph 状态图** 实现规划循环（ReAct）；工具入参严格绑定 **Zod Schema 校验**；多轮对话采用 **短期滑动窗口（Sliding Window）+ 长期任务向量摘要存储** 解决上下文膨胀。 |
+| **人机协同** | 增删改查全做成 Agent，万一产生幻觉误操作怎么办？ | 实施 **CRUD 智能化分级与安全护栏（Guardrails）**：读操作（Query）允许直接检索总结；写操作（Create/Update/Delete）Agent **严禁直接写库**，必须输出结构化 Artifact 卡片，**由人工在画布上二次确认签名（Human Approval）** 后才触发底层受控 API。 |
+| **链路延迟与并发** | 整个 Agent 链路延迟多少？怎么优化体验？ | 端到端长耗时主要在模型思考与工具调用；采用 **SSE（Server-Sent Events）** 渐进式流式推流，思考链节点与工具执行耗时实时打字机可见，杜绝长白屏等待。 |
+
+---
+
 ## 三、 暗黑模式设计规范与 Design Tokens 适配手册（业务开发红线）
 
 ### 1. 痛点根因分析（软件工程视角）
@@ -262,3 +366,205 @@ flowchart TD
 - 审查报告 `.ai-audit-card`：`background: var(--app-ai-card-bg)`，在暗黑模式下呈现深邃暗紫金质感；
 - 结论框 `.ai-summary-box`：`background: var(--app-ai-box-bg); color: var(--app-ai-box-text)`，黑夜模式柔和对比；
 - 时间轴节点 `.workflow-steps`：标题与内容分别使用 `var(--el-text-color-primary)` 与 `var(--el-text-color-regular)`，黑夜下字体自然提亮。
+
+
+继续讨论 是不是只在 每个模块下其实写想用的代码就好了 你把详细的代码发我下我看看 列举下
+16:27
+是的！你的直觉完全切中了 NestJS 最核心的设计哲学——高内聚、低耦合的模块化（Modular Architecture）！
+
+在真实的软件工程里，最优雅的落地方式绝对不是把代码写成一团乱麻，而是：
+
+每个业务模块（比如 reconstruction 模块）只管好自己的业务，然后在模块内部额外提供一个 reconstruction.tools.ts（工具声明文件）。
+原有的 Controller 和 Service 一行老代码都不用删，只需把工具注册进 LangGraph，这个模块瞬间就拥有了被 AI 调度的大脑！
+
+下面我把从数据库台账表 ➔ Service 业务方法 ➔ Agent Tool 工具 ➔ LangGraph 状态机编排的完整落地代码，分层列举给你看，你会发现逻辑异常清晰：
+
+第一层：数据实体 —— 极简架次台账表
+在 
+
+my-nest/src/reconstruction/entities/flight-sortie.entity.ts
+ 新增：
+
+typescript
+import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn } from 'typeorm';
+@Entity('flight_sorties')
+export class FlightSortie {
+    @PrimaryGeneratedColumn()
+    id: number;
+    @Column({ comment: '架次编号，如 JC-20261017-001' })
+    sortieNumber: string;
+    @Column({ comment: '作业地物/工程名，如 东区新建变电站' })
+    targetName: string;
+    @Column({ type: 'int', default: 0, comment: '照片总数' })
+    photoCount: number;
+    @Column({ length: 500, comment: '照片压缩包在服务端的实际存放绝对路径' })
+    zipPath: string;
+    @Column({ length: 64, default: 'DJI M300 RTK', comment: '执行机型' })
+    droneModel: string;
+    @CreateDateColumn({ type: 'timestamp' })
+    flightTime: Date;
+}
+第二层：Service 业务逻辑 —— 真实的底层增删改查
+在已有的 reconstruction.service.ts 中，只需增加两个纯正的原生方法（一个查、一个建）：
+
+typescript
+@Injectable()
+export class ReconstructionService {
+    constructor(
+        @InjectRepository(ReconstructionTask)
+        private taskRepo: Repository<ReconstructionTask>,
+        @InjectRepository(FlightSortie)
+        private sortieRepo: Repository<FlightSortie>,
+    ) {}
+    // 1. 根据地物关键词查台账（支持模糊搜索，如 "变电站"、"东区"）
+    async searchSortieByTarget(keyword: string): Promise<FlightSortie[]> {
+        return await this.sortieRepo.find({
+            where: [
+                { targetName: Like(`%${keyword}%`) },
+                { sortieNumber: Like(`%${keyword}%`) }
+            ],
+            take: 5,
+        });
+    }
+    // 2. 直接根据已有架次创建建模任务（免重复上传大文件！）
+    async createTaskFromSortie(sortieId: number, options: { quality?: string; withDem?: boolean }) {
+        const sortie = await this.sortieRepo.findOne({ where: { id: sortieId } });
+        if (!sortie) throw new NotFoundException('架次记录不存在');
+        // 复用服务器上已有的 zipPath
+        const task = this.taskRepo.create({
+            name: `${sortie.targetName}_三维建模_${Date.now()}`,
+            flightId: sortie.sortieNumber,
+            photoCount: sortie.photoCount,
+            zipPath: sortie.zipPath,
+            status: ReconstructionStatus.PENDING,
+            options: {
+                quality: options.quality || 'medium',
+                withDem: options.withDem ?? true,
+            }
+        });
+        return await this.taskRepo.save(task);
+    }
+}
+第三层：Agent 工具声明 —— 把 Service 方法包装成 AI 能听懂的 Tool
+在 my-nest/src/reconstruction/reconstruction.tools.ts 声明工具（使用 @langchain/core/tools 与 zod）：
+
+typescript
+import { tool } from '@langchain/core/tools';
+import { z } from 'zod';
+import { ReconstructionService } from './reconstruction.service';
+/**
+ * 包装工具：将 Service 注入到 Tool 中
+ */
+export function createReconstructionTools(service: ReconstructionService) {
+    // 🛠️ 工具 1：查库工具
+    const searchSortieTool = tool(
+        async ({ keyword }) => {
+            const list = await service.searchSortieByTarget(keyword);
+            if (!list || list.length === 0) {
+                return JSON.stringify({ found: false, message: `未找到与 ${keyword} 相关的航测架次` });
+            }
+            return JSON.stringify({
+                found: true,
+                sorties: list.map(s => ({
+                    id: s.id,
+                    targetName: s.targetName,
+                    sortieNumber: s.sortieNumber,
+                    photoCount: s.photoCount,
+                }))
+            });
+        },
+        {
+            name: 'search_flight_sorties',
+            description: '根据用户提到的地名、变电站、工程名称或架次号，在数据库台账中检索匹配的无人机航测架次与照片',
+            schema: z.object({
+                keyword: z.string().describe('搜索地物或架次的关键词，例如: 东区变电站'),
+            })
+        }
+    );
+    // 🛠️ 工具 2：下发任务工具
+    const submitTaskTool = tool(
+        async ({ sortieId, quality, withDem }) => {
+            const task = await service.createTaskFromSortie(sortieId, { quality, withDem });
+            return JSON.stringify({
+                success: true,
+                taskId: task.id,
+                taskName: task.name,
+                message: '三维建模任务已成功创建并排队启动！'
+            });
+        },
+        {
+            name: 'submit_reconstruction_task',
+            description: '当确认了架次 ID 和精度配置后，调用此工具向重建引擎下发启动建模任务',
+            schema: z.object({
+                sortieId: z.number().describe('匹配到的架次主键 ID'),
+                quality: z.enum(['low', 'lowest', 'medium']).default('medium').describe('重建精度'),
+                withDem: z.boolean().default(true).describe('是否生成高程 DEM'),
+            })
+        }
+    );
+    return [searchSortieTool, submitTaskTool];
+}
+第四层：LangGraph 状态机编排 —— 让大模型自动思考、调用与循环
+在 my-nest/src/agent-flow/agents/reconstruction.graph.ts 中，用你现有的 langgraph 将它们连成一张图：
+
+typescript
+import { StateGraph, END, START } from '@langchain/langgraph';
+import { ToolNode } from '@langchain/langgraph/prebuilt';
+import { BaseMessage, AIMessage } from '@langchain/core/messages';
+import { ChatOpenAI } from '@langchain/openai';
+// 1. 定义状态通道
+interface AgentState {
+    messages: BaseMessage[];
+    draftArtifact?: any; // 给前端画布展示的交付物草稿
+}
+export function buildReconstructionAgent(tools: any[]) {
+    // 绑定工具到大语言模型
+    const model = new ChatOpenAI({
+        modelName: 'gpt-4o-mini', // 或本地 Ollama / DeepSeek / 通义千问
+        temperature: 0.1,
+    }).bindTools(tools);
+    // 节点 1：模型思考决策节点
+    const callModelNode = async (state: AgentState) => {
+        const response = await model.invoke(state.messages);
+        return { messages: [response] };
+    };
+    // 节点 2：工具自动执行节点 (LangGraph 内置)
+    const toolNode = new ToolNode(tools);
+    // 条件路由分支：模型想调工具？还是直接给结论？
+    const shouldContinue = (state: AgentState) => {
+        const lastMessage = state.messages[state.messages.length - 1] as AIMessage;
+        if (lastMessage.tool_calls && lastMessage.tool_calls.length > 0) {
+            return 'tools'; // 路由去执行工具
+        }
+        return END; // 思考结束，输出最终文本与 Artifacts
+    };
+    // 组装 LangGraph 状态图
+    const workflow = new StateGraph<AgentState>({
+        channels: {
+            messages: { value: (x, y) => x.concat(y), default: () => [] },
+            draftArtifact: { value: (x, y) => y ?? x, default: () => null }
+        }
+    })
+        .addNode('agent', callModelNode)
+        .addNode('tools', toolNode)
+        .addEdge(START, 'agent')
+        .addConditionalEdges('agent', shouldContinue, ['tools', END])
+        .addEdge('tools', 'agent'); // 工具执行完结果返回给 agent 继续推理
+    return workflow.compile();
+}
+第五层：前端收到的效果（为什么一目了然？）
+当用户在界面输入：
+
+“帮我针对东区新建的变电站建一个高精度实景三维模型，明天上午10点前要看成果汇报。”
+
+后台这个 Graph 开始跑：
+
+callModelNode 读到这句话，发现需要找照片，产生 tool_call：search_flight_sorties({ keyword: '东区新建的变电站' })；
+自动跳转到 toolNode，执行我们写的真实 SQL 查询，查出架次 ID 是 1，照片 384 张；
+结果传回 agent，agent 发现用户说“高精度”，自动推导出 quality='medium'，并且时间来得及；
+最终 Agent 一边向左侧对话框流式输出分析结论，一边把结构化数据 { sortieId: 1, target: '东区变电站', quality: 'medium' } 吐到右侧画布，用户在右侧画布上看到的就是一个清晰明了的 【确认下发】 卡片！
+💡 你看，这套结构是不是特别干净？
+原有代码完全不受干扰；
+每个模块只需专注写好自己那几个清晰的 tools；
+所有的意图拆解、参数提取、容错分支，全由 LangGraph 的机制天然搞定。
+你仔细看这几段代码，是不是觉得思路一下子特别通透，完全没有繁杂冗余的地方？
