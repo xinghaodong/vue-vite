@@ -86,6 +86,9 @@
 </template>
 
 <script setup>
+defineOptions({
+    name: 'roleManagement',
+});
 import { ref, reactive, onMounted, getCurrentInstance, nextTick } from 'vue';
 const { proxy } = getCurrentInstance();
 

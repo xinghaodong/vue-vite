@@ -107,11 +107,11 @@ function transformRoute(route) {
         name: route.code,
         meta: {
             icon: route.icon,
-            keepalive: route.keepalive === '1',
+            keepalive: String(route.keepalive) === '1',
             title: route.name,
         },
         url: `${route.url}`,
-        keepalive: route.keepalive === '1',
+        keepalive: String(route.keepalive) === '1',
         menutype: route.menutype,
         sorts: route.sorts,
         isscreen: route.isscreen,

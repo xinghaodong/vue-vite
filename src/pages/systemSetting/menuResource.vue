@@ -251,6 +251,9 @@
 </template>
 
 <script setup>
+defineOptions({
+    name: 'resourceManagement',
+});
 import { ref, reactive, onMounted, getCurrentInstance, onBeforeUnmount, nextTick } from 'vue';
 import { Plus, Sort } from '@element-plus/icons-vue';
 import useUserInfoStore from '@/stores/user'; //引入仓库

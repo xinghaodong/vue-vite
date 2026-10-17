@@ -13,26 +13,47 @@
     <el-main class="layout-main-container">
         <el-scrollbar class="main-scrollbar">
             <div class="main-content-box">
-                <router-view v-if="isRouterAlive" :key="refreshKey" />
+                <router-view v-if="isRouterAlive" v-slot="{ Component, route }">
+                    <transition name="fade-transform" mode="out-in" appear>
+                        <keep-alive :include="menuStore.cachedViews">
+                            <component :is="Component" :key="route.fullPath" />
+                        </keep-alive>
+                    </transition>
+                </router-view>
             </div>
         </el-scrollbar>
     </el-main>
 </template>
 
 <script setup>
-import { ref, nextTick } from 'vue';
+import { ref, watch, nextTick } from 'vue';
+import { useRoute } from 'vue-router';
+import useMenuStore from '@/stores/menu.js';
 
+const menuStore = useMenuStore();
+const currentRoute = useRoute();
 const isRouterAlive = ref(true);
-const refreshKey = ref(0);
+
+// 监听当前活跃路由，当配置了 keepalive 时自动加入缓存池
+watch(
+    () => currentRoute.name,
+    () => {
+        menuStore.addCachedView(currentRoute);
+    },
+    { immediate: true }
+);
 
 /**
  * 局部无感刷新当前活跃路由
  */
 const reloadCurrentRoute = () => {
     isRouterAlive.value = false;
-    refreshKey.value += 1;
+    if (currentRoute.name) {
+        menuStore.removeCachedView(currentRoute.name);
+    }
     nextTick(() => {
         isRouterAlive.value = true;
+        menuStore.addCachedView(currentRoute);
     });
 };
 
@@ -71,7 +92,7 @@ defineExpose({
 /* 页面路由平滑切换过渡动效 (fade-transform) */
 .fade-transform-leave-active,
 .fade-transform-enter-active {
-    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: all 0.10s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .fade-transform-enter-from {

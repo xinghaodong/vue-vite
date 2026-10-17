@@ -141,6 +141,9 @@
 </template>
 
 <script setup>
+defineOptions({
+    name: 'ffmpegs',
+});
 import { ref, reactive, onMounted, getCurrentInstance, nextTick } from 'vue';
 const { proxy } = getCurrentInstance();
 const tableData = ref([]);

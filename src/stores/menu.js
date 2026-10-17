@@ -16,6 +16,8 @@ const menuStore = defineStore('menu', {
         allMenuArray: [],
         // 按钮权限
         btnPermsArry: [],
+        // 🌟 路由缓存池 (存放开启 keepalive 的组件/路由 name)
+        cachedViews: [],
     }),
     // 修改
     actions: {
@@ -68,55 +70,75 @@ const menuStore = defineStore('menu', {
          * 则将当前编辑标签页的url更新为新的活跃标签页的url，或如果不存在下一个标签页，
          * 则更新为前一个标签页的url。
          */
+        // 🌟 添加缓存路由
+        addCachedView(route) {
+            if (!route || !route.name) return;
+            const isKeepAlive = route.meta?.keepalive ?? (String(route.keepalive) === '1');
+            if (isKeepAlive && !this.cachedViews.includes(route.name)) {
+                this.cachedViews.push(route.name);
+            }
+        },
+        // 🌟 移除单个缓存
+        removeCachedView(name) {
+            const index = this.cachedViews.indexOf(name);
+            if (index > -1) {
+                this.cachedViews.splice(index, 1);
+            }
+        },
+        // 🌟 多标签批量关闭时，自动同步清理缓存池
+        syncCachedViewsWithTabs() {
+            const activeCodes = this.activeTabArray.map(item => item.code).filter(Boolean);
+            this.cachedViews = this.cachedViews.filter(code => activeCodes.includes(code));
+        },
         changeRemoveTab(key) {
             let index = this.activeTabArray.findIndex(item => item.url === key);
-            // 从活跃标签数组中移除对应的标签页
-            this.activeTabArray.splice(index, 1);
-            // 如果被移除的标签页是当前编辑的标签页
-            if (this.editableTabsValue == key) {
-                // 如果不存在下一个标签页，则更新为前一个标签页的url
-                this.editableTabsValue = this.activeTabArray[index] ? this.activeTabArray[index].url : this.activeTabArray[index - 1].url;
+            if (index > -1) {
+                const removedItem = this.activeTabArray[index];
+                if (removedItem?.code) {
+                    this.removeCachedView(removedItem.code);
+                }
+                this.activeTabArray.splice(index, 1);
+                if (this.editableTabsValue == key) {
+                    this.editableTabsValue = this.activeTabArray[index] ? this.activeTabArray[index].url : this.activeTabArray[index - 1].url;
+                }
             }
         },
         // 关闭右侧tabs标签页
         changeRemoveRightAll(key) {
             let index = this.activeTabArray.findIndex(item => item.url === key);
-            // 删除当前点的的右侧tabs标签
             this.activeTabArray.splice(index + 1, this.activeTabArray.length - index - 1);
+            this.syncCachedViewsWithTabs();
         },
         // 关闭其他tabs标签页
         changeRemoveOtherAll(key) {
             let index = this.activeTabArray.findIndex(item => item.url === key);
-            // 删除除了当前点的tabs标签以及首页url: '/index'的标签
-            // this.activeTabArray.splice(index + 1);
-            // this.activeTabArray.splice(1, index - 1);
-            console.log(this.activeTabArray[index], '99999');
             if (index == 0) {
                 this.activeTabArray = [this.activeTabArray[0]];
             } else {
                 this.activeTabArray = [this.activeTabArray[0], this.activeTabArray[index]];
             }
-            console.log(this.activeTabArray, key, index);
             this.editableTabsValue = key;
+            this.syncCachedViewsWithTabs();
         },
         // 关闭左侧tabs标签页
         changeRemoveLeftAll(key) {
             let index = this.activeTabArray.findIndex(item => item.url === key);
-            // 删除当前点击项目左侧的tabs标签
             this.activeTabArray.splice(1, index - 1);
-            // 当前选中项目 editableTabsValue 不存在于 activeTabArray中那么默认选中index的下一个activeTabArray
             if (!this.activeTabArray.some(item => item.url === this.editableTabsValue)) {
                 this.editableTabsValue = key;
             }
+            this.syncCachedViewsWithTabs();
         },
         // 关闭全部tabs标签页除了首页
         changeRemoveAll() {
             this.activeTabArray = [this.activeTabArray[0]];
             this.editableTabsValue = this.activeTabArray[0].url;
+            this.syncCachedViewsWithTabs();
         },
         clearAll() {
             this.allArray = [];
             this.btnPermsArry = [];
+            this.cachedViews = [];
         },
     },
     persist: {
