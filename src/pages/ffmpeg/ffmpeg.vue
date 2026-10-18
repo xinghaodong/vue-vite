@@ -1,94 +1,89 @@
 <template>
-    <div>
-        <div class="mb-4">
-            <el-button
-                type="primary"
-                plain
-                @click="
-                    dialogVisible = true;
-                    resetForm(ruleFormRef);
-                "
-                >新增</el-button
-            >
-        </div>
-        <el-table :data="tableData" border style="width: 100%">
-            <el-table-column prop="name" label="名称" width="180"> </el-table-column>
-            <el-table-column prop="name" label="视频预览" min-width="300">
-                <template #default="scope">
-                    <video :src="`${proxy.$api.baseUrl}/${scope.row.filepath}`" muted autoplay style="width: 100%; max-width: 200px; height: auto"></video>
-                </template>
-            </el-table-column>
-            <!-- fps -->
-            <el-table-column label="fps" width="120">
-                <!-- 自定义表头：文字 + tooltip -->
-                <template #header>
-                    <el-tooltip effect="dark" content="FPS 表示当前视频每秒拆裁的帧数（比如默认是1代表1秒拆裁1张图片），数值越高需要的时间越久" placement="top">
-                        <span>
-                            FPS
-                            <el-icon><question-filled /></el-icon>
-                        </span>
-                    </el-tooltip>
-                </template>
+    <div class="ffmpeg-container">
+        <!-- 接入大厂级超级表格 ProTable -->
+        <ProTable
+            ref="proTableRef"
+            title="音视频与 FFmpeg 抽帧管理"
+            :columns="columns"
+            :request-api="getVideoTableData"
+            row-key="id"
+            :border="true"
+        >
+            <template #tableHeader>
+                <el-button
+                    type="primary"
+                    :icon="Plus"
+                    @click="handleAdd"
+                >
+                    新增视频
+                </el-button>
+            </template>
 
-                <!-- 表格内容 -->
-                <template #default="scope">
-                    {{ scope.row.fps }}
-                </template>
-            </el-table-column>
-            <el-table-column label="时长(秒)" width="180">
-                <template #default="scope">
-                    {{ formatDuration(scope.row.duration) }}
-                </template>
-            </el-table-column>
-            <!-- 视频大小 -->
-            <el-table-column label="视频大小" width="180">
-                <template #default="scope">
-                    {{ formatFileSize(scope.row.metadata?.size) }}
-                </template>
-            </el-table-column>
-            <!-- 码率 -->
-            <el-table-column label="码率" width="180">
-                <template #default="scope">
-                    {{ formatBitrate(scope.row.metadata?.bitrate) }}
-                </template>
-            </el-table-column>
+            <!-- 视频预览 -->
+            <template #preview="{ row }">
+                <video
+                    v-if="row.filepath"
+                    :src="`${proxy.$api.baseUrl}/${row.filepath}`"
+                    muted
+                    autoplay
+                    loop
+                    class="table-video-preview"
+                />
+                <span v-else class="text-gray-400">无视频文件</span>
+            </template>
+
+            <!-- fps 列头及内容 -->
+            <template #fpsHeader>
+                <el-tooltip effect="dark" content="FPS 表示当前视频每秒拆裁的帧数（数值越高解析耗时越长）" placement="top">
+                    <span class="inline-flex items-center gap-1">
+                        FPS <el-icon><QuestionFilled /></el-icon>
+                    </span>
+                </el-tooltip>
+            </template>
+            <template #fps="{ row }">
+                <el-tag type="info">{{ row.fps }} fps</el-tag>
+            </template>
+
             <!-- 时长 -->
-            <el-table-column label="时长(秒)" width="180">
-                <template #default="scope">
-                    {{ formatDuration(scope.row.duration) }}
-                </template>
-            </el-table-column>
-            <el-table-column label="操作" width="220" fixed="right">
-                <template #default="scope">
-                    <el-button link type="primary" @click="handlePreview(scope.row)">预览</el-button>
-                    <el-button link type="primary" @click="handleFrame(scope.row)">查看帧</el-button>
-                    <el-button link type="primary" @click="handleEdit(scope.row)">编辑</el-button>
-                    <el-button link type="primary" @click="handleDelete(scope.row)">删除</el-button>
-                </template>
-            </el-table-column>
-        </el-table>
-        <el-pagination
-            style="padding: 16px"
-            background
-            @size-change="handleSizeChange"
-            @current-change="handleCurrentChange"
-            :current-page="currentPage"
-            :page-sizes="[10, 20, 50, 100]"
-            :page-size="pageSize"
-            layout="total, sizes,->, prev, pager, next, jumper"
-            :total="total"
-        ></el-pagination>
+            <template #duration="{ row }">
+                {{ formatDuration(row.duration) }}
+            </template>
 
-        <el-dialog :title="ruleForm.id ? '编辑' : '新增'" v-model="dialogVisible" width="50%">
+            <!-- 视频大小 -->
+            <template #fileSize="{ row }">
+                {{ formatFileSize(row.metadata?.size) }}
+            </template>
+
+            <!-- 码率 -->
+            <template #bitrate="{ row }">
+                {{ formatBitrate(row.metadata?.bitrate) }}
+            </template>
+
+            <!-- 操作列 -->
+            <template #operation="{ row }">
+                <el-button link type="primary" @click="handlePreview(row)">预览</el-button>
+                <el-button link type="primary" @click="handleFrame(row)">查看帧</el-button>
+                <el-button link type="primary" @click="handleEdit(row)">编辑</el-button>
+                <el-button link type="danger" @click="handleDelete(row)">删除</el-button>
+            </template>
+        </ProTable>
+
+        <!-- 编辑 / 新增视频弹窗 -->
+        <ProDialog
+            v-model="dialogVisible"
+            :title="ruleForm.id ? '编辑视频与抽帧参数' : '新增视频并自动拆帧'"
+            sub-title="配置视频名称、解析 FPS 频率，并上传 MP4 原片"
+            width="600px"
+            :on-confirm="() => onSubmit(ruleFormRef)"
+        >
             <el-form ref="ruleFormRef" :rules="rules" :model="ruleForm" label-width="100px">
                 <el-form-item label="名称" prop="name">
-                    <el-input v-model="ruleForm.name" maxlength="20"></el-input>
+                    <el-input v-model="ruleForm.name" maxlength="50" placeholder="请输入视频名称" />
                 </el-form-item>
-                <el-form-item label="fps" prop="fps">
-                    <el-input-number style="width: 204px" v-model="ruleForm.fps" :min="1" :max="10" />
+                <el-form-item label="FPS 频率" prop="fps">
+                    <el-input-number style="width: 200px" v-model="ruleForm.fps" :min="1" :max="10" />
                 </el-form-item>
                 <el-form-item label="视频上传">
-                    <!-- 上传区域 -->
                     <el-upload
                         class="upload-demo"
                         :http-request="uploadVideo"
@@ -100,43 +95,44 @@
                         :show-file-list="false"
                         :file-list="fileList"
                     >
-                        <!-- 预览区域：如果已有文件，则显示视频 -->
                         <div v-if="previewVideoUrl" class="video-preview-wrapper">
-                            <video :src="previewVideoUrl" class="preview-video" controls :style="{ width: '100%', height: '200px', objectFit: 'contain' }"></video>
+                            <video :src="previewVideoUrl" class="preview-video" controls style="width: 100%; height: 200px; object-fit: contain;"></video>
                             <div class="preview-overlay">
                                 <el-button size="small" type="danger" @click.stop="removeFile">重新上传</el-button>
                             </div>
                         </div>
-                        <!-- 没有文件时显示上传提示 -->
                         <div v-else>
-                            <el-icon class="el-icon--upload"><upload-filled /></el-icon>
-                            <div class="el-upload__text">把文件拖到这里<em>或者点击这里</em></div>
-                            <template>
-                                <div class="el-upload__tip">请上传 mp4 文件</div>
-                            </template>
+                            <el-icon class="el-icon--upload"><UploadFilled /></el-icon>
+                            <div class="el-upload__text">把视频拖到这里或<em>点击上传</em></div>
+                            <div class="el-upload__tip text-gray-400">仅支持 mp4 格式文件</div>
                         </div>
                     </el-upload>
                 </el-form-item>
             </el-form>
-            <template #footer>
-                <span class="dialog-footer">
-                    <el-button @click="dialogVisible = false">取 消</el-button>
-                    <el-button type="success" @click="onSubmit(ruleFormRef)">确 定</el-button>
-                </span>
-            </template>
-        </el-dialog>
+        </ProDialog>
 
-        <el-dialog :title="detailsObj.name" v-model="dialogVisibleDetails" width="80%">
-            <div class="block text-center">
-                <!-- <span class="demonstration">{{detailsObj.name}}</span> motion-blur -->
-                <el-carousel height="662px" direction="vertical">
+        <!-- 关键帧轮播详情弹窗 -->
+        <ProDialog
+            v-model="dialogVisibleDetails"
+            :title="detailsObj.name || '视频关键帧切片'"
+            sub-title="展示 FFmpeg 逐秒拆解出的高清帧序列"
+            width="850px"
+            :show-confirm="false"
+            cancel-text="关闭"
+        >
+            <div class="text-center" v-if="detailsObj.frames?.length">
+                <el-carousel height="560px" direction="vertical">
                     <el-carousel-item v-for="item in detailsObj.frames" :key="item">
-                        <!-- :src="`${proxy.$api.img_url}${scope.row?.avatar?.filePath}`" -->
-                        <el-image :src="`${proxy.$api.img_url}${item}`" />
+                        <el-image
+                            :src="`${proxy.$api.img_url}${item}`"
+                            fit="contain"
+                            style="width: 100%; height: 100%;"
+                        />
                     </el-carousel-item>
                 </el-carousel>
             </div>
-        </el-dialog>
+            <el-empty v-else description="暂无切片关键帧数据" />
+        </ProDialog>
     </div>
 </template>
 
@@ -144,56 +140,85 @@
 defineOptions({
     name: 'ffmpegs',
 });
-import { ref, reactive, onMounted, getCurrentInstance, nextTick } from 'vue';
+import { ref, reactive, getCurrentInstance, nextTick } from 'vue';
+import { Plus, QuestionFilled, UploadFilled } from '@element-plus/icons-vue';
+
 const { proxy } = getCurrentInstance();
-const tableData = ref([]);
+const proTableRef = ref(null);
 const ruleFormRef = ref(null);
 const uploadRef = ref(null);
 const detailsObj = ref({});
 const dialogVisibleDetails = ref(false);
-// 初始模板对象
+const dialogVisible = ref(false);
+
 const formTemplate = {
     name: '',
     videoFile: null,
     fps: 1,
 };
 let ruleForm = reactive({ ...formTemplate });
-// 重置ruleForm数据函数
+
 const rules = {
-    name: [{ required: true, message: '请输入名称', trigger: 'blur' }],
+    name: [{ required: true, message: '请输入视频名称', trigger: 'blur' }],
 };
+
 const previewVideoUrl = ref('');
 const fileList = ref([]);
-const currentPage = ref(1);
-const pageSize = ref(10);
-const total = ref(0);
-// 重置表单sF
+
+const columns = [
+    { type: 'index', label: '#', width: 60, align: 'center' },
+    {
+        prop: 'name',
+        label: '视频名称',
+        minWidth: 160,
+        search: {
+            el: 'input',
+            props: { placeholder: '请输入视频名称' }
+        }
+    },
+    { prop: 'preview', label: '视频预览', width: 200, align: 'center' },
+    { prop: 'fps', label: 'FPS', width: 110, align: 'center', headerSlot: 'fpsHeader' },
+    { prop: 'duration', label: '时长', width: 120, align: 'center' },
+    { prop: 'fileSize', label: '视频大小', width: 130, align: 'center' },
+    { prop: 'bitrate', label: '码率', width: 130, align: 'center' },
+    { prop: 'operation', label: '操作', width: 220, fixed: 'right', align: 'left' }
+];
+
+// ProTable 数据请求驱动适配
+const getVideoTableData = async (params = {}) => {
+    const { pageNum, pageSize, name } = params;
+    const res = await proxy.$api.getVideoList({
+        page: pageNum,
+        pageSize,
+        name
+    });
+    return {
+        data: {
+            list: res?.data?.list || [],
+            total: res?.data?.total || 0
+        }
+    };
+};
+
+const handleAdd = () => {
+    resetForm();
+    dialogVisible.value = true;
+};
+
 const resetForm = () => {
-    ruleForm = reactive({ ...formTemplate });
+    Object.assign(ruleForm, JSON.parse(JSON.stringify(formTemplate)));
+    delete ruleForm.id;
+    delete ruleForm.filepath;
     if (ruleFormRef.value) ruleFormRef.value.resetFields();
     fileList.value = [];
     previewVideoUrl.value = '';
-    ruleForm.videoFile = null;
-};
-const dialogVisible = ref(false);
-
-// 查询视频
-const getDataList = async () => {
-    let obj = {
-        page: currentPage.value,
-        pageSize: pageSize.value,
-    };
-    const res = await proxy.$api.getVideoList(obj);
-    tableData.value = res.data.list;
-    total.value = res.data.total;
 };
 
-// 重新上传
 const removeFile = () => {
     uploadRef.value?.handleRemove(fileList.value[0]);
     handleRemove();
 };
-// 移除文件
+
 const handleRemove = () => {
     if (previewVideoUrl.value) {
         URL.revokeObjectURL(previewVideoUrl.value);
@@ -202,96 +227,57 @@ const handleRemove = () => {
     ruleForm.videoFile = null;
 };
 
-// 处理文件变化
-const handleChange = (file, uploadFileList) => {
-    console.log(' handleChange 触发', file);
-    console.log('文件状态:', file.status); // 应该是 'ready'
-
+const handleChange = (file) => {
     const { raw } = file;
     if (!raw) return;
 
     if (!raw.type.includes('video/mp4')) {
-        proxy.$message.error('只支持 mp4');
+        proxy.$message.error('只支持 mp4 格式文件');
         uploadRef.value?.handleRemove(file);
         return;
     }
 
-    // 释放旧预览
     if (previewVideoUrl.value) {
         URL.revokeObjectURL(previewVideoUrl.value);
     }
     previewVideoUrl.value = URL.createObjectURL(raw);
-
     fileList.value = [file];
 };
 
-// 预览
 const handlePreview = async row => {
-    console.log('handlePreview 触发', row);
-    // 设置了全屏需要去掉 /home如果不是全屏就需要加 /home
-    // proxy.$router.push({
-    //     path: '/home/ffmpegGsap',
-    //     query: { idkey: row ? row.id : '' },
-    // });
     const routeData = proxy.$router.resolve({
         path: '/ffmpegGsap',
-        query: { idkey: row ? row.id : '', token: sessionStorage.getItem('token') }, // 添加查询参数
+        query: { idkey: row ? row.id : '', token: sessionStorage.getItem('token') },
     });
-    // 打开新标签页，并保存引用
     window.open(routeData.href, '_blank');
 };
 
-// 查看图片
 const handleFrame = row => {
     detailsObj.value = row;
     dialogVisibleDetails.value = true;
 };
 
-// 编辑回显
 const handleEdit = async row => {
-    ruleForm = reactive({ ...row });
-    // fileList.value.push({ raw: ruleForm.videoFile });
+    resetForm();
+    Object.assign(ruleForm, row);
     previewVideoUrl.value = `${proxy.$api.baseUrl}/${row.filepath}`;
-    // 模拟文件对象添加到 fileList
-    // fileList.value = [
-    //     {
-    //         name: row.filepath.split('/').pop(), // 提取文件名
-    //         url: previewVideoUrl.value,
-    //         status: 'success', // 设置为已上传状态
-    //     },
-    // ];
     dialogVisible.value = true;
 };
 
-// 自定义上传方法
-const uploadVideo = async ({ file, onSuccess, onError }) => {
-    console.log(112211666666);
+const uploadVideo = async ({ file, onError }) => {
     const formData = new FormData();
-    console.log(file);
     formData.append('file', file);
     formData.append('name', ruleForm.name);
     formData.append('fps', ruleForm.fps);
-    formData.append('id', ruleForm.id);
+    formData.append('id', ruleForm.id || '');
+
     try {
-        if (ruleForm.id) {
-            const res = await proxy.$api.updateVideo(formData);
-            if (res.code == 200) {
-                proxy.$message.success('上传成功');
-                dialogVisible.value = false;
-                getDataList();
-                // onSuccess(res);
-                fileList.value = [];
-                previewVideoUrl.value = '';
-                ruleForm.videoFile = null;
-            }
-            return;
-        }
-        const res = await proxy.$api.addVideo(formData);
+        const apiMethod = ruleForm.id ? proxy.$api.updateVideo : proxy.$api.addVideo;
+        const res = await apiMethod(formData);
         if (res.code == 200) {
             proxy.$message.success('上传成功');
             dialogVisible.value = false;
-            getDataList();
-            // onSuccess(res);
+            proTableRef.value?.refresh();
             fileList.value = [];
             previewVideoUrl.value = '';
             ruleForm.videoFile = null;
@@ -302,55 +288,55 @@ const uploadVideo = async ({ file, onSuccess, onError }) => {
 };
 
 const onSubmit = async formEl => {
-    if (!formEl) return;
+    if (!formEl) return false;
 
-    await formEl.validate(async valid => {
-        if (!valid) {
-            proxy.$message.error('验证失败');
-            return;
-        }
-
-        await nextTick();
-
-        // 检查是否有新上传的文件
-        const hasNewFile = fileList.value.some(file => file.status === 'ready');
-
-        if (hasNewFile) {
-            // 有新文件，触发上传
-            uploadRef.value?.submit();
-            console.log('上传中...');
-        } else if (ruleForm.id && previewVideoUrl.value) {
-            // 编辑模式且没有新文件，直接调用更新接口
-            console.log('更新视频');
-            try {
-                const formData = new FormData();
-                formData.append('name', ruleForm.name);
-                formData.append('fps', ruleForm.fps);
-                formData.append('id', ruleForm.id);
-                // 如果有现有文件路径，可以传递给后端
-                formData.append('filepath', ruleForm.filepath || '');
-
-                const res = await proxy.$api.updateVideo(formData);
-                if (res.code === 200) {
-                    proxy.$message.success('更新成功');
-                    dialogVisible.value = false;
-                    getDataList();
-                    fileList.value = [];
-                    previewVideoUrl.value = '';
-                }
-            } catch (err) {
-                proxy.$message.error('更新失败');
+    return new Promise((resolve) => {
+        formEl.validate(async valid => {
+            if (!valid) {
+                proxy.$message.error('请填写必填项');
+                return resolve(false);
             }
-        } else {
-            proxy.$message.error('请上传视频文件');
-        }
+
+            await nextTick();
+            const hasNewFile = fileList.value.some(file => file.status === 'ready');
+
+            if (hasNewFile) {
+                uploadRef.value?.submit();
+                resolve(true);
+            } else if (ruleForm.id && previewVideoUrl.value) {
+                try {
+                    const formData = new FormData();
+                    formData.append('name', ruleForm.name);
+                    formData.append('fps', ruleForm.fps);
+                    formData.append('id', ruleForm.id);
+                    formData.append('filepath', ruleForm.filepath || '');
+
+                    const res = await proxy.$api.updateVideo(formData);
+                    if (res.code === 200) {
+                        proxy.$message.success('更新成功');
+                        dialogVisible.value = false;
+                        proTableRef.value?.refresh();
+                        fileList.value = [];
+                        previewVideoUrl.value = '';
+                        resolve(true);
+                    } else {
+                        resolve(false);
+                    }
+                } catch (err) {
+                    proxy.$message.error('更新失败');
+                    resolve(false);
+                }
+            } else {
+                proxy.$message.error('请上传视频文件');
+                resolve(false);
+            }
+        });
     });
 };
 
-// 删除
 const handleDelete = async row => {
     proxy.$messageBox
-        .confirm('确定要删除吗?', '提示', {
+        .confirm('确定要删除该视频及所有切片帧吗?', '提示', {
             confirmButtonText: '确定',
             cancelButtonText: '取消',
             type: 'warning',
@@ -359,12 +345,11 @@ const handleDelete = async row => {
             const data = await proxy.$api.deleteVideo({ id: row.id });
             if (data.code == 200) {
                 proxy.$message.success(data.message);
-                getDataList();
+                proTableRef.value?.refresh();
             }
         });
 };
 
-// 格式化文件大小：字节 → KB / MB / GB
 const formatFileSize = bytesStr => {
     const bytes = parseInt(bytesStr, 10);
     if (isNaN(bytes) || bytes === 0) return '0 B';
@@ -387,7 +372,6 @@ const formatDuration = secondsStr => {
     return new Date(seconds * 1000).toISOString().substr(11, 8);
 };
 
-// 格式化码率：bps → kbps 或 Mbps
 const formatBitrate = bpsStr => {
     const bps = parseInt(bpsStr, 10);
     if (isNaN(bps)) return '-';
@@ -396,20 +380,31 @@ const formatBitrate = bpsStr => {
     if (bps < 1_000_000) return `${(bps / 1000).toFixed(2)} kbps`;
     return `${(bps / 1_000_000).toFixed(2)} Mbps`;
 };
-
-const handleSizeChange = val => {
-    pageSize.value = val;
-    getDataList();
-};
-
-const handleCurrentChange = val => {
-    currentPage.value = val;
-    getDataList();
-};
-
-onMounted(() => {
-    getDataList();
-});
 </script>
 
-<style lang="css" scoped></style>
+<style scoped>
+.ffmpeg-container {
+    width: 100%;
+    height: 100%;
+}
+.table-video-preview {
+    width: 100%;
+    max-width: 180px;
+    height: 90px;
+    object-fit: cover;
+    border-radius: 6px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+.video-preview-wrapper {
+    position: relative;
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+.preview-overlay {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+}
+</style>

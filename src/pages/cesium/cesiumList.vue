@@ -1,125 +1,125 @@
 <template>
-    <div>
-        <div class="mb-4">
-            <el-button type="primary" plain @click="addList()">新增</el-button>
-        </div>
-        <el-table :data="tableData" border style="width: 100%">
-            <el-table-column prop="name" label="航线名称" min-width="180"> </el-table-column>
-            <el-table-column prop="pointNum" label="航点数" min-width="180"> </el-table-column>
-            <el-table-column prop="time" label="航线预估时间" min-width="180"> </el-table-column>
-            <el-table-column prop="status" label="状态" width="180">
-                <template #default="scope">
-                    <span v-if="scope.row.status == 1">启用</span>
-                    <span v-if="scope.row.status == 0">禁用</span>
-                </template>
-            </el-table-column>
-            <el-table-column prop="created_at" label="创建时间" width="180"> </el-table-column>
-            <el-table-column prop="updated_at" label="更新时间" width="180"> </el-table-column>
-            <!-- 操作 -->
-            <el-table-column label="操作" width="130" fixed="right">
-                <template #default="scope">
-                    <el-button link type="primary" @click="handleEdit(scope.row)">编辑</el-button>
-                    <el-button link type="primary" @click="handleDelete(scope.row)">删除</el-button>
-                    <!-- <el-button link type="primary" @click="handleRelieve(scope.row)" v-text="scope.row.is_active == 0 ? '解除' : '禁用'"></el-button> -->
-                </template>
-            </el-table-column>
-        </el-table>
-        <el-pagination
-            style="padding: 16px"
-            background
-            @size-change="handleSizeChange"
-            @current-change="handleCurrentChange"
-            :current-page="currentPage"
-            :page-sizes="[10, 20, 50, 100]"
-            :page-size="pageSize"
-            layout="total, sizes,->, prev, pager, next, jumper"
-            :total="total"
-        ></el-pagination>
+    <div class="cesium-list-container">
+        <!-- 接入大厂级超级表格 ProTable -->
+        <ProTable
+            ref="proTableRef"
+            title="三维航线轨迹管理"
+            :columns="columns"
+            :request-api="getRouteTableData"
+            row-key="id"
+            :border="true"
+        >
+            <template #tableHeader>
+                <el-button type="primary" :icon="Plus" @click="addList()">新增航线</el-button>
+            </template>
+
+            <!-- 状态插槽 -->
+            <template #status="{ row }">
+                <el-tag :type="row.status == 1 ? 'success' : 'info'">
+                    {{ row.status == 1 ? '启用' : '禁用' }}
+                </el-tag>
+            </template>
+
+            <!-- 操作列 -->
+            <template #operation="{ row }">
+                <el-button link type="primary" @click="handleEdit(row)">编辑</el-button>
+                <el-button link type="danger" @click="handleDelete(row)">删除</el-button>
+            </template>
+        </ProTable>
     </div>
 </template>
 
 <script setup>
-import { ref, getCurrentInstance, onMounted } from 'vue';
+import { ref, getCurrentInstance, onUnmounted } from 'vue';
+import { Plus } from '@element-plus/icons-vue';
+
 const { proxy } = getCurrentInstance();
-const tableData = ref([]);
-const currentPage = ref(1);
-const pageSize = ref(10);
-const total = ref(0);
+const proTableRef = ref(null);
+
+const columns = [
+    { type: 'index', label: '#', width: 60, align: 'center' },
+    {
+        prop: 'name',
+        label: '航线名称',
+        minWidth: 180,
+        search: {
+            el: 'input',
+            props: { placeholder: '请输入航线名称' }
+        }
+    },
+    { prop: 'pointNum', label: '航点数', width: 120, align: 'center' },
+    { prop: 'time', label: '航线预估时间', width: 150, align: 'center' },
+    { prop: 'status', label: '状态', width: 120, align: 'center' },
+    { prop: 'created_at', label: '创建时间', width: 180, align: 'center' },
+    { prop: 'updated_at', label: '更新时间', width: 180, align: 'center' },
+    { prop: 'operation', label: '操作', width: 140, fixed: 'right', align: 'left' }
+];
+
+// ProTable 数据请求驱动适配
+const getRouteTableData = async (params = {}) => {
+    const { pageNum, pageSize, name } = params;
+    const res = await proxy.$api.getRouteList({
+        page: pageNum,
+        pageSize,
+        name
+    });
+    return {
+        data: {
+            list: res?.data?.list || [],
+            total: res?.data?.total || 0
+        }
+    };
+};
 
 // 新增航线
 const addList = () => {
     const routeData = proxy.$router.resolve({
         path: '/newcesium',
-        query: { token: sessionStorage.getItem('token') }, // 添加查询参数
+        query: { token: sessionStorage.getItem('token') },
     });
-    // 打开新标签页，并保存引用
     window.open(routeData.href, '_blank');
-    // 可以挂载一个方法给子窗口调用
 };
+
+// 监听子窗口保存完成广播
 window.handleSaveSuccess = () => {
-    console.log('接收到保存成功的消息');
-    proxy.$message.success('成功');
-    // 这里可以刷新列表
-    getCesiumList();
+    proxy.$message.success('航线保存成功');
+    proTableRef.value?.refresh();
 };
 
-const getCesiumList = async () => {
-    let obj = {
-        page: currentPage.value,
-        pageSize: pageSize.value,
-    };
-    const { data } = await proxy.$api.getRouteList(obj);
-    tableData.value = data.list;
-    total.value = data.total;
-    console.log(data, '航线列表');
-};
-const handleSizeChange = val => {
-    pageSize.value = val;
-    getCesiumList();
-};
+onUnmounted(() => {
+    delete window.handleSaveSuccess;
+});
 
-const handleCurrentChange = val => {
-    currentPage.value = val;
-    getCesiumList();
-};
-// 修改
+// 编辑
 const handleEdit = row => {
     proxy.$router.push({
         path: '/home/newcesium',
         query: { idkey: row ? row.id : '' },
     });
-    // const routeData = proxy.$router.resolve({
-    //     path: '/cesium2d',
-    //     query: { idkey: row ? row.id : '', token: sessionStorage.getItem('token') }, // 添加查询参数
-    // });
-    // // 打开新标签页，并保存引用
-    // window.open(routeData.href, '_blank');
 };
+
 // 删除
 const handleDelete = row => {
     proxy.$messageBox
-        .confirm('确定要删除吗?', '提示', {
-            type: '提示',
+        .confirm('确定要删除该航线吗?', '提示', {
+            type: 'warning',
         })
         .then(async () => {
             const data = await proxy.$api.routeDelete({ id: row.id });
             if (data.code == 200) {
                 proxy.$message.success(data.message);
-                getCesiumList();
+                proTableRef.value?.refresh();
             }
         })
         .catch(() => {
             proxy.$message.info('已取消');
         });
 };
-
-onMounted(async () => {
-    try {
-        await getCesiumList();
-    } catch (error) {
-        console.error('失败信息:', error);
-    }
-});
 </script>
 
-<style lang="css" scoped></style>
+<style scoped>
+.cesium-list-container {
+    width: 100%;
+    height: 100%;
+}
+</style>

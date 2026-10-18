@@ -54,7 +54,12 @@
             </template>
         </ProTable>
 
-        <el-dialog v-model="dialogVisible" :title="form.id ? '修改菜单' : '新增菜单'" width="650" :before-close="handleClose">
+        <ProDialog
+            v-model="dialogVisible"
+            :title="form.id ? '修改菜单' : '新增菜单'"
+            width="680px"
+            :on-confirm="() => onSubmit(ruleFormRef)"
+        >
             <el-form :model="form" :label-width="formLabelWidth" :rules="rules" ref="ruleFormRef">
                 <el-row>
                     <el-col :xs="24" :sm="24" :md="24" :lg="24" :xl="24">
@@ -222,15 +227,15 @@
                     </el-col>
                 </el-row>
             </el-form>
-            <template #footer>
-                <div class="dialog-footer">
-                    <el-button @click="dialogVisible = false">取消</el-button>
-                    <el-button type="primary" @click="onSubmit(ruleFormRef)"> 确定 </el-button>
-                </div>
-            </template>
-        </el-dialog>
+        </ProDialog>
 
-        <el-dialog title="资源排序" width="800px" v-model="dialogSortTree">
+        <ProDialog
+            v-model="dialogSortTree"
+            title="资源排序"
+            sub-title="拖拽行可调整资源上下层级与展示顺序"
+            width="820px"
+            :on-confirm="submitSort"
+        >
             <el-table :data="tableData" ref="sortTableRef" border style="width: 100%" row-key="id">
                 <el-table-column prop="name" width="200px" label="名称"></el-table-column>
                 <el-table-column prop="url" label="地址"></el-table-column>
@@ -242,11 +247,7 @@
                     </template>
                 </el-table-column>
             </el-table>
-            <template #footer>
-                <el-button @click="dialogSortTree = false">取消</el-button>
-                <el-button type="primary" @click="submitSort()">保存</el-button>
-            </template>
-        </el-dialog>
+        </ProDialog>
     </div>
 </template>
 

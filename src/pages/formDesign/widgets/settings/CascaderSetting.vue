@@ -81,13 +81,16 @@
             <el-switch v-model="propsData.clearable" />
         </el-form-item>
 
-        <!-- JSON 树编辑弹窗 -->
-        <el-dialog
+        <!-- JSON 树编辑弹窗 (ProDialog) -->
+        <ProDialog
             v-model="jsonDialogVisible"
             title="编辑级联树形 JSON 数据"
-            width="560px"
+            sub-title="配置级联选择器各级选项节点的 value 与 label 树形数据源"
+            width="580px"
             append-to-body
-            :close-on-click-modal="false"
+            :on-confirm="saveJsonTree"
+            confirm-text="确认保存"
+            cancel-text="取消"
         >
             <div class="json-editor-content">
                 <div class="editor-tips">
@@ -104,14 +107,10 @@
                     {{ jsonError }}
                 </div>
             </div>
-            <template #footer>
-                <div class="dialog-footer">
-                    <el-button size="small" @click="formatJson">格式化</el-button>
-                    <el-button size="small" @click="jsonDialogVisible = false">取消</el-button>
-                    <el-button size="small" type="primary" @click="saveJsonTree">确认保存</el-button>
-                </div>
+            <template #footer-left>
+                <el-button size="default" @click="formatJson">格式化 JSON</el-button>
             </template>
-        </el-dialog>
+        </ProDialog>
     </div>
 </template>
 
@@ -282,13 +281,15 @@ const saveJsonTree = () => {
         const parsed = JSON.parse(rawJsonText.value);
         if (!Array.isArray(parsed)) {
             jsonError.value = '树形数据根节点必须为数组格式 [ ... ]';
-            return;
+            return false;
         }
         props.propsData.options = parsed;
         jsonDialogVisible.value = false;
         ElMessage.success('层级树数据更新成功');
+        return true;
     } catch (e) {
         jsonError.value = `JSON 解析错误: ${e.message}`;
+        return false;
     }
 };
 </script>

@@ -203,15 +203,16 @@
             </div>
         </div>
     
-        <!-- 4. 🚀 真机全屏实时预览弹窗 (Preview Modal) -->
-        <!-- 4. 🚀 真机全屏实时预览弹窗 (Preview Modal) -->
-        <el-dialog
+        <!-- 4. 🚀 真机全屏实时预览弹窗 (ProDialog) -->
+        <ProDialog
             v-model="previewVisible"
             :title="previewDeviceMode === 'mobile' ? '真机运行预览 (iPhone 移动端仿真)' : '真机运行预览 (PC 桌面端)'"
+            sub-title="真实运行态沙箱环境：模拟必填校验、公式联动与 API 数据请求"
             :width="previewDeviceMode === 'mobile' ? '560px' : '900px'"
-            top="4vh"
             destroy-on-close
             class="real-form-preview-dialog"
+            :show-cancel="false"
+            :show-confirm="false"
         >
             <div class="preview-banner-tip">
                 <div class="preview-tip-text">
@@ -312,7 +313,7 @@
                     </div>
                 </div>
             </template>
-        </el-dialog>
+        </ProDialog>
     </div>
 </template>
 

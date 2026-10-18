@@ -1,49 +1,54 @@
 <template>
-    <div>
-        <!--首页 -->
-        <div class="mb-4">
-            <el-button
-                type="primary"
-                plain
-                @click="
-                    dialogVisible = true;
-                    resetForm();
-                "
-                >新增组织</el-button
-            >
-        </div>
-        <!-- 生成一个菜单树表格 -->
-        <el-table :data="treeData" style="width: 100%; margin-bottom: 20px" row-key="organid" border default-expand-all>
-            <el-table-column prop="organame" label="组织名称" min-width="170" />
-            <el-table-column prop="orgcode" label="组织编码" width="130" />
-            <el-table-column prop="orgType" label="类型" width="110" align="center">
-                <template #default="scope">
-                    <el-tag :type="scope.row.orgType === 'company' ? 'success' : 'info'" size="small">
-                        {{ scope.row.orgType === 'company' ? '法人公司' : '部门中心' }}
-                    </el-tag>
-                </template>
-            </el-table-column>
-            <el-table-column prop="legalEntityName" label="法定全称 (发票购买方抬头)" min-width="190">
-                <template #default="scope">
-                    <span v-if="scope.row.legalEntityName" style="font-weight: 500;">{{ scope.row.legalEntityName }}</span>
-                    <span v-else style="font-size: 13px">{{ scope.row.orgType === 'company' ? '未设置' : '向上继承上级公司' }}</span>
-                </template>
-            </el-table-column>
-            <el-table-column prop="taxCode" label="统一社会信用代码 (税号)" min-width="190">
-                <template #default="scope">
-                    <span v-if="scope.row.taxCode" style="font-family: monospace; font-size: 13px">{{ scope.row.taxCode }}</span>
-                    <span v-else style="font-size: 13px">{{ scope.row.orgType === 'company' ? '未设置' : '向上继承上级公司' }}</span>
-                </template>
-            </el-table-column>
-            <el-table-column label="操作" width="140" align="left">
-                <template #default="scope">
-                    <el-button v-if="scope.row.organid" type="primary" link @click="handleEdit(scope.row.organid)">编辑</el-button>
-                    <el-button v-if="scope.row.organid" type="primary" link @click="handleDelete(scope.row.organid)">删除</el-button>
-                </template>
-            </el-table-column>
-        </el-table>
+    <div class="management-container">
+        <!-- 接入大厂级超级表格 ProTable (支持树形层级展开) -->
+        <ProTable
+            ref="proTableRef"
+            title="组织架构与法人主体"
+            :columns="columns"
+            :request-api="getOrganTableData"
+            row-key="organid"
+            :pagination="false"
+            :is-show-search="false"
+            :border="true"
+        >
+            <!-- 头部操作按钮区域 -->
+            <template #tableHeader>
+                <el-button type="primary" :icon="Plus" @click="handleAdd">新增组织</el-button>
+            </template>
 
-        <el-dialog v-model="dialogVisible" :title="form.organid ? '修改组织' : '新增组织'" width="680px" :before-close="handleClose">
+            <!-- 组织类型标签 -->
+            <template #orgType="{ row }">
+                <el-tag :type="row.orgType === 'company' ? 'success' : 'info'" disable-transitions>
+                    {{ row.orgType === 'company' ? '法人公司' : '部门中心' }}
+                </el-tag>
+            </template>
+
+            <!-- 发票抬头 -->
+            <template #legalEntityName="{ row }">
+                <span v-if="row.legalEntityName" style="font-weight: 500;">{{ row.legalEntityName }}</span>
+                <span v-else style="font-size: 13px" class="text-gray-400">{{ row.orgType === 'company' ? '未设置' : '向上继承上级公司' }}</span>
+            </template>
+
+            <!-- 统一社会信用代码 -->
+            <template #taxCode="{ row }">
+                <span v-if="row.taxCode" style="font-family: monospace; font-size: 13px;">{{ row.taxCode }}</span>
+                <span v-else style="font-size: 13px" class="text-gray-400">{{ row.orgType === 'company' ? '未设置' : '向上继承上级公司' }}</span>
+            </template>
+
+            <!-- 操作列 -->
+            <template #operation="{ row }">
+                <el-button v-if="row.organid" type="primary" link @click="handleEdit(row.organid)">编辑</el-button>
+                <el-button v-if="row.organid" type="danger" link @click="handleDelete(row.organid)">删除</el-button>
+            </template>
+        </ProTable>
+
+        <ProDialog
+            v-model="dialogVisible"
+            :title="form.organid ? '修改组织架构' : '新增组织架构'"
+            sub-title="维护部门中心或法人公司主体及发票纳税信息"
+            width="680px"
+            :on-confirm="() => onSubmit(ruleFormRef)"
+        >
             <el-form :model="form" :label-width="formLabelWidth" :rules="rules" ref="ruleFormRef">
                 <el-row>
                     <el-col :xs="24" :sm="24" :md="24" :lg="24" :xl="24">
@@ -131,23 +136,34 @@
                     </el-col>
                 </el-row>
             </el-form>
-            <template #footer>
-                <div class="dialog-footer">
-                    <el-button @click="dialogVisible = false">取消</el-button>
-                    <el-button type="primary" @click="onSubmit(ruleFormRef)"> 确定 </el-button>
-                </div>
-            </template>
-        </el-dialog>
+        </ProDialog>
     </div>
 </template>
 
 <script setup>
 import { ref, reactive, onMounted, getCurrentInstance } from 'vue';
-import useUserInfoStore from '@/stores/user'; //引入仓库
-import { storeToRefs } from 'pinia'; //引入pinia转换
+import { Plus } from '@element-plus/icons-vue';
+import useUserInfoStore from '@/stores/user';
+import { storeToRefs } from 'pinia';
+
 const { proxy } = getCurrentInstance();
+const proTableRef = ref(null);
 const dialogVisible = ref(false);
 const userInfoStore = useUserInfoStore();
+
+const columns = [
+    { prop: 'organame', label: '组织名称', minWidth: 180 },
+    { prop: 'orgcode', label: '组织编码', width: 140 },
+    { prop: 'orgType', label: '类型', width: 120, align: 'center' },
+    { prop: 'legalEntityName', label: '法定全称 (发票购买方抬头)', minWidth: 200 },
+    { prop: 'taxCode', label: '统一社会信用代码 (税号)', minWidth: 200 },
+    { prop: 'operation', label: '操作', width: 140, fixed: 'right', align: 'left' },
+];
+
+const handleAdd = () => {
+    resetForm();
+    dialogVisible.value = true;
+};
 
 const { userInfo } = storeToRefs(userInfoStore); // 响应式
 const formLabelWidth = '110px';
@@ -237,7 +253,7 @@ const onSubmit = formEl => {
                 if (res.code == 200) {
                     proxy.$message.success(res.message);
                     dialogVisible.value = false;
-                    getOrganizationList();
+                    proTableRef.value?.refresh();
                 }
             });
         } else {
@@ -249,7 +265,7 @@ const onSubmit = formEl => {
             if (data.code == 200) {
                 dialogVisible.value = false;
                 proxy.$message.success(data.message);
-                getOrganizationList();
+                proTableRef.value?.refresh();
             }
         }
     });
@@ -259,13 +275,13 @@ const onSubmit = formEl => {
 const handleDelete = async row => {
     proxy.$messageBox
         .confirm('确定要删除吗?', '提示', {
-            type: '提示',
+            type: 'warning',
         })
         .then(async () => {
             const data = await proxy.$api.deleteOrganization({ id: row });
             if (data.code == 200) {
                 proxy.$message.success(data.message);
-                getOrganizationList();
+                proTableRef.value?.refresh();
             }
         });
 };
@@ -285,12 +301,13 @@ const handleEdit = async row => {
     }
 };
 
-// 获取
-const getOrganizationList = async () => {
+// ProTable 数据请求驱动：拉取组织架构并同步树形下拉数据
+const getOrganTableData = async () => {
     const res = await proxy.$api.getOrganizationList();
     const treedata = getParentMenuTree(res.data);
     treeDatas.value = treedata;
     treeData.value = res.data;
+    return res;
 };
 
 const getParentMenuTree = tableTreeDdata => {
@@ -302,14 +319,6 @@ const getParentMenuTree = tableTreeDdata => {
     };
     return [parent];
 };
-
-onMounted(async () => {
-    try {
-        await getOrganizationList();
-    } catch (error) {
-        console.error('失败信息:', error);
-    }
-});
 </script>
 <style scoped>
 .iconsStyle {

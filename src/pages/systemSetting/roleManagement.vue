@@ -1,87 +1,93 @@
 <template>
-    <div class="table">
-        <!-- <table-search :searchList="searchList" @search="search" @reset="reset"></table-search> -->
-        <div class="table-box page-main">
-            <div class="table-btn" style="margin-bottom: 20px">
-                <el-button type="primary" plain @click="add">新增</el-button>
-                <!-- <el-button style="width: 100px" plain type="primary" @click="getOrganPostCustMsg">角色人员全览</el-button> -->
-            </div>
-            <el-table :data="tableData" style="width: 100%; margin-bottom: 20px" border>
-                <el-table-column label="角色名称" prop="name"></el-table-column>
-                <el-table-column label="角色是否有效" prop="states">
-                    <template v-slot="scope">
-                        <el-icon class="iconS">
-                            <component :class="scope.row.states == 1 ? 'el-icon-check' : 'el-icon-close'" :is="scope.row.states == 1 ? 'Check' : 'Close'"></component>
-                        </el-icon>
-                    </template>
-                </el-table-column>
-                <el-table-column label="操作" fixed="right" width="180">
-                    <template v-slot="scope">
-                        <el-button type="primary" link @click="editItem(scope.row.id)">编辑</el-button>
-                        <el-button type="primary" link @click="selectResource(scope.row.id)">分配资源</el-button>
-                    </template>
-                </el-table-column>
-            </el-table>
+    <div class="role-management-container">
+        <!-- 接入大厂级超级表格 ProTable -->
+        <ProTable
+            ref="proTableRef"
+            title="角色权限管理"
+            :columns="columns"
+            :request-api="proxy.$api.getRolsList"
+            row-key="id"
+            :pagination="false"
+            :is-show-search="false"
+            :border="true"
+        >
+            <!-- 头部操作按钮区域 -->
+            <template #tableHeader>
+                <el-button type="primary" :icon="Plus" @click="add">新增角色</el-button>
+            </template>
 
-            <!-- <el-pagination
-                style="padding: 16px"
-                background
-                @size-change="handleSizeChange"
-                @current-change="handleCurrentChange"
-                :current-page="currentPage"
-                :page-sizes="[10, 20, 50, 100]"
-                :page-size="pageSize"
-                layout="total, sizes,->, prev, pager, next, jumper"
-                :total="total"
-            ></el-pagination> -->
+            <!-- 状态列插槽 -->
+            <template #states="{ row }">
+                <el-tag :type="row.states == 1 ? 'success' : 'danger'" disable-transitions>
+                    {{ row.states == 1 ? '正常启用' : '已禁用' }}
+                </el-tag>
+            </template>
 
-            <el-dialog :title="title" width="700px" v-model="dialogVisible" :before-close="handleClose">
-                <el-form :model="ruleForm" :rules="rules" label-width="100px" class="demo-ruleForm" ref="ruleFormRef">
-                    <el-row>
-                        <el-col :xs="24" :sm="24" :md="24" :lg="24" :xl="24">
-                            <el-form-item label="角色名称" prop="name">
-                                <el-input v-model="ruleForm.name" placeholder="请输入" maxLength="10"></el-input>
-                            </el-form-item>
-                        </el-col>
-                        <el-col :xs="24" :sm="24" :md="24" :lg="24" :xl="24" v-if="ruleForm.states !== 2">
-                            <el-form-item label="是否有效" prop="states">
-                                <el-radio v-model="ruleForm.states" :value="1" border>是</el-radio>
-                                <el-radio v-model="ruleForm.states" :value="0" border>否</el-radio>
-                            </el-form-item>
-                        </el-col>
-                    </el-row>
-                </el-form>
-                <template #footer>
-                    <el-button @click="handleClose">取消</el-button>
-                    <el-button type="primary" @click="submitForm(ruleFormRef)">保存</el-button>
-                </template>
-            </el-dialog>
-            <el-dialog title="分配资源" width="700px" v-model="dialogVisibleResource">
-                <el-form v-if="dialogVisibleResource" :model="ruleData" label-width="100px" class="demo-ruleForm">
-                    <el-form-item label="资源权限">
-                        <el-checkbox v-model="ruleData.menucheckstrictly" :true-value="1" :false-label="0">父子联动</el-checkbox>
+            <!-- 操作列插槽 -->
+            <template #operation="{ row }">
+                <el-button type="primary" link @click="editItem(row.id)">编辑</el-button>
+                <el-button type="primary" link @click="selectResource(row.id)">分配资源</el-button>
+            </template>
+        </ProTable>
+
+        <!-- 1. 新增 / 修改角色弹窗 -->
+        <ProDialog
+            v-model="dialogVisible"
+            :title="title"
+            width="600px"
+            :on-confirm="() => submitForm(ruleFormRef)"
+        >
+            <el-form :model="ruleForm" :rules="rules" label-width="90px" ref="ruleFormRef">
+                <el-row :gutter="16">
+                    <el-col :span="24">
+                        <el-form-item label="角色名称" prop="name">
+                            <el-input v-model="ruleForm.name" placeholder="请输入角色名称" maxlength="20" clearable />
+                        </el-form-item>
+                    </el-col>
+                    <el-col :span="24" v-if="ruleForm.states !== 2">
+                        <el-form-item label="角色状态" prop="states">
+                            <el-radio-group v-model="ruleForm.states">
+                                <el-radio :value="1">正常启用</el-radio>
+                                <el-radio :value="0">禁用停用</el-radio>
+                            </el-radio-group>
+                        </el-form-item>
+                    </el-col>
+                </el-row>
+            </el-form>
+        </ProDialog>
+
+        <!-- 2. 分配资源权限弹窗 -->
+        <ProDialog
+            v-model="dialogVisibleResource"
+            title="分配菜单与操作资源"
+            sub-title="勾选角色所属的菜单展示与操作权限"
+            width="620px"
+            :on-confirm="submitResource"
+        >
+            <div class="resource-dialog-box">
+                <el-form v-if="dialogVisibleResource" :model="ruleData" label-width="100px" class="mb-3">
+                    <el-form-item label="级联关联模式">
+                        <el-checkbox v-model="ruleData.menucheckstrictly" :true-value="1" :false-label="0">
+                            启用父子联动 (选中父级自动全选子级)
+                        </el-checkbox>
                     </el-form-item>
                 </el-form>
-                <el-tree
-                    style="height: 400px; overflow: auto"
-                    ref="tree"
-                    :data="resourceList"
-                    show-checkbox
-                    node-key="id"
-                    :props="{
-                        children: 'children',
-                        label: 'name',
-                    }"
-                    :check-strictly="!ruleData.menucheckstrictly"
-                >
-                </el-tree>
 
-                <template #footer>
-                    <el-button @click="dialogVisibleResource = false">取消</el-button>
-                    <el-button type="primary" @click="submitResource(ruleFormRef)">保存</el-button>
-                </template>
-            </el-dialog>
-        </div>
+                <div class="resource-tree-wrap">
+                    <el-tree
+                        ref="tree"
+                        :data="resourceList"
+                        show-checkbox
+                        node-key="id"
+                        :props="{
+                            children: 'children',
+                            label: 'name',
+                        }"
+                        :check-strictly="!ruleData.menucheckstrictly"
+                    />
+                </div>
+            </div>
+        </ProDialog>
     </div>
 </template>
 
@@ -90,14 +96,22 @@ defineOptions({
     name: 'roleManagement',
 });
 import { ref, reactive, onMounted, getCurrentInstance, nextTick } from 'vue';
+import { Plus } from '@element-plus/icons-vue';
+
 const { proxy } = getCurrentInstance();
 
+const proTableRef = ref(null);
 const title = ref('');
 const dialogVisible = ref(false);
 const formTemplate = { name: '', states: 1 };
 let ruleForm = reactive({ ...formTemplate });
-const tableData = ref([]);
-const loading = ref(false);
+
+const columns = [
+    { prop: 'name', label: '角色名称', minWidth: 160 },
+    { prop: 'states', label: '角色状态', width: 140, align: 'center' },
+    { prop: 'operation', label: '操作', width: 180, fixed: 'right', align: 'center' },
+];
+
 const dialogVisibleResource = ref(false);
 const resourceList = ref([]);
 const ruleData = reactive({ menucheckstrictly: 0 });
@@ -105,15 +119,13 @@ const ruleFormRef = ref();
 const rules = {
     name: [{ required: true, message: '请输入角色名称', trigger: 'blur' }],
 };
-const tree = ref(null); // 用 ref 定义树组件的引用
+const tree = ref(null);
+
 const add = () => {
     title.value = '新增角色';
-    dialogVisible.value = true;
     Object.assign(ruleForm, formTemplate);
-};
-
-const handleClose = () => {
-    dialogVisible.value = false;
+    delete ruleForm.id;
+    dialogVisible.value = true;
 };
 
 const selectResource = async id => {
@@ -121,67 +133,46 @@ const selectResource = async id => {
     const res = await proxy.$api.getRoleMenus({ id });
     dialogVisibleResource.value = true;
     nextTick(() => {
-        tree.value.setCheckedKeys(res.data);
-    });
-};
-const submitResource = () => {
-    let treeArray = tree.value.getCheckedKeys();
-    let treeArray1 = tree.value.getHalfCheckedKeys();
-    if (!treeArray.length) {
-        treeArray = [];
-    } else {
-        treeArray = treeArray.concat(treeArray1);
-    }
-    proxy.$api.assignMenusToRole({ id: ruleForm.id, menuIds: treeArray || [] }).then(res => {
-        proxy.$message.success(res.message);
-        dialogVisibleResource.value = false;
-    });
-};
-
-const submitForm = formEl => {
-    formEl.validate(async valid => {
-        if (valid) {
-            if (title.value === '修改角色') {
-                proxy.$api.updateRoles(ruleForm).then(() => {
-                    dialogVisible.value = false;
-                    getTableData();
-                });
-            } else {
-                proxy.$api.addRoles(ruleForm).then(() => {
-                    dialogVisible.value = false;
-                    getTableData();
-                });
-            }
-        } else {
-            return false;
+        if (tree.value) {
+            tree.value.setCheckedKeys(res.data || []);
         }
     });
 };
 
+const submitResource = async () => {
+    if (!tree.value) return;
+    let treeArray = tree.value.getCheckedKeys();
+    let treeArray1 = tree.value.getHalfCheckedKeys();
+    treeArray = treeArray.concat(treeArray1);
+    
+    const res = await proxy.$api.assignMenusToRole({ id: ruleForm.id, menuIds: treeArray || [] });
+    proxy.$message.success(res?.message || '资源分配成功');
+    dialogVisibleResource.value = false;
+};
+
+const submitForm = async formEl => {
+    if (!formEl) return false;
+    const valid = await formEl.validate();
+    if (!valid) return false;
+
+    if (title.value === '修改角色') {
+        await proxy.$api.updateRoles(ruleForm);
+    } else {
+        await proxy.$api.addRoles(ruleForm);
+    }
+    proxy.$message.success(`${title.value}成功`);
+    dialogVisible.value = false;
+    proTableRef.value?.refresh();
+};
+
 const editItem = async id => {
     title.value = '修改角色';
-    dialogVisible.value = true;
     const data = await proxy.$api.detailRoles({ id });
     Object.assign(ruleForm, data.data);
+    dialogVisible.value = true;
 };
-
-const getTableData = async () => {
-    loading.value = true;
-    const data = await proxy.$api.getRolsList();
-    tableData.value = data.data;
-};
-// const handleSizeChange = val => {
-//     pageSize.value = val;
-//     getTableData();
-// };
-
-// const handleCurrentChange = val => {
-//     currentPage.value = val;
-//     getTableData();
-// };
 
 onMounted(() => {
-    getTableData();
     proxy.$api.menus().then(res => {
         resourceList.value = res.data;
     });
@@ -189,17 +180,17 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.el-icon-search {
-    cursor: pointer;
-}
-.iconS {
-    font-size: 22px;
-}
-.el-icon-check {
-    color: #00ff00;
+.role-management-container {
+    height: 100%;
+    width: 100%;
 }
 
-.el-icon-close {
-    color: #ff0000;
+.resource-tree-wrap {
+    max-height: 380px;
+    overflow-y: auto;
+    border: 1px solid var(--el-border-color-lighter);
+    border-radius: 6px;
+    padding: 10px;
+    background: var(--el-fill-color-blank);
 }
 </style>

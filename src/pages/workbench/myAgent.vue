@@ -1,47 +1,37 @@
 <template>
-    <!-- 我的代办 -->
-    <div>
-        <!-- <div class="mb-4">
-            <el-button plain type="primary" @click="govueFlow()">新增</el-button>
-        </div> -->
-        <el-table :data="tableData" border style="width: 100%">
-            <el-table-column prop="title" label="审批名称"> </el-table-column>
-            <el-table-column prop="userName" label="发起人/申请人"> </el-table-column>
-            <el-table-column label="任务类型" width="130">
-                <template #default="scope">
-                    <el-tag v-if="scope.row.status == 1 && scope.row.formData?._isSuspended" type="warning" effect="dark">
-                        ⚠️ 待特批放行
-                    </el-tag>
-                    <el-tag v-else type="primary" effect="plain">
-                        常规审批
-                    </el-tag>
-                </template>
-            </el-table-column>
-            <!-- <el-table-column prop="code" label="code"> </el-table-column> -->
-            <el-table-column prop="created_at" label="创建时间" width="180"> </el-table-column>
-            <el-table-column prop="updated_at" label="更新时间" width="180"> </el-table-column>
-            <!-- 操作 -->
-            <el-table-column label="操作" width="130" fixed="right">
-                <template #default="scope">
-                    <el-button :type="(scope.row.status == 1 && scope.row.formData?._isSuspended) ? 'warning' : 'primary'" link @click="govueFlow(scope.row)">
-                        {{ (scope.row.status == 1 && scope.row.formData?._isSuspended) ? '特批放行' : '审批' }}
-                    </el-button>
-                    <!-- <el-button type="primary" link @click="handleDelete(scope.row)">删除</el-button> -->
-                </template>
-            </el-table-column>
-        </el-table>
-        <el-pagination
-            style="padding: 16px"
-            background
-            @size-change="handleSizeChange"
-            @current-change="handleCurrentChange"
-            :current-page="currentPage"
-            :page-sizes="[10, 20, 50, 100]"
-            :page-size="pageSize"
-            layout="total, sizes,->, prev, pager, next, jumper"
-            :total="total"
-        ></el-pagination>
-        <!-- 审批相关内容 -->
+    <div class="my-agent-container">
+        <!-- 接入大厂级超级表格 ProTable (支持响应式搜索、状态过滤、分页与局部静默刷新) -->
+        <ProTable
+            ref="proTableRef"
+            title="我的待办审批"
+            :columns="columns"
+            :request-api="getTodoList"
+            row-key="id"
+            :border="true"
+        >
+            <!-- 任务类型标签 -->
+            <template #taskType="{ row }">
+                <el-tag v-if="row.status == 1 && row.formData?._isSuspended" type="warning" effect="dark">
+                    ⚠️ 待特批放行
+                </el-tag>
+                <el-tag v-else type="primary" effect="plain">
+                    常规审批
+                </el-tag>
+            </template>
+
+            <!-- 操作列 -->
+            <template #operation="{ row }">
+                <el-button
+                    :type="(row.status == 1 && row.formData?._isSuspended) ? 'warning' : 'primary'"
+                    link
+                    @click="govueFlow(row)"
+                >
+                    {{ (row.status == 1 && row.formData?._isSuspended) ? '特批放行' : '审批' }}
+                </el-button>
+            </template>
+        </ProTable>
+
+        <!-- 审批抽屉 (基于 ProDrawer 标准化封装) -->
         <ApprovalDrawer
             v-if="showCodeDialog"
             v-model:visible="showCodeDialog"
@@ -56,266 +46,111 @@
             @close="showCodeDialog = false"
             @submit="handleSubmitApproval"
         />
-        <!-- <el-drawer v-model="showCodeDialog" :title="formName" direction="rtl" size="60%" class="form-drawer">
-            <div class="drawer-header">
-                <div class="form-title">
-                    <el-tag type="primary">审批中</el-tag>
-                </div>
-            </div>
-
-            <el-tabs type="border-card" v-model="activeTab" class="form-tabs">
-                <el-tab-pane label="表单信息" name="form">
-                    <div class="form-content">
-                        <div class="approval-section">
-                            <div class="approval-history">
-                                <div class="approval-item">
-                                    <div class="approval-actions">
-                                        <el-radio-group v-model="approvalStatus">
-                                            <el-radio label="2">同意</el-radio>
-                                            <el-radio label="3">拒绝</el-radio>
-                                        </el-radio-group>
-                                    </div>
-                                </div>
-                                <div class="approval-item current">
-                                    <div class="approval-user">
-                                        <span>审批意见</span>
-                                    </div>
-                                    <el-input v-model="currentApproval" type="textarea" placeholder="请输入审批意见..." :rows="3" class="approval-input" />
-                                </div>
-                            </div>
-                            <div class="submit-section">
-                                <el-button type="primary" @click="handleSubmitApproval()">提交审批</el-button>
-                            </div>
-                        </div>
-                        <el-divider />
-                        <div class="application-section" style="padding-left: 10px">
-                            <h3>申请信息</h3>
-                            <DynamicForm :schema="formSchema" :ui-config="uiConfig" v-model="formData" class="dynamic-form" />
-                        </div>
-                    </div>
-                </el-tab-pane>
-                <el-tab-pane label="审批记录" name="workflow">
-                    <div class="workflow-content">
-                        <div class="workflow-steps">
-                            <el-steps :active="activeStep" direction="vertical">
-                                <el-step
-                                    v-for="(step, index) in steps"
-                                    :key="step.nodeId"
-                                    :title="step.title"
-                                    :description="getDescription(step, index)"
-                                    :status="getStepStatus(step.status, index)"
-                                />
-                            </el-steps>
-                        </div>
-                    </div>
-                </el-tab-pane>
-                <el-tab-pane lazy label="审批流程图" name="workflow1">
-                    <LogicFlow :workflowId="workflowId" :appId="rowId"></LogicFlow>
-                </el-tab-pane>
-            </el-tabs>
-        </el-drawer> -->
     </div>
 </template>
 
 <script setup>
-import { ref, onMounted, getCurrentInstance, reactive, toRefs, watch, computed } from 'vue';
+import { ref, getCurrentInstance } from 'vue';
 import ApprovalDrawer from './components/ApprovalDrawer.vue';
-import DynamicForm from '@/pages/formDesign/components/DynamicForm.vue';
-import LogicFlow from '@/pages/workflowDesigner/logicFlow.vue';
-import useUserInfoStore from '@/stores/user.js'; //引入仓库
+import useUserInfoStore from '@/stores/user.js';
+
 const userInfoStore = useUserInfoStore();
 const { proxy } = getCurrentInstance();
-const tableData = ref([]);
-const currentPage = ref(1);
-const pageSize = ref(10);
-const total = ref(0);
+const proTableRef = ref(null);
+
 const showCodeDialog = ref(false);
 const formSchema = ref({});
 const uiConfig = ref({});
 const formName = ref('');
 const formData = ref({});
-const currentApproval = ref('');
-const activeTab = ref('form');
-const approvalStatus = ref('2');
-const rowId = ref({});
-const instance = ref([]);
-const steps = ref([]);
+const rowId = ref(null);
 const workflowId = ref('');
 
-// 计算当前激活的步骤
-// const activeStep = computed(() => {
-//     console.log('instance.value', instance.value, steps.value);
-//     const currentIndex = steps.value.findIndex(step => step.nodeId == instance.value.currentNodeId);
-//     return currentIndex >= 0 ? currentIndex : steps.value.length;
-// });
+// 表格列定义
+const columns = [
+    { type: 'index', label: '#', width: 60, align: 'center' },
+    {
+        prop: 'title',
+        label: '审批名称',
+        minWidth: 180,
+        search: {
+            el: 'input',
+            props: { placeholder: '请输入审批名称' }
+        }
+    },
+    { prop: 'userName', label: '发起人 / 申请人', minWidth: 140, align: 'center' },
+    { prop: 'taskType', label: '任务类型', width: 140, align: 'center' },
+    { prop: 'created_at', label: '创建时间', width: 180, align: 'center' },
+    { prop: 'updated_at', label: '更新时间', width: 180, align: 'center' },
+    { prop: 'operation', label: '操作', width: 120, fixed: 'right', align: 'center' }
+];
 
-// 提交审批
-const handleSubmitApproval = async objs => {
-    console.log('handleSubmitApproval', objs);
+// ProTable 数据请求驱动适配
+const getTodoList = async (params = {}) => {
+    const { pageNum, pageSize, title } = params;
+    const res = await proxy.$api.getMyTodoInstances({
+        userId: userInfoStore?.userInfo?.id,
+        page: pageNum,
+        pageSize,
+        title
+    });
+    return {
+        data: {
+            list: res?.data?.data || [],
+            total: res?.data?.total || 0
+        }
+    };
+};
+
+// 提交审批结果并刷新表格
+const handleSubmitApproval = async (objs) => {
     try {
         const res = await proxy.$api.approve(objs);
         if (res.code == 200) {
             proxy.$message.success('提交成功');
             showCodeDialog.value = false;
-            getList();
+            proTableRef.value?.refresh();
         }
     } catch (error) {
-        console.log(error);
-    }
-};
-const getApprovalHistory = async () => {
-    try {
-        console.log('rowId.value', rowId.value);
-        const data = await proxy.$api.getApprovalHistory({ id: rowId.value });
-        console.log(data);
-        // approvalHistory.value = data.data;
-        instance.value = data.data;
-        steps.value = data.data.steps;
-        console.log('steps.value', steps.value);
-        if (data.code == 200) {
-        }
-    } catch (error) {
-        console.log(error);
+        console.error('提交审批失败:', error);
     }
 };
 
-const govueFlow = async row => {
+// 打开审批详情
+const govueFlow = async (row) => {
     rowId.value = row.id;
     workflowId.value = row.workflowId;
 
     try {
-        // 1. 列表不再冗余返回 formData/form，分别从 form-design/detail 和 /logic-flow/getApprovalHistory 获取
         const [res, historyRes] = await Promise.all([
             proxy.$api.designDetail({ id: row.formId }),
             proxy.$api.getApprovalHistory({ id: row.id }),
         ]);
 
         if (historyRes?.data?.formSchemaSnapshot) {
-            // 🌟 核心防漂移：优先使用发起审批时固化的表单排版快照，即使后来模板删改字段也绝对不会错乱
             formSchema.value = typeof historyRes.data.formSchemaSnapshot === 'string'
                 ? JSON.parse(historyRes.data.formSchemaSnapshot)
                 : historyRes.data.formSchemaSnapshot;
             uiConfig.value = historyRes.data.uiConfigSnapshot || {};
             formName.value = res?.data?.name || row.title || '待办审批';
         } else if (res?.data) {
-            // 历史存量单据向下兼容
             formSchema.value = res.data.schema ? JSON.parse(res.data.schema) : {};
             uiConfig.value = res.data.ui_config || {};
             formName.value = res.data.name || row.title || '待办审批';
         }
 
         formData.value = historyRes?.data?.formData || {};
-        activeTab.value = 'form';
         showCodeDialog.value = true;
     } catch (err) {
         console.error('获取待办详情失败:', err);
         proxy.$message.error('加载待办详情失败');
     }
 };
-const getList = async () => {
-    const data = await proxy.$api.getMyTodoInstances({ userId: userInfoStore?.userInfo?.id, page: currentPage.value, pageSize: pageSize.value });
-    if (data.code == 200) {
-        tableData.value = data.data.data;
-        total.value = data.data.total;
-    }
-};
-const handleSizeChange = val => {
-    pageSize.value = val;
-    getList();
-};
-
-const handleCurrentChange = val => {
-    currentPage.value = val;
-    getList();
-};
-const handleDelete = async row => {
-    proxy.$messageBox
-        .confirm('确定要删除吗?', '提示', {
-            type: '提示',
-        })
-        .then(async () => {
-            console.log(row);
-            const data = await proxy.$api.logicdelete({ id: row.id });
-            if (data.code == 200) {
-                proxy.$message.success(data.message);
-                getList();
-            }
-        });
-};
-// onMounted
-onMounted(() => {
-    getList();
-    // proxy.$api.getUserInfo().then(res => {
-    //     console.log(res, '..............');
-    // });
-});
 </script>
+
 <style scoped>
-.drawer-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 20px 24px;
-    padding-top: 10px;
-}
-
-.form-title {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-}
-
-.form-title h2 {
-    margin: 0;
-    font-size: 18px;
-    font-weight: 600;
-}
-
-.form-tabs {
-    padding: 0 24px;
-}
-
-.form-content {
-    padding: 14px 0;
-}
-
-.approval-section {
-    margin-bottom: 24px;
-    padding-left: 10px;
-}
-
-.approval-section h3 {
-    margin: 0 0 16px 0;
-    font-size: 16px;
-    font-weight: 600;
-}
-
-.approval-item {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    margin-bottom: 12px;
-}
-
-.approval-item.current {
-    flex-direction: column;
-    gap: 12px;
-}
-
-.approval-user {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-weight: 500;
-}
-
-.approval-actions {
-    display: flex;
-    gap: 8px;
-}
-
-.submit-section {
-    text-align: center;
-    margin-top: 15px;
+.my-agent-container {
+    width: 100%;
+    height: 100%;
 }
 </style>

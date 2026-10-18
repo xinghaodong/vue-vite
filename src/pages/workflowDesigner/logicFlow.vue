@@ -34,9 +34,17 @@
             <!-- 2. LogicFlow 画布容器 -->
             <div ref="containerRef" id="logic-flow-container" class="canvas"></div>
 
-            <!-- 节点 / 连线配置抽屉 -->
-            <el-drawer v-model="drawerVisible" :title="drawerTitle" :with-header="true" size="480px" direction="rtl">
-                <div style="padding: 0 16px 20px 16px">
+            <!-- 节点 / 连线配置抽屉 (ProDrawer) -->
+            <ProDrawer
+                v-model="drawerVisible"
+                :title="drawerTitle"
+                sub-title="配置工作流节点流转属性与分支条件"
+                size="480px"
+                :on-confirm="applyConfig"
+                confirm-text="应用配置"
+                cancel-text="关闭"
+            >
+                <div style="padding: 0 4px 10px 4px">
                     <!-- A. 连线（Edge）配置抽屉 -->
                     <el-form label-position="top" v-if="drawerType === 'edge' && currentEdge">
                         <el-alert v-if="currentEdgeConfig.isFromDiamond" title="排他条件网关分支连线" type="info" :closable="false" show-icon style="margin-bottom: 16px">
@@ -73,10 +81,6 @@
 
                         <el-form-item label="备注">
                             <el-input type="textarea" v-model="currentEdgeConfig.remark" placeholder="请输入备注" />
-                        </el-form-item>
-
-                        <el-form-item>
-                            <el-button type="primary" @click="applyConfig">应用配置</el-button>
                         </el-form-item>
                     </el-form>
 
@@ -227,18 +231,22 @@
                             <el-input type="textarea" v-model="currentNodeConfig.properties.remark" placeholder="请输入备注" />
                         </el-form-item>
 
-                        <el-form-item>
-                            <el-button type="primary" @click="applyConfig">应用配置</el-button>
-                        </el-form-item>
                     </el-form>
                 </div>
-            </el-drawer>
+            </ProDrawer>
 
-            <el-dialog v-model="previewVisible" title="表单预览" width="70%" top="5vh" custom-class="code-dialog">
+            <ProDialog
+                v-model="previewVisible"
+                title="表单设计预览"
+                sub-title="查看关联表单在运行时渲染的动态表单结构与交互样式"
+                width="70%"
+                :show-confirm="false"
+                cancel-text="关闭预览"
+            >
                 <div style="height: 70vh; overflow: auto; padding: 10px; border-radius: 4px">
                     <DynamicForm :schema="formSchema" :ui-config="uiConfig" />
                 </div>
-            </el-dialog>
+            </ProDialog>
         </div>
     </div>
 </template>
@@ -717,7 +725,7 @@ const applyConfig = () => {
         // 2. 节点（Node）配置应用
         if (!currentNode.value?.id) {
             ElMessage.error('当前节点无效');
-            return;
+            return false;
         }
 
         // 🌟 强校验：若为人工审批节点，审批人必选
@@ -725,7 +733,7 @@ const applyConfig = () => {
             const assignees = currentNodeConfig.value.properties.assignees || [];
             if (!Array.isArray(assignees) || assignees.length === 0) {
                 ElMessage.warning('请至少选择一位审批人');
-                return;
+                return false;
             }
             // 批量匹配姓名
             const selectedItems = options.value.filter(opt => assignees.includes(opt.id));
@@ -742,11 +750,11 @@ const applyConfig = () => {
         if (currentNode.value.type === 'ai-agent') {
             if (!currentNodeConfig.value.properties.specialApproverId) {
                 ElMessage.warning('人机协同特批人 (HITL) 为必选项，请选择特批复核人员');
-                return;
+                return false;
             }
             if (!currentNodeConfig.value.properties.amountField) {
                 ElMessage.warning('报销金额字段为必选项，请选择对应表单中的金额字段');
-                return;
+                return false;
             }
         }
         const nodeId = currentNode.value.id;

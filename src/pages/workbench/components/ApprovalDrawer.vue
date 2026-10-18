@@ -1,17 +1,20 @@
-<!-- ApprovalDrawer.vue -->
 <template>
-    <el-drawer :model-value="visible" :title="formName" direction="rtl" size="70%" class="form-drawer" @update:visible="$emit('update:visible', $event)" @close="$emit('close')">
-        <div class="drawer-header">
-            <div class="form-title" style="display: flex; align-items: center; gap: 8px">
-                <el-tag :type="activeStatusTag" size="large" style="min-width: 88px">
-                    <el-icon v-if="status == 0" class="is-loading" style="margin-right: 4px; vertical-align: -1px"><Loading /></el-icon>
-                    {{ activeStatus }}
-                </el-tag>
-                <span v-if="isHitlSuspended && instance?.currentApproverName" style="font-size: 13px; color: var(--el-color-warning); font-weight: 500">
-                    (待特批人 [{{ instance.currentApproverName }}] 审批)
-                </span>
-            </div>
-        </div>
+    <ProDrawer
+        :model-value="visible"
+        :title="formName"
+        :sub-title="isHitlSuspended && instance?.currentApproverName ? `(待特批人 [${instance.currentApproverName}] 审批)` : ''"
+        size="70%"
+        class="form-drawer"
+        :show-footer="false"
+        @update:model-value="$emit('update:visible', $event)"
+        @close="$emit('close')"
+    >
+        <template #header-prefix>
+            <el-tag :type="activeStatusTag" size="default" style="margin-right: 8px">
+                <el-icon v-if="status == 0" class="is-loading" style="margin-right: 4px; vertical-align: -1px"><Loading /></el-icon>
+                {{ activeStatus }}
+            </el-tag>
+        </template>
         <el-tabs type="border-card" v-model="activeTab" class="form-tabs">
             <el-tab-pane label="表单信息" name="form">
                 <div class="form-content">
@@ -239,7 +242,7 @@
                 <LogicFlow :workflow-id="workflowId" :app-id="rowId" />
             </el-tab-pane>
         </el-tabs>
-    </el-drawer>
+    </ProDrawer>
 </template>
 
 <script setup>

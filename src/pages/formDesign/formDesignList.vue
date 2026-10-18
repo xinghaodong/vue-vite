@@ -1,96 +1,143 @@
 <template>
-    <div>
-        <div class="mb-4">
-            <el-button plain type="primary" @click="govueFlow()">新增</el-button>
-        </div>
-        <el-table :data="tableData" border style="width: 100%">
-            <el-table-column prop="name" label="表单名称"> </el-table-column>
-            <!-- 状态 -->
-            <el-table-column prop="status" label="状态">
-                <template #default="scope">
-                    <span v-if="scope.row.status == 1">启用</span>
-                    <span v-if="scope.row.status == 2">禁用</span>
-                </template>
-            </el-table-column>
-            <!-- <el-table-column prop="code" label="code"> </el-table-column> -->
-            <el-table-column prop="created_at" label="创建时间" width="180"> </el-table-column>
-            <el-table-column prop="updated_at" label="更新时间" width="180"> </el-table-column>
-            <!-- 操作 -->
-            <el-table-column label="操作" width="260" fixed="right">
-                <template #default="scope">
-                    <el-button type="primary" link @click="startOrStop(scope.row)">{{ scope.row.status == 2 ? '启用' : '禁用' }}</el-button>
-                    <el-button type="primary" link @click="handlePreview(scope.row)">预览</el-button>
-                    <el-button v-if="scope.row.status == 1" type="primary" link @click="handlePreview(scope.row, 1)">发起</el-button>
-                    <el-button type="primary" link @click="govueFlow(scope.row)">编辑</el-button>
-                    <el-button type="primary" link @click="handleDelete(scope.row)">删除</el-button>
-                </template>
-            </el-table-column>
-        </el-table>
-        <el-pagination
-            style="padding: 16px"
-            background
-            @size-change="handleSizeChange"
-            @current-change="handleCurrentChange"
-            :current-page="currentPage"
-            :page-sizes="[10, 20, 50, 100]"
-            :page-size="pageSize"
-            layout="total, sizes,->, prev, pager, next, jumper"
-            :total="total"
-        ></el-pagination>
-        <el-dialog v-model="showCodeDialog" :title="isInitiate ? '发起审批' : '表单预览'" width="70%" top="5vh" custom-class="code-dialog">
-            <div style="height: 70vh; overflow: auto; padding: 10px; border-radius: 4px">
-                <h3>{{ formName }}</h3>
-                <DynamicForm v-if="showCodeDialog" ref="dynamicFormRef" :noApproval="noApproval" :schema="formSchema" :ui-config="uiConfig" v-model="formData" />
-            </div>
-            <template #footer>
-                <span class="dialog-footer">
-                    <el-select v-if="isInitiate && workflowList.length > 1" v-model="selectedWorkflowId" placeholder="请选择审批流程" style="width: 240px; margin-right: 12px">
-                        <el-option v-for="w in workflowList" :key="w.id" :label="w.name" :value="w.id" />
-                    </el-select>
-                    <el-button @click="showCodeDialog = false">关闭</el-button>
-                    <el-button type="primary" @click="handleInitiate" v-if="isInitiate">发起</el-button>
-                </span>
+    <div class="form-design-list-container">
+        <!-- 接入大厂级超级表格 ProTable -->
+        <ProTable
+            ref="proTableRef"
+            title="表单模型管理"
+            :columns="columns"
+            :request-api="getFormDesignList"
+            row-key="id"
+            :border="true"
+        >
+            <!-- 头部操作按钮区域 -->
+            <template #tableHeader>
+                <el-button type="primary" :icon="Plus" @click="govueFlow()">新增表单</el-button>
             </template>
-        </el-dialog>
+
+            <!-- 状态插槽 -->
+            <template #status="{ row }">
+                <el-tag :type="row.status == 1 ? 'success' : 'info'">
+                    {{ row.status == 1 ? '启用' : '禁用' }}
+                </el-tag>
+            </template>
+
+            <!-- 操作列 -->
+            <template #operation="{ row }">
+                <el-button type="primary" link @click="startOrStop(row)">
+                    {{ row.status == 2 ? '启用' : '禁用' }}
+                </el-button>
+                <el-button type="primary" link @click="handlePreview(row)">预览</el-button>
+                <el-button v-if="row.status == 1" type="success" link @click="handlePreview(row, 1)">发起</el-button>
+                <el-button type="primary" link @click="govueFlow(row)">编辑</el-button>
+                <el-button type="danger" link @click="handleDelete(row)">删除</el-button>
+            </template>
+        </ProTable>
+
+        <!-- 表单预览 / 发起审批 ProDialog -->
+        <ProDialog
+            v-model="showCodeDialog"
+            :title="isInitiate ? '发起审批流程' : '表单结构预览'"
+            :sub-title="isInitiate ? '根据配置填报业务数据并提交进入工作流引擎' : '预览表单渲染排版效果与交互组件'"
+            width="750px"
+            :show-confirm="isInitiate"
+            confirm-text="确认发起"
+            cancel-text="关闭"
+            :on-confirm="handleInitiate"
+        >
+            <div class="preview-scroll-box">
+                <h3 class="form-preview-title">{{ formName }}</h3>
+                <DynamicForm
+                    v-if="showCodeDialog"
+                    ref="dynamicFormRef"
+                    :noApproval="noApproval"
+                    :schema="formSchema"
+                    :ui-config="uiConfig"
+                    v-model="formData"
+                />
+            </div>
+
+            <!-- 发起流程时的左下角流程选择下拉 -->
+            <template #footer-left v-if="isInitiate && workflowList.length > 1">
+                <el-select
+                    v-model="selectedWorkflowId"
+                    placeholder="请选择审批流程"
+                    style="width: 240px"
+                >
+                    <el-option v-for="w in workflowList" :key="w.id" :label="w.name" :value="w.id" />
+                </el-select>
+            </template>
+        </ProDialog>
     </div>
 </template>
 
 <script setup>
-import { ref, onMounted, getCurrentInstance } from 'vue';
+import { ref, getCurrentInstance } from 'vue';
+import { Plus } from '@element-plus/icons-vue';
 import DynamicForm from './components/DynamicForm.vue';
-import useUserInfoStore from '@/stores/user.js'; //引入仓库
+import useUserInfoStore from '@/stores/user.js';
+
 const userInfoStore = useUserInfoStore();
 const { proxy } = getCurrentInstance();
-const tableData = ref([]);
-const currentPage = ref(1);
-const pageSize = ref(10);
-const total = ref(0);
+const proTableRef = ref(null);
+
 const showCodeDialog = ref(false);
-const formSchema = ref([]); // 从接口获取的 schema
-const uiConfig = ref({}); // 从接口获取的 ui_config
-const formData = ref({}); // 表单数据
+const formSchema = ref([]);
+const uiConfig = ref({});
+const formData = ref({});
 const formName = ref('');
 const formId = ref('');
 
-const isInitiate = ref(false); // 是否是发起流程
+const isInitiate = ref(false);
 const noApproval = ref(false);
-const dynamicFormRef = ref(null); // 获取子组件实例
-const workflowList = ref([]); // 该表单绑定的流程列表(放开一对一后可能多个)
-const selectedWorkflowId = ref(null); // 发起时选中的流程 ID
+const dynamicFormRef = ref(null);
+const workflowList = ref([]);
+const selectedWorkflowId = ref(null);
+
+const columns = [
+    { type: 'index', label: '#', width: 60, align: 'center' },
+    {
+        prop: 'name',
+        label: '表单名称',
+        minWidth: 180,
+        search: {
+            el: 'input',
+            props: { placeholder: '请输入表单名称' }
+        }
+    },
+    { prop: 'status', label: '状态', width: 120, align: 'center' },
+    { prop: 'created_at', label: '创建时间', width: 180, align: 'center' },
+    { prop: 'updated_at', label: '更新时间', width: 180, align: 'center' },
+    { prop: 'operation', label: '操作', width: 260, fixed: 'right', align: 'left' }
+];
+
+// ProTable 数据请求驱动适配
+const getFormDesignList = async (params = {}) => {
+    const { pageNum, pageSize, name } = params;
+    const res = await proxy.$api.designQuery({
+        page: pageNum,
+        pageSize,
+        name
+    });
+    return {
+        data: {
+            list: res?.data?.data || [],
+            total: res?.data?.total || 0
+        }
+    };
+};
 
 const handlePreview = async (row, val) => {
     formId.value = row.id;
-    isInitiate.value = val ? true : false;
-    noApproval.value = val ? false : true;
+    isInitiate.value = Boolean(val);
+    noApproval.value = !val;
     showCodeDialog.value = true;
-    formSchema.value = JSON.parse(row.schema);
-    uiConfig.value = row.ui_config;
+    formSchema.value = JSON.parse(row.schema || '[]');
+    uiConfig.value = row.ui_config || {};
     formName.value = row.name;
-    // 重置formData
     formData.value = {};
-    // 发起模式: 预加载该表单绑定的流程列表(放开一对一后可能多个)
     selectedWorkflowId.value = null;
     workflowList.value = [];
+
     if (val) {
         const data = await proxy.$api.logicFindByFormId({ formId: row.id });
         if (data.code == 200) {
@@ -106,27 +153,24 @@ const handlePreview = async (row, val) => {
 
 // 发起流程审批
 const handleInitiate = async () => {
-    console.log('发起流程审批', dynamicFormRef.value);
     try {
         await dynamicFormRef.value.validate();
-        // 多流程时必须显式选择一条
         if (workflowList.value.length > 1 && !selectedWorkflowId.value) {
             proxy.$message.warning('请先选择审批流程');
-            return;
+            return false;
         }
-        //  只有校验通过才执行
+
         formData.value.formId = formId.value;
-        // 从 store 获取申请人
         formData.value.userId = userInfoStore?.userInfo?.id;
         formData.value.applicantName = userInfoStore?.userInfo?.name;
-        let obj = {
+
+        const obj = {
             formId: formId.value,
             formData: formData.value,
             userId: userInfoStore?.userInfo?.id,
         };
-        // 放开一对一后,多流程时显式传 workflowId 决定走哪条;单流程时不传,后端默认取最新
         if (selectedWorkflowId.value) obj.workflowId = selectedWorkflowId.value;
-        console.log('obj', obj);
+
         const data = await proxy.$api.startWorkflow(obj);
         if (data.code == 200) {
             proxy.$message.success(data.message);
@@ -134,55 +178,57 @@ const handleInitiate = async () => {
         }
     } catch (error) {
         proxy.$message.error(error.message || '请填写必填项');
+        return false;
     }
 };
+
 const govueFlow = row => {
-    // 路由跳转
     proxy.$router.push({
         path: '/home/formDesign',
         query: { idkey: row ? row.id : '' },
     });
 };
-const getList = async () => {
-    const data = await proxy.$api.designQuery({ page: currentPage.value, pageSize: pageSize.value });
-    if (data.code == 200) {
-        tableData.value = data.data.data;
-        total.value = data.data.total;
-    }
-};
-const handleSizeChange = val => {
-    pageSize.value = val;
-    getList();
-};
-
-const handleCurrentChange = val => {
-    currentPage.value = val;
-    getList();
-};
 
 const startOrStop = async row => {
-    const data = await proxy.$api.designStatus({ id: row.id, status: row.status == '2' ? '1' : '2' });
+    const data = await proxy.$api.designStatus({
+        id: row.id,
+        status: row.status == '2' ? '1' : '2'
+    });
     if (data.code == 200) {
         proxy.$message.success(data.message);
-        getList();
+        proTableRef.value?.refresh();
     }
 };
+
 const handleDelete = async row => {
     proxy.$messageBox
-        .confirm('确定要删除吗?', '提示', {
-            type: '提示',
+        .confirm('确定要删除该表单吗?', '提示', {
+            type: 'warning',
         })
         .then(async () => {
-            console.log(row);
             const data = await proxy.$api.designDelete({ id: row.id });
             if (data.code == 200) {
                 proxy.$message.success(data.message);
-                getList();
+                proTableRef.value?.refresh();
             }
         });
 };
-// onMounted
-onMounted(() => {
-    getList();
-});
 </script>
+
+<style scoped>
+.form-design-list-container {
+    width: 100%;
+    height: 100%;
+}
+.preview-scroll-box {
+    max-height: 65vh;
+    overflow-y: auto;
+    padding: 10px;
+    border-radius: 4px;
+}
+.form-preview-title {
+    margin: 0 0 16px 0;
+    font-size: 16px;
+    font-weight: 600;
+}
+</style>

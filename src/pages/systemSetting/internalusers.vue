@@ -48,16 +48,22 @@
                 <el-button link type="danger" @click="handleDelete(row)">删除</el-button>
             </template>
         </ProTable>
-        <el-dialog :title="ruleForm.id ? '编辑' : '新增'" v-model="dialogVisible" width="50%">
+        <ProDialog
+            :title="ruleForm.id ? '编辑内部用户' : '新增内部用户'"
+            sub-title="配置用户系统登录账号、姓名、电子邮箱、分配角色与所属部门"
+            v-model="dialogVisible"
+            width="600px"
+            :on-confirm="() => onSubmit(ruleFormRef)"
+        >
             <el-form ref="ruleFormRef" :rules="rules" :model="ruleForm" label-width="100px">
                 <el-form-item label="账号" prop="username">
-                    <el-input v-model="ruleForm.username"></el-input>
+                    <el-input v-model="ruleForm.username" placeholder="请输入用户账号"></el-input>
                 </el-form-item>
                 <el-form-item label="姓名" prop="name">
-                    <el-input v-model="ruleForm.name"></el-input>
+                    <el-input v-model="ruleForm.name" placeholder="请输入真实姓名"></el-input>
                 </el-form-item>
                 <el-form-item label="邮箱" prop="email">
-                    <el-input v-model="ruleForm.email"></el-input>
+                    <el-input v-model="ruleForm.email" placeholder="请输入企业邮箱"></el-input>
                 </el-form-item>
                 <!-- 头像上传 -->
                 <el-form-item label="头像">
@@ -76,7 +82,7 @@
                 </el-form-item>
                 <!-- 所属角色 -->
                 <el-form-item label="所属角色" prop="roleIds">
-                    <el-select v-model="ruleForm.roleIds" multiple placeholder="请选择角色">
+                    <el-select v-model="ruleForm.roleIds" multiple placeholder="请选择角色" style="width: 100%">
                         <el-option v-for="item in roleList" :key="item.id" :label="item.name" :value="item.id"></el-option>
                     </el-select>
                 </el-form-item>
@@ -88,20 +94,15 @@
                         node-key="organid"
                         :data="zztree"
                         :props="defaultProps"
-                        :default-expanded-keys="[zztree[0].organid]"
+                        :default-expanded-keys="[zztree?.[0]?.organid || 0]"
                         check-strictly
                         :render-after-expand="true"
                         placeholder="请选择组织"
+                        style="width: 100%"
                     />
                 </el-form-item>
             </el-form>
-            <template #footer>
-                <span class="dialog-footer">
-                    <el-button @click="dialogVisible = false">取 消</el-button>
-                    <el-button type="primary" @click="onSubmit(ruleFormRef)">确 定</el-button>
-                </span>
-            </template>
-        </el-dialog>
+        </ProDialog>
     </div>
 </template>
 
