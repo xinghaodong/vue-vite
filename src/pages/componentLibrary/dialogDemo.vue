@@ -140,6 +140,18 @@
       confirm-text="保存拓扑配置"
       :on-confirm="handleDrawerSave"
     >
+      <!-- 🌟 抽屉原生 #sub-header 吸顶次级栏 (吸顶固定、不随 Body 滚动) -->
+      <template #sub-header>
+        <div style="display: flex; align-items: center; justify-content: space-between;">
+          <el-radio-group v-model="drawerTab" size="small">
+            <el-radio-button label="config">参数配置</el-radio-button>
+            <el-radio-button label="metrics">硬件遥测</el-radio-button>
+            <el-radio-button label="logs">链路快照</el-radio-button>
+          </el-radio-group>
+          <el-tag size="small" type="success" effect="light">#sub-header 抽屉吸顶</el-tag>
+        </div>
+      </template>
+
       <div class="drawer-content-box">
         <div class="drawer-hero-card">
           <div class="hero-status-row">
@@ -166,7 +178,7 @@
         </el-form>
 
         <div class="mock-tip-box mt-4">
-          💡 点击右上角「展开全屏」图标，抽屉瞬间平滑扩展为 100% 全宽视口，适合在抽屉中处理宽表或大图！
+          💡 点击右上角「展开全屏」图标，抽屉瞬间平滑扩展为 100% 全宽视口；上方 Tab 分段栏通过 <code>#sub-header</code> 永久吸顶常驻！
         </div>
       </div>
       <template #footer-left>
@@ -214,6 +226,7 @@ const handleAsyncArchive = async () => {
 
 // 3. 高定抽屉
 const drawerVisible = ref(false);
+const drawerTab = ref('config');
 const drawerForm = reactive({
   domain: 'edge-cluster.internal.net',
   interval: 5,

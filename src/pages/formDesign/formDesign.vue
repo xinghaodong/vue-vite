@@ -211,24 +211,28 @@
             :width="previewDeviceMode === 'mobile' ? '560px' : '900px'"
             destroy-on-close
             class="real-form-preview-dialog"
+            body-padding="14px 20px"
             :show-cancel="false"
             :show-confirm="false"
         >
-            <div class="preview-banner-tip">
-                <div class="preview-tip-text">
-                    <el-icon color="#409eff" style="margin-right: 6px"><View /></el-icon>
-                    <span>环境仿真：支持<strong>必填校验</strong>、<strong>公式联动</strong>与<strong>API回显</strong></span>
+            <!-- 🌟 吸顶工具条：环境提示与设备切换器 (物理隔离于 Body，固定吸顶不随表单滚动) -->
+            <template #sub-header>
+                <div class="preview-banner-tip">
+                    <div class="preview-tip-text">
+                        <el-icon color="#409eff" style="margin-right: 6px"><View /></el-icon>
+                        <span>环境仿真：支持<strong>必填校验</strong>、<strong>公式联动</strong>与<strong>API回显</strong></span>
+                    </div>
+                    <!-- 🌟 设备分段切换器 (PC / iPhone) -->
+                    <el-radio-group v-model="previewDeviceMode" size="small" class="device-switcher">
+                        <el-radio-button value="pc">
+                            <el-icon style="margin-right: 4px"><Monitor /></el-icon>桌面端
+                        </el-radio-button>
+                        <el-radio-button value="mobile">
+                            <el-icon style="margin-right: 4px"><Iphone /></el-icon>iPhone 移动端
+                        </el-radio-button>
+                    </el-radio-group>
                 </div>
-                <!-- 🌟 设备分段切换器 (PC / iPhone) -->
-                <el-radio-group v-model="previewDeviceMode" size="small" class="device-switcher">
-                    <el-radio-button value="pc">
-                        <el-icon style="margin-right: 4px"><Monitor /></el-icon>桌面端
-                    </el-radio-button>
-                    <el-radio-button value="mobile">
-                        <el-icon style="margin-right: 4px"><Iphone /></el-icon>iPhone 移动端
-                    </el-radio-button>
-                </el-radio-group>
-            </div>
+            </template>
 
             <!-- 1. PC 桌面端宽屏视图 -->
             <div v-if="previewDeviceMode === 'pc'" class="preview-content-box pc-view">
@@ -938,10 +942,6 @@ const handleResetPreview = () => {
 }
 
 /* 4. 真机预览弹窗样式 */
-.real-form-preview-dialog :deep(.el-dialog__body) {
-    padding: 12px 18px 18px;
-}
-
 .preview-banner-tip {
     display: flex;
     justify-content: space-between;
@@ -952,7 +952,7 @@ const handleResetPreview = () => {
     padding: 8px 14px;
     font-size: 13px;
     color: var(--app-ai-clean-text);
-    margin-bottom: 14px;
+    margin-bottom: 0;
 }
 
 .preview-tip-text {
@@ -969,16 +969,12 @@ const handleResetPreview = () => {
 .preview-form-wrapper {
     padding: 16px 8px;
     min-height: 260px;
-    max-height: 60vh;
-    overflow-y: auto;
 }
 
 .preview-json-wrapper {
     background: #1e1e1e;
     border-radius: 6px;
-    padding: 12px;
-    max-height: 55vh;
-    overflow-y: auto;
+    padding: 14px;
 }
 
 .json-code-block {

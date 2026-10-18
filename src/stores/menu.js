@@ -44,15 +44,12 @@ const menuStore = defineStore('menu', {
          * 对象应包含一个URL属性，用于唯一标识菜单项。
          */
         changeMenu(obj) {
-            // console.log(
-            //     '检查',
-            //     this.activeTabArray,
-            //     obj,
-            //     this.activeTabArray.some(item => item.url == obj.url),
-            // );
-            // 检查新的菜单项是否已经存在于活跃菜单数组中
-            if (this.activeTabArray.some(item => item.url == obj.url)) {
-                // 存在就
+            if (!obj || !obj.url) return;
+            const existing = this.activeTabArray.find(item => item.url == obj.url);
+            if (existing) {
+                if (!existing.icon && obj.icon) existing.icon = obj.icon;
+                if (!existing.name && obj.name) existing.name = obj.name;
+                if (!existing.code && obj.code) existing.code = obj.code;
                 return;
             }
             // 如果新菜单项不存在于活跃菜单数组中，则将其添加到数组中
@@ -106,8 +103,14 @@ const menuStore = defineStore('menu', {
         // 关闭右侧tabs标签页
         changeRemoveRightAll(key) {
             let index = this.activeTabArray.findIndex(item => item.url === key);
-            this.activeTabArray.splice(index + 1, this.activeTabArray.length - index - 1);
-            this.syncCachedViewsWithTabs();
+            if (index > -1) {
+                this.activeTabArray.splice(index + 1, this.activeTabArray.length - index - 1);
+                // 🌟 核心修复：若当前选中的标签位于被关闭的右侧区间，立即将激活标签重置为目标 key
+                if (!this.activeTabArray.some(item => item.url === this.editableTabsValue)) {
+                    this.editableTabsValue = key;
+                }
+                this.syncCachedViewsWithTabs();
+            }
         },
         // 关闭其他tabs标签页
         changeRemoveOtherAll(key) {

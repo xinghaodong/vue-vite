@@ -136,6 +136,10 @@ const handleSubmit = async () => {
 | `confirm-loading` | `Boolean` | `false` | 受控确定按钮 Loading (仅按钮转圈) |
 | `on-confirm` | `Function` | `null` | 异步确认回调，自动捕获 Loading |
 | `destroy-on-close`| `Boolean` | `false` | 关闭时是否销毁内部 DOM |
+| `sub-header-padding` | `String` | `'12px 20px'` | 次级顶栏 (sub-header) 内边距 |
+| `sub-header-border` | `Boolean` | `true` | 次级顶栏是否展示底部下划线 |
+| `sub-header-style` | `Object` | `{}` | 次级顶栏自定义样式对象 |
+| `body-style` | `Object` | `{}` | 主体滚动容器自定义样式对象 |
 
 ### ProDrawer 属性 (Props)
 
@@ -148,6 +152,11 @@ const handleSubmit = async () => {
 | `show-fullscreen` | `Boolean` | `true` | 是否显示全宽扩展切换按钮 |
 | `confirm-loading` | `Boolean` | `false` | 受控确定按钮 Loading (仅按钮转圈) |
 | `on-confirm` | `Function` | `null` | 异步确认回调 |
+| `sub-header-padding` | `String` | `'12px 20px'` | 次级顶栏 (sub-header) 内边距 |
+| `sub-header-border` | `Boolean` | `true` | 次级顶栏是否展示底部下划线 |
+| `sub-header-style` | `Object` | `{}` | 次级顶栏自定义样式对象 |
+| `body-style` | `Object` | `{}` | 主体滚动容器自定义样式对象 |
+| `body-padding` | `String` | `'20px 24px'` | 内容区内边距 |
 
 ### 插槽 (Slots)
 
@@ -157,5 +166,6 @@ const handleSubmit = async () => {
 | `#header-prefix` | 顶栏左侧前缀，默认是一根品牌主色 accent 竖线 |
 | `#title` | 自定义主标题区域 |
 | `#header-actions` | 顶栏右侧自定义操作区 (位于全屏按钮左侧) |
+| `#sub-header` | **次级吸顶固定区** (用于工具栏、Tab分段切换、过滤栏等，置于 Header 之下且绝不随 Body 滚动) |
 | `#footer-left` | 底部操作栏左侧辅助信息区 (如状态说明、草稿保存提示) |
 | `#footer-right` | 底部操作栏右侧按钮区 (默认取消与确定) |

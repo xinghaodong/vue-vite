@@ -110,8 +110,8 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onBeforeUnmount, nextTick } from 'vue';
-import { useRouter } from 'vue-router';
+import { ref, computed, onMounted, onBeforeUnmount, nextTick, watch } from 'vue';
+import { useRouter, useRoute } from 'vue-router';
 import { storeToRefs } from 'pinia';
 import {
     RefreshRight,
@@ -131,18 +131,114 @@ import useLayoutStore from '@/stores/layout';
 const emit = defineEmits(['refresh-route']);
 
 const router = useRouter();
+const route = useRoute();
 const menuInfoStore = menuStore();
 const layoutStore = useLayoutStore();
 const { activeTabArray, editableTabsValue, allArray } = storeToRefs(menuInfoStore);
 const { showTabsIcon, tabsStyle } = storeToRefs(layoutStore);
 
 /**
+ * 🌟 极致性能优化：扁平化菜单哈希字典 (O(1) 瞬时查询)
+ * 仅在全量菜单数据首次拉取/更新时构建一次，彻底避免每次切菜单、查图标时的整树深度递归！
+ */
+const menuUrlMap = computed(() => {
+    const map = new Map();
+    const flatten = (list) => {
+        if (!Array.isArray(list)) return;
+        for (const item of list) {
+            if (item.url) {
+                map.set(item.url, item);
+                if (item.url.startsWith('/home/')) {
+                    map.set(item.url.replace(/^\/home/, ''), item);
+                } else if (!item.url.startsWith('/home')) {
+                    map.set(`/home${item.url}`, item);
+                }
+            }
+            if (Array.isArray(item.children) && item.children.length > 0) {
+                flatten(item.children);
+            }
+        }
+    };
+    flatten(allArray.value);
+    return map;
+});
+
+/**
+ * 核心驱动：路由作为单一真理源 (Single Source of Truth)
+ * 1. 状态前置防抖比对：若当前页面已激活且标签已存在，0 毫秒提前退出 (Early Return)；
+ * 2. 优先直接读取 route.meta 属性 (0ms，无需查表)；
+ * 3. 仅在路由缺失元信息时，通过 menuUrlMap 进行 O(1) 哈希索引兜底。
+ */
+const syncRouteToTab = (currentRoute) => {
+    if (!currentRoute || !currentRoute.path) return;
+    const path = currentRoute.path;
+    const fullPath = currentRoute.fullPath || path;
+
+    // 过滤非后台业务页面与根重定向
+    if (path === '/login' || path === '/404' || path === '/') {
+        return;
+    }
+
+    // 首页保持激活 /index
+    if (path === '/index' || path === '/home') {
+        if (editableTabsValue.value !== '/index') {
+            menuInfoStore.changeTabsValue('/index');
+        }
+        return;
+    }
+
+    // ⚡ 性能守卫：若当前标签已是激活状态且已在池中，0 额外运算直接退出！
+    if (editableTabsValue.value === fullPath && activeTabArray.value.some((it) => it.url === fullPath)) {
+        return;
+    }
+
+    // 1. 优先从当前路由对象的 meta 中瞬时读取 (0ms，直接访问对象属性)
+    const routeTitle = currentRoute.meta?.title;
+    const routeIcon = currentRoute.meta?.icon;
+
+    // 2. 仅在路由元信息缺失时，通过哈希字典 O(1) 兜底查找
+    const matchedNode = (!routeTitle || !routeIcon)
+        ? (menuUrlMap.value.get(path) || menuUrlMap.value.get(fullPath))
+        : null;
+
+    const title = routeTitle || matchedNode?.name;
+    if (title) {
+        menuInfoStore.changeMenu({
+            name: title,
+            url: fullPath,
+            icon: routeIcon || matchedNode?.icon || '',
+            code: currentRoute.name || matchedNode?.code || '',
+        });
+        menuInfoStore.changeTabsValue(fullPath);
+        menuInfoStore.addCachedView(currentRoute);
+    }
+};
+
+// 监听路由变化，实时自适应激活与增补标签
+watch(
+    () => route.fullPath,
+    () => {
+        syncRouteToTab(route);
+    },
+    { immediate: true }
+);
+
+// 监听全量菜单加载完毕 (移除 deep: true，彻底消除深层响应式收集开销)
+watch(
+    () => allArray.value,
+    (menus) => {
+        if (menus && menus.length > 0) {
+            syncRouteToTab(route);
+        }
+    }
+);
+
+/**
  * 动态解析标签页图标：
- * 1. 首页固定展示 HomeFilled；
- * 2. 优先使用 tab 项自身的 icon；
- * 3. 递归从菜单树 allArray 中按 url 反查菜单配置的 icon；
- * 4. 从路由元信息 meta.icon 中提取；
- * 5. 最终若均为空，才回退兜底使用默认图标 Document。
+ * 1. 首页固定展示 HomeFilled (O(1))；
+ * 2. 优先使用 tab 项自身的 icon (O(1))；
+ * 3. 查哈希字典 menuUrlMap (O(1))；
+ * 4. 最终兜底 Document。
  */
 const getTabIcon = (tabItem) => {
     if (!tabItem) return 'Document';
@@ -154,36 +250,13 @@ const getTabIcon = (tabItem) => {
         return tabItem.icon;
     }
 
-    // 2. 深度在菜单树中按 url 反查
-    const findIconInTree = (list, targetUrl) => {
-        if (!Array.isArray(list)) return null;
-        for (const node of list) {
-            if (node.url === targetUrl && node.icon) {
-                return node.icon;
-            }
-            if (Array.isArray(node.children) && node.children.length > 0) {
-                const sub = findIconInTree(node.children, targetUrl);
-                if (sub) return sub;
-            }
-        }
-        return null;
-    };
-
-    const treeIcon = findIconInTree(allArray.value, tabItem.url);
-    if (treeIcon) {
-        return treeIcon;
+    // 2. 从 O(1) 哈希字典反查
+    const matchedNode = menuUrlMap.value.get(tabItem.url);
+    if (matchedNode?.icon) {
+        return matchedNode.icon;
     }
 
-    // 3. 尝试从路由表匹配
-    try {
-        const routes = router.getRoutes();
-        const matched = routes.find(r => r.path === tabItem.url || `/home/${r.path}` === tabItem.url);
-        if (matched?.meta?.icon) {
-            return matched.meta.icon;
-        }
-    } catch (_) {}
-
-    // 4. 为空时兜底默认图标
+    // 3. 兜底默认图标
     return 'Document';
 };
 
@@ -245,6 +318,7 @@ const handleContextMenu = (e) => {
 // 全局点击自动关闭右键菜单
 const closeContextMenu = () => {
     contextMenuVisible.value = false;
+    targetTab.value = '';
 };
 
 // 集中处理所有操作指令
@@ -261,23 +335,40 @@ const handleCommand = (command) => {
             break;
         case 'closeLeft':
             menuInfoStore.changeRemoveLeftAll(key);
-            nextTick(() => router.push(editableTabsValue.value));
+            nextTick(() => {
+                if (router.currentRoute.value.fullPath !== editableTabsValue.value) {
+                    router.push(editableTabsValue.value);
+                }
+            });
             break;
         case 'closeRight':
             menuInfoStore.changeRemoveRightAll(key);
-            nextTick(() => router.push(editableTabsValue.value));
+            nextTick(() => {
+                if (router.currentRoute.value.fullPath !== editableTabsValue.value) {
+                    router.push(editableTabsValue.value);
+                }
+            });
             break;
         case 'closeOther':
             menuInfoStore.changeRemoveOtherAll(key);
-            nextTick(() => router.push(editableTabsValue.value));
+            nextTick(() => {
+                if (router.currentRoute.value.fullPath !== editableTabsValue.value) {
+                    router.push(editableTabsValue.value);
+                }
+            });
             break;
         case 'closeAll':
-            menuInfoStore.changeRemoveAll(key);
-            nextTick(() => router.push(editableTabsValue.value));
+            menuInfoStore.changeRemoveAll();
+            nextTick(() => {
+                if (router.currentRoute.value.fullPath !== editableTabsValue.value) {
+                    router.push(editableTabsValue.value);
+                }
+            });
             break;
     }
 
     contextMenuVisible.value = false;
+    targetTab.value = ''; // 🌟 及时清空右键目标，避免污染顶栏更多操作下拉菜单
 };
 
 onMounted(() => {

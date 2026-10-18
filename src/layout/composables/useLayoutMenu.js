@@ -125,6 +125,13 @@ export function useLayoutMenu() {
 
         // 1. 如果该一级菜单没有子菜单，且配有有效 url，直接触发路由跳转
         if (!item._hasChildren && item.url && item.url !== '/') {
+            menuInfoStore.changeMenu({
+                name: item.name,
+                url: item.url,
+                icon: item.icon,
+                code: item.code,
+            });
+            menuInfoStore.changeTabsValue(item.url);
             router.push(item.url);
             return;
         }
@@ -133,17 +140,24 @@ export function useLayoutMenu() {
         if (item._hasChildren && !matchRouteInTree(item, route.path)) {
             const findFirstLeaf = (node) => {
                 if (!node.children || node.children.length === 0) {
-                    return node.url && node.url !== '/' ? node.url : '';
+                    return node.url && node.url !== '/' ? node : null;
                 }
                 for (const c of node.children) {
                     const leaf = findFirstLeaf(c);
                     if (leaf) return leaf;
                 }
-                return '';
+                return null;
             };
-            const targetUrl = findFirstLeaf(item);
-            if (targetUrl) {
-                router.push(targetUrl);
+            const leaf = findFirstLeaf(item);
+            if (leaf && leaf.url) {
+                menuInfoStore.changeMenu({
+                    name: leaf.name,
+                    url: leaf.url,
+                    icon: leaf.icon,
+                    code: leaf.code,
+                });
+                menuInfoStore.changeTabsValue(leaf.url);
+                router.push(leaf.url);
             }
         }
     };

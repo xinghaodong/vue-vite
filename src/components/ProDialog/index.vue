@@ -58,7 +58,19 @@
       </div>
     </template>
 
-    <!-- Body 内容视口 (三段式独立滚动) -->
+    <!-- Sub-Header 吸顶固定条 (置于 Body 外部，不随 Body 滚动) -->
+    <div
+      v-if="$slots['sub-header'] || $slots.subHeader"
+      class="pro-dialog-sub-header"
+      :class="{ 'has-border': subHeaderBorder }"
+      :style="[{ padding: subHeaderPadding }, subHeaderStyle]"
+    >
+      <slot name="sub-header">
+        <slot name="subHeader" />
+      </slot>
+    </div>
+
+    <!-- Body 内容视口 (独立滚动) -->
     <div
       class="pro-dialog-body"
       :style="bodyStyleComputed"
@@ -162,6 +174,21 @@ const props = defineProps({
   bodyPadding: {
     type: String,
     default: '20px 24px'
+  },
+  /** 次级顶栏 (sub-header) 内边距 */
+  subHeaderPadding: {
+    type: String,
+    default: '12px 20px'
+  },
+  /** 次级顶栏 (sub-header) 是否展示底部下划线 */
+  subHeaderBorder: {
+    type: Boolean,
+    default: true
+  },
+  /** 次级顶栏自定义样式 */
+  subHeaderStyle: {
+    type: Object,
+    default: () => ({})
   },
   /** 是否展示底部操作栏 */
   showFooter: {
@@ -330,9 +357,12 @@ const handleConfirm = async () => {
 
 .el-dialog.pro-dialog-root .el-dialog__body {
   flex: 1;
+  min-height: 0;
   margin: 0 !important;
   padding: 0 !important;
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
   background: var(--el-bg-color-overlay, var(--app-card-bg, #ffffff));
 }
 
@@ -440,8 +470,22 @@ const handleConfirm = async () => {
   border-color: rgba(239, 68, 68, 0.2);
 }
 
-/* 2. Body 内容视口 (自带独立定制微滚动条) */
+/* 2. Sub-Header 吸顶固定条 */
+.pro-dialog-sub-header {
+  flex-shrink: 0;
+  box-sizing: border-box;
+  background: var(--el-bg-color-overlay, var(--app-card-bg, #ffffff));
+  z-index: 5;
+}
+
+.pro-dialog-sub-header.has-border {
+  border-bottom: 1px solid var(--el-border-color-lighter, rgba(226, 232, 240, 0.8));
+}
+
+/* 3. Body 内容视口 (自带独立定制微滚动条) */
 .pro-dialog-body {
+  flex: 1;
+  min-height: 0;
   box-sizing: border-box;
   overflow-y: auto;
   overflow-x: hidden;

@@ -105,7 +105,7 @@ defineExpose({
     grid-template-columns: 100%;
     grid-template-rows: 1fr;
     position: relative;
-    overflow-x: hidden;
+    overflow: hidden;
 }
 
 .main-content-box > * {
