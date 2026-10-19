@@ -42,6 +42,23 @@
                 </div>
             </template>
 
+            <!-- 权限角色列具名插槽 -->
+            <template #roles="{ row }">
+                <div v-if="row?.roles && row.roles.length" class="role-tags-cell">
+                    <el-tag
+                        v-for="role in row.roles"
+                        :key="role.id"
+                        size="small"
+                        type="primary"
+                        effect="light"
+                        round
+                    >
+                        {{ role.name }}
+                    </el-tag>
+                </div>
+                <span v-else class="empty-roles-tip">暂无角色</span>
+            </template>
+
             <!-- 操作列插槽 -->
             <template #operation="{ row }">
                 <el-button link type="primary" @click="handleEdit(row)">编辑</el-button>
@@ -116,7 +133,6 @@ import {
     updateUser,
     deleteUser,
     getUserDetail,
-    banUser,
 } from '@/api/user';
 import { getRoleList } from '@/api/role';
 import { getOrganizationList } from '@/api/organization';
@@ -171,32 +187,10 @@ const columns = [
         align: 'center'
     },
     {
-        prop: 'role',
+        prop: 'roles',
         label: '权限角色',
-        minWidth: 140,
+        minWidth: 160,
         align: 'center'
-    },
-    {
-        prop: 'is_active',
-        label: '状态',
-        width: 100,
-        align: 'center',
-        // 动态通用组件 el-tag 声明式配置
-        component: 'el-tag',
-        props: (row) => ({
-            type: row.is_active == 1 ? 'success' : 'info',
-            round: true
-        }),
-        formatter: (row) => (row.is_active == 1 ? '可用' : '禁用'),
-        search: {
-            el: 'select',
-            order: 3,
-            options: [
-                { label: '全部', value: '' },
-                { label: '可用', value: 1 },
-                { label: '禁用', value: 0 }
-            ]
-        }
     },
     {
         prop: 'created_at',
@@ -379,22 +373,6 @@ const handleDelete = row => {
 };
 
 const handleUnitChange = val => {};
-
-// 禁用/解除禁用
-const handleRelieve = row => {
-    const targetActive = row.is_active === 1 ? 0 : 1;
-    const actionText = targetActive === 1 ? '启用' : '禁用';
-    ElMessageBox
-        .confirm(`此操作将${actionText}该用户，是否继续?`, '提示', {
-            type: 'warning',
-        })
-        .then(async () => {
-            const data = await banUser({ id: row.id, is_active: targetActive });
-            ElMessage.success(data?.message || `${actionText}成功`);
-            getInternalUsers();
-        })
-        .catch(() => {});
-};
 </script>
 <style scoped>
 .internal-users-container {
@@ -424,6 +402,18 @@ const handleRelieve = row => {
     color: #fff;
     font-size: 13px;
     font-weight: 500;
+}
+
+.role-tags-cell {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 4px;
+}
+
+.empty-roles-tip {
+    color: var(--el-text-color-placeholder);
+    font-size: 13px;
 }
 
 th.el-table__cell,
