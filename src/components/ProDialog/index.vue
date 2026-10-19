@@ -336,7 +336,7 @@ const handleConfirm = async () => {
   background: var(--el-bg-color-overlay, var(--app-card-bg, #ffffff)) !important;
   border: 1px solid var(--el-border-color-lighter, rgba(226, 232, 240, 0.8));
   box-shadow: 0 20px 45px -10px rgba(0, 0, 0, 0.16), 0 0 1px 1px rgba(0, 0, 0, 0.04) !important;
-  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  /* transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1); */
 }
 
 .el-dialog.pro-dialog-root.is-fullscreen {

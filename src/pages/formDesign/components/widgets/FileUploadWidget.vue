@@ -84,11 +84,12 @@
 </template>
 
 <script setup>
-import { computed, getCurrentInstance } from 'vue';
+import { computed } from 'vue';
 import { UploadFilled, Document, Picture, Delete, View, CircleCheckFilled } from '@element-plus/icons-vue';
 import { ElMessage } from 'element-plus';
 
-const { proxy } = getCurrentInstance();
+const baseUrl = import.meta.env.VITE_PROXY_DOMAIN || 'http://127.0.0.1:3001/api';
+const staticBase = import.meta.env.VITE_STATIC_URL || 'http://127.0.0.1:3001/api/';
 
 const props = defineProps({
     modelValue: {
@@ -117,7 +118,7 @@ const emit = defineEmits(['update:modelValue']);
 
 const fileList = computed(() => (Array.isArray(props.modelValue) ? props.modelValue : []));
 
-const uploadUrl = computed(() => `${proxy?.$api?.baseUrl || 'http://127.0.0.1:3001/api'}/upload/uploadFile`);
+const uploadUrl = computed(() => `${baseUrl}/upload/uploadFile`);
 const uploadHeaders = computed(() => {
     const token = sessionStorage.getItem('token');
     return token ? { Authorization: `Bearer ${token}` } : {};
@@ -147,7 +148,6 @@ const getFileName = file => {
 const getFileUrl = file => {
     if (!file) return '';
     if (file.url && file.url.startsWith('http')) return file.url;
-    const staticBase = import.meta.env.VITE_STATIC_URL || proxy?.$api?.img_url || 'http://127.0.0.1:3001/api/';
     const filePath = file.filePath || file.path;
     if (filePath) {
         const cleanPath = filePath.replace(/\\/g, '/').replace(/^\/+/, '');

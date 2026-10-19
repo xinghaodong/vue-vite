@@ -263,13 +263,12 @@ const handleCancel = () => {
 const handleConfirm = async () => {
   if (mergedLoading.value) return;
 
-  emit('confirm');
-
-  // 若传入了异步 onConfirm 回调，则由组件自动托管确定按钮 loading 与关闭流
+  // 1. 若传入了异步 onConfirm 回调（或 Vue 3 将 @confirm 注入到 props.onConfirm），由组件安全执行并管理 loading
   if (props.onConfirm && typeof props.onConfirm === 'function') {
     try {
       innerLoading.value = true;
       const res = await props.onConfirm();
+      // 返回明确的 false 则不关闭抽屉，否则成功关闭
       if (res !== false) {
         visible.value = false;
       }
@@ -278,7 +277,12 @@ const handleConfirm = async () => {
     } finally {
       innerLoading.value = false;
     }
+    // 已经执行过 onConfirm，直接返回，杜绝重复触发 emit('confirm') 导致双重执行！
+    return;
   }
+
+  // 2. 否则通过自定义事件抛出
+  emit('confirm');
 };
 </script>
 
@@ -290,7 +294,7 @@ const handleConfirm = async () => {
   padding: 0 !important;
   background: var(--el-bg-color-overlay, var(--app-card-bg, #ffffff)) !important;
   box-shadow: -6px 0 24px rgba(0, 0, 0, 0.12) !important;
-  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  /* transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1); */
 }
 
 .el-drawer.pro-drawer-root .el-drawer__header {

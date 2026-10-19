@@ -22,11 +22,22 @@
 </template>
 
 <script setup>
-import { ref, getCurrentInstance } from 'vue';
+import { ref, onActivated } from 'vue';
+import { useRouter } from 'vue-router';
+import { ElMessage, ElMessageBox } from 'element-plus';
 import { Plus } from '@element-plus/icons-vue';
+import { getWorkflowList, deleteWorkflow } from '@/api/workflow';
 
-const { proxy } = getCurrentInstance();
+const router = useRouter();
 const proTableRef = ref(null);
+
+// 🌟 核心兼容：支持 keepalive 缓存与非缓存模式下的写操作自适应刷新
+onActivated(() => {
+    if (history.state?.needRefresh) {
+        proTableRef.value?.refresh();
+        history.replaceState({ ...history.state, needRefresh: false }, '');
+    }
+});
 
 const columns = [
     { type: 'index', label: '#', width: 60, align: 'center' },
@@ -46,7 +57,7 @@ const columns = [
 
 const getLogicList = async (params = {}) => {
     const { pageNum, pageSize, name } = params;
-    const res = await proxy.$api.logicfind({
+    const res = await getWorkflowList({
         page: pageNum,
         pageSize,
         name
@@ -60,24 +71,25 @@ const getLogicList = async (params = {}) => {
 };
 
 const govueFlow = row => {
-    proxy.$router.push({
+    router.push({
         path: '/home/logicFlow',
         query: { idkey: row ? row.id : '' },
     });
 };
 
 const handleDelete = async row => {
-    proxy.$messageBox
-        .confirm('确定要删除该工作流模板吗?', '提示', {
+    try {
+        await ElMessageBox.confirm('确定要删除该工作流模板吗?', '提示', {
             type: 'warning',
-        })
-        .then(async () => {
-            const data = await proxy.$api.logicdelete({ id: row.id });
-            if (data.code == 200) {
-                proxy.$message.success(data.message);
-                proTableRef.value?.refresh();
-            }
         });
+        const data = await deleteWorkflow({ id: row.id });
+        if (data.code == 200) {
+            ElMessage.success(data.message);
+            proTableRef.value?.refresh();
+        }
+    } catch (err) {
+        // 取消删除
+    }
 };
 </script>
 

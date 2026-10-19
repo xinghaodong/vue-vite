@@ -35,7 +35,7 @@ app.component('MyInputNumber', MyInputNumber);
 app.component('ProTable', ProTable);
 app.component('ProDialog', ProDialog);
 app.component('ProDrawer', ProDrawer);
-app.use(router).use(pinia).use(ElementPlus, { locale: zhCn, zIndex: 3000 });
+app.use(pinia).use(router).use(ElementPlus, { locale: zhCn, zIndex: 3000 });
 for (const [key, component] of Object.entries(ElementPlusIconsVue)) {
     app.component(key, component);
 }

@@ -89,8 +89,10 @@
                 </el-col> -->
                     <el-col :xs="12" :sm="12" :md="12" :lg="12" :xl="24">
                         <el-form-item label="资源类型" prop="menutype">
-                            <el-radio v-model="form.menutype" label="1" border>菜单</el-radio>
-                            <el-radio v-model="form.menutype" label="2" border>按钮</el-radio>
+                            <el-radio-group v-model="form.menutype">
+                                <el-radio :value="'1'" border>菜单</el-radio>
+                                <el-radio :value="'2'" border>按钮</el-radio>
+                            </el-radio-group>
                         </el-form-item>
                     </el-col>
                     <el-col :xs="12" :sm="12" :md="12" :lg="12" :xl="24">
@@ -101,8 +103,10 @@
                                 </el-tooltip>
                                 是否全屏
                             </template>
-                            <el-radio v-model="form.isscreen" label="2" border>是</el-radio>
-                            <el-radio v-model="form.isscreen" label="1" border>否</el-radio>
+                            <el-radio-group v-model="form.isscreen">
+                                <el-radio value="2" border>是</el-radio>
+                                <el-radio value="1" border>否</el-radio>
+                            </el-radio-group>
                         </el-form-item>
                     </el-col>
                     <el-col :xs="12" :sm="12" :md="12" :lg="12" :xl="12">
@@ -242,8 +246,8 @@
                 <el-table-column prop="code" label="code"></el-table-column>
                 <el-table-column label="资源类型">
                     <template #default="{ row }">
-                        <el-tag v-if="row.menutype == 1" type="success">菜单</el-tag>
-                        <el-tag v-if="row.menutype == 2">按钮</el-tag>
+                        <el-tag v-if="row.menutype == '1'" type="success">菜单</el-tag>
+                        <el-tag v-if="row.menutype == '2'">按钮</el-tag>
                     </template>
                 </el-table-column>
             </el-table>
@@ -255,12 +259,23 @@
 defineOptions({
     name: 'resourceManagement',
 });
-import { ref, reactive, onMounted, getCurrentInstance, onBeforeUnmount, nextTick } from 'vue';
+import { ref, reactive, onMounted, onBeforeUnmount, nextTick } from 'vue';
 import { Plus, Sort } from '@element-plus/icons-vue';
+import * as ElementPlusIconsVue from '@element-plus/icons-vue';
+import { ElMessage, ElMessageBox } from 'element-plus';
 import useUserInfoStore from '@/stores/user'; //引入仓库
 import { storeToRefs } from 'pinia'; //引入pinia转换
 import Sortable from 'sortablejs';
-const { proxy } = getCurrentInstance();
+import {
+    getMenuList as fetchMenuList,
+    addMenu,
+    updateMenu,
+    deleteMenu,
+    getMenuDetail,
+    getMenusByPid,
+    saveMenuSort,
+} from '@/api/menu';
+import { getRoleList } from '@/api/role';
 const dialogVisible = ref(false);
 const userInfoStore = useUserInfoStore();
 
@@ -306,10 +321,10 @@ const columns = [
         // 动态通用组件 el-tag 声明式配置
         component: 'el-tag',
         props: (row) => ({
-            type: row.menutype == 1 ? 'success' : 'primary',
+            type: row.menutype == '1' ? 'success' : 'primary',
             round: true
         }),
-        formatter: (row) => (row.menutype == 1 ? '菜单' : row.menutype == 2 ? '按钮' : '--')
+        formatter: (row) => (row.menutype == '1' ? '菜单' : row.menutype == '2' ? '按钮' : '--')
     },
     {
         prop: 'operation',
@@ -329,20 +344,18 @@ const rules = {
     url: [{ required: false, message: '请输入菜单地址', trigger: 'blur' }],
     code: [{ required: true, message: '请输入菜单编码', trigger: 'blur' }],
     sorts: [{ required: true, message: '请输入菜单序号', trigger: 'blur' }],
-    menutype: [{ required: true, message: '请选择菜单类型', trigger: 'blur' }],
+    menutype: [{ required: true, message: '请选择菜单类型', trigger: ['change', 'blur'] }],
 };
 const visible = ref(false);
 const dialogSortTree = ref(false);
 const tableData = ref([]);
 // 示例的图标列表
-const iconList = ref([]);
-
-Object.keys(proxy.$icon).map(item => {
-    iconList.value.push({
+const iconList = ref(
+    Object.keys(ElementPlusIconsVue).map(item => ({
         value: item,
-    });
-});
-const formTemplate = { name: '', parentId: 0, url: '', component: '', sorts: 1, keepalive: 1, icon: '', menutype: 1, perms: '', code: '', roleIds: [], isscreen: '1' };
+    }))
+);
+const formTemplate = { name: '', parentId: 0, url: '', component: '', sorts: 1, keepalive: '1', icon: '', menutype: '1', perms: '', code: '', roleIds: [], isscreen: '1' };
 let form = reactive({ ...formTemplate });
 const treeData = ref(null);
 const roleList = ref([]);
@@ -399,15 +412,11 @@ const handleClickOutside = event => {
 
 // 菜单排序保存
 const submitSort = async () => {
-    let arr = [];
-    tableData.value.forEach(elem => {
-        arr.push(elem.id);
-    });
-    let ids = arr;
-    console.log(arr);
-    const data = await proxy.$api.saveMenuSort(ids);
+    let ids = tableData.value.map(elem => elem.id);
+    console.log(ids);
+    const data = await saveMenuSort(ids);
     if (data.code == 200) {
-        proxy.$message.success(data.message);
+        ElMessage.success(data.message);
         dialogSortTree.value = false;
         getTreeData();
     }
@@ -420,7 +429,7 @@ const handleSort = pid => {
 };
 const getSortData = async pid => {
     console.log(pid);
-    const data = await proxy.$api.getMenusByPid({ pid });
+    const data = await getMenusByPid({ pid });
     if (data.code == 200) {
         tableData.value = data.data;
         await nextTick(() => {
@@ -431,47 +440,40 @@ const getSortData = async pid => {
     }
 };
 
-const onSubmit = formEl => {
-    formEl.validate(async valid => {
-        if (!valid) {
-            return false;
+const onSubmit = async formEl => {
+    if (!formEl) return false;
+
+    // 1. 表单校验：校验失败返回 false，由 ProDialog 自动拦截且不关闭弹窗
+    const valid = await formEl.validate().catch(() => false);
+    if (!valid) return false;
+
+    console.log(form);
+    try {
+        if (form.parentId == 0) {
+            form.parentId = '';
         }
-        console.log(form);
-        if (form.id) {
-            // 更新菜单
-            proxy.$api.updatemenu(form).then(res => {
-                if (res.code == 200) {
-                    proxy.$message.success(res.message);
-                    dialogVisible.value = false;
-                    getTreeData();
-                }
-            });
-        } else {
-            // 新增菜单
-            if (form.parentId == 0) {
-                form.parentId = '';
-            }
-            // return;
-            const data = await proxy.$api.addmenu(form);
-            if (data.code == 200) {
-                dialogVisible.value = false;
-                proxy.$message.success(data.message);
-                getTreeData();
-            }
-        }
-    });
+        const isEdit = Boolean(form.id);
+        const api = isEdit ? updateMenu : addMenu;
+        const res = await api(form);
+        ElMessage.success(res?.message);
+        getTreeData();
+        // ProDialog 自动关闭弹窗并结束 loading，无需手动设置 dialogVisible.value = false
+    } catch (err) {
+        console.error('保存菜单异常:', err);
+        return false;
+    }
 };
 // 删除菜单
 const handleDelete = async row => {
     // 弹框提示 校验
-    proxy.$messageBox
+    ElMessageBox
         .confirm('确定要删除吗?', '提示', {
-            type: '提示',
+            type: 'warning',
         })
         .then(async () => {
-            const data = await proxy.$api.deletemenu({ id: row });
+            const data = await deleteMenu({ id: row });
             if (data.code == 200) {
-                proxy.$message.success(data.message);
+                ElMessage.success(data.message);
                 getTreeData();
             }
         });
@@ -480,7 +482,7 @@ const handleDelete = async row => {
 const handleEdit = async row => {
     dialogVisible.value = true;
     // 调用详情接口
-    const data = await proxy.$api.detail({ id: row.id });
+    const data = await getMenuDetail({ id: row.id });
     Object.assign(form, data.data);
     if (!data.data.parentId) {
         form.parentId = 0;
@@ -490,7 +492,7 @@ const handleEdit = async row => {
 // 获取菜单树列表（透传给 ProTable 的 request-api）
 const getMenuList = async () => {
     try {
-        const res = await proxy.$api.menus();
+        const res = await fetchMenuList();
         const list = res?.data || [];
         const treedata = getParentMenuTree(list);
         treeData.value = treedata; // 同步给新增/编辑弹窗中的 el-tree-select 使用
@@ -526,7 +528,7 @@ const getTreeData = async () => {
     if (proTableRef.value) {
         await proTableRef.value.getTableList();
     } else {
-        const res = await proxy.$api.menus();
+        const res = await fetchMenuList();
         treeData.value = getParentMenuTree(res?.data || []);
     }
 };
@@ -546,9 +548,8 @@ onMounted(async () => {
         // 监听点击事件
         document.addEventListener('mousedown', handleClickOutside);
         // 加载角色下拉列表
-        proxy.$api.getRolsList().then(res => {
-            roleList.value = res.data;
-        });
+        const res = await getRoleList();
+        roleList.value = res.data || [];
     } catch (error) {
         console.error('失败信息:', error);
     }

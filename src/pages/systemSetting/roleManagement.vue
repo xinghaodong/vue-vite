@@ -5,7 +5,7 @@
             ref="proTableRef"
             title="角色权限管理"
             :columns="columns"
-            :request-api="proxy.$api.getRolsList"
+            :request-api="getRoleList"
             row-key="id"
             :pagination="false"
             :is-show-search="false"
@@ -33,7 +33,7 @@
         <!-- 1. 新增 / 修改角色弹窗 -->
         <ProDialog
             v-model="dialogVisible"
-            :title="title"
+            :title="ruleForm.id ? '修改角色' : '新增角色'"
             width="600px"
             :on-confirm="() => submitForm(ruleFormRef)"
         >
@@ -95,13 +95,20 @@
 defineOptions({
     name: 'roleManagement',
 });
-import { ref, reactive, onMounted, getCurrentInstance, nextTick } from 'vue';
+import { ref, reactive, onMounted, nextTick } from 'vue';
 import { Plus } from '@element-plus/icons-vue';
-
-const { proxy } = getCurrentInstance();
+import { ElMessage } from 'element-plus';
+import {
+    getRoleList,
+    addRoles,
+    updateRoles,
+    detailRoles,
+    getRoleMenus,
+    assignMenusToRole,
+    getAllMenus,
+} from '@/api/role';
 
 const proTableRef = ref(null);
-const title = ref('');
 const dialogVisible = ref(false);
 const formTemplate = { name: '', states: 1 };
 let ruleForm = reactive({ ...formTemplate });
@@ -122,7 +129,6 @@ const rules = {
 const tree = ref(null);
 
 const add = () => {
-    title.value = '新增角色';
     Object.assign(ruleForm, formTemplate);
     delete ruleForm.id;
     dialogVisible.value = true;
@@ -130,7 +136,7 @@ const add = () => {
 
 const selectResource = async id => {
     ruleForm.id = id;
-    const res = await proxy.$api.getRoleMenus({ id });
+    const res = await getRoleMenus({ id });
     dialogVisibleResource.value = true;
     nextTick(() => {
         if (tree.value) {
@@ -140,42 +146,52 @@ const selectResource = async id => {
 };
 
 const submitResource = async () => {
-    if (!tree.value) return;
+    if (!tree.value) return false;
     let treeArray = tree.value.getCheckedKeys();
     let treeArray1 = tree.value.getHalfCheckedKeys();
     treeArray = treeArray.concat(treeArray1);
-    
-    const res = await proxy.$api.assignMenusToRole({ id: ruleForm.id, menuIds: treeArray || [] });
-    proxy.$message.success(res?.message || '资源分配成功');
-    dialogVisibleResource.value = false;
+
+    try {
+        const res = await assignMenusToRole({ id: ruleForm.id, menuIds: treeArray || [] });
+        ElMessage.success(res?.message || '资源分配成功');
+        // ProDialog 自动关闭弹窗并结束 loading
+    } catch (err) {
+        console.error('分配资源异常:', err);
+        return false;
+    }
 };
 
 const submitForm = async formEl => {
     if (!formEl) return false;
-    const valid = await formEl.validate();
+    const valid = await formEl.validate().catch(() => false);
     if (!valid) return false;
 
-    if (title.value === '修改角色') {
-        await proxy.$api.updateRoles(ruleForm);
-    } else {
-        await proxy.$api.addRoles(ruleForm);
+    try {
+        const isEdit = Boolean(ruleForm.id);
+        const api = isEdit ? updateRoles : addRoles;
+        const res = await api(ruleForm);
+        ElMessage.success(res?.message);
+        proTableRef.value?.refresh();
+        // ProDialog 自动关闭弹窗并结束 loading
+    } catch (err) {
+        console.error('保存角色异常:', err);
+        return false;
     }
-    proxy.$message.success(`${title.value}成功`);
-    dialogVisible.value = false;
-    proTableRef.value?.refresh();
 };
 
 const editItem = async id => {
-    title.value = '修改角色';
-    const data = await proxy.$api.detailRoles({ id });
+    const data = await detailRoles({ id });
     Object.assign(ruleForm, data.data);
     dialogVisible.value = true;
 };
 
-onMounted(() => {
-    proxy.$api.menus().then(res => {
-        resourceList.value = res.data;
-    });
+onMounted(async () => {
+    try {
+        const res = await getAllMenus();
+        resourceList.value = res.data || [];
+    } catch (err) {
+        console.error('获取菜单资源失败:', err);
+    }
 });
 </script>
 

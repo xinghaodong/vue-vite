@@ -71,14 +71,30 @@
 </template>
 
 <script setup>
-import { ref, getCurrentInstance } from 'vue';
+import { ref, onActivated } from 'vue';
+import { useRouter } from 'vue-router';
+import { ElMessage, ElMessageBox } from 'element-plus';
 import { Plus } from '@element-plus/icons-vue';
 import DynamicForm from './components/DynamicForm.vue';
 import useUserInfoStore from '@/stores/user.js';
+import {
+    getFormDesignList as fetchDesignList,
+    updateFormDesignStatus,
+    deleteFormDesign,
+} from '@/api/formDesign';
+import { getWorkflowsByFormId, startWorkflow } from '@/api/workflow';
 
+const router = useRouter();
 const userInfoStore = useUserInfoStore();
-const { proxy } = getCurrentInstance();
 const proTableRef = ref(null);
+
+// 🌟 核心兼容：支持 keepalive 缓存与非缓存模式下的写操作自适应刷新
+onActivated(() => {
+    if (history.state?.needRefresh) {
+        proTableRef.value?.refresh();
+        history.replaceState({ ...history.state, needRefresh: false }, '');
+    }
+});
 
 const showCodeDialog = ref(false);
 const formSchema = ref([]);
@@ -113,7 +129,7 @@ const columns = [
 // ProTable 数据请求驱动适配
 const getFormDesignList = async (params = {}) => {
     const { pageNum, pageSize, name } = params;
-    const res = await proxy.$api.designQuery({
+    const res = await fetchDesignList({
         page: pageNum,
         pageSize,
         name
@@ -139,13 +155,13 @@ const handlePreview = async (row, val) => {
     workflowList.value = [];
 
     if (val) {
-        const data = await proxy.$api.logicFindByFormId({ formId: row.id });
+        const data = await getWorkflowsByFormId({ formId: row.id });
         if (data.code == 200) {
             workflowList.value = data.data || [];
             if (workflowList.value.length === 1) {
                 selectedWorkflowId.value = workflowList.value[0].id;
             } else if (workflowList.value.length === 0) {
-                proxy.$message.warning('该表单尚未绑定审批流程，请先在流程设计器中绑定');
+                ElMessage.warning('该表单尚未绑定审批流程，请先在流程设计器中绑定');
             }
         }
     }
@@ -156,7 +172,7 @@ const handleInitiate = async () => {
     try {
         await dynamicFormRef.value.validate();
         if (workflowList.value.length > 1 && !selectedWorkflowId.value) {
-            proxy.$message.warning('请先选择审批流程');
+            ElMessage.warning('请先选择审批流程');
             return false;
         }
 
@@ -171,47 +187,48 @@ const handleInitiate = async () => {
         };
         if (selectedWorkflowId.value) obj.workflowId = selectedWorkflowId.value;
 
-        const data = await proxy.$api.startWorkflow(obj);
+        const data = await startWorkflow(obj);
         if (data.code == 200) {
-            proxy.$message.success(data.message);
+            ElMessage.success(data.message);
             showCodeDialog.value = false;
         }
     } catch (error) {
-        proxy.$message.error(error.message || '请填写必填项');
+        ElMessage.error(error.message || '请填写必填项');
         return false;
     }
 };
 
 const govueFlow = row => {
-    proxy.$router.push({
+    router.push({
         path: '/home/formDesign',
         query: { idkey: row ? row.id : '' },
     });
 };
 
 const startOrStop = async row => {
-    const data = await proxy.$api.designStatus({
+    const data = await updateFormDesignStatus({
         id: row.id,
         status: row.status == '2' ? '1' : '2'
     });
     if (data.code == 200) {
-        proxy.$message.success(data.message);
+        ElMessage.success(data.message);
         proTableRef.value?.refresh();
     }
 };
 
 const handleDelete = async row => {
-    proxy.$messageBox
-        .confirm('确定要删除该表单吗?', '提示', {
+    try {
+        await ElMessageBox.confirm('确定要删除该表单吗?', '提示', {
             type: 'warning',
-        })
-        .then(async () => {
-            const data = await proxy.$api.designDelete({ id: row.id });
-            if (data.code == 200) {
-                proxy.$message.success(data.message);
-                proTableRef.value?.refresh();
-            }
         });
+        const data = await deleteFormDesign({ id: row.id });
+        if (data.code == 200) {
+            ElMessage.success(data.message);
+            proTableRef.value?.refresh();
+        }
+    } catch (err) {
+        // 取消删除
+    }
 };
 </script>
 

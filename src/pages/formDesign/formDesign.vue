@@ -54,27 +54,22 @@
                     <span class="form-title-badge">{{ formConfig.name || '未命名表单' }}</span>
                     <div class="header-actions">
                         <el-tooltip content="撤销操作 (Ctrl+Z)" placement="bottom">
-                            <el-button size="small" :icon="Back" :disabled="!canUndo" @click="undo">撤销</el-button>
+                            <el-button :icon="Back" :disabled="!canUndo" @click="undo">撤销</el-button>
                         </el-tooltip>
                         <el-tooltip content="重做操作 (Ctrl+Y)" placement="bottom">
-                            <el-button size="small" :icon="Right" :disabled="!canRedo" @click="redo">重做</el-button>
+                            <el-button :icon="Right" :disabled="!canRedo" @click="redo">重做</el-button>
                         </el-tooltip>
                         <el-divider direction="vertical" style="margin: 0 4px" />
-                        <el-button type="success" size="small" :icon="View" @click="handleOpenPreview">真机全屏预览</el-button>
-                        <el-button size="small" @click="clearCanvas">清空画布</el-button>
-                        <el-button type="primary" size="small" @click="saveFormSchema">保存表单</el-button>
+                        <el-button type="success" :icon="View" @click="handleOpenPreview">真机全屏预览</el-button>
+                        <el-button @click="clearCanvas">清空画布</el-button>
+                        <el-button type="primary" @click="saveFormSchema">保存表单</el-button>
                     </div>
                 </div>
             </div>
 
-            <div class="section-content canvas-scroll" style="overflow: hidden;">
-                <div class="form-canvas" style="height: calc(100vh - 171px);overflow: auto;">
-                    <el-form
-                        :label-position="formConfig.labelPosition"
-                        :size="formConfig.size"
-                        :label-width="formConfig.labelWidth + 'px'"
-                        style="min-height: 100%;padding: 12px;"
-                    >
+            <div class="section-content canvas-scroll" style="overflow: hidden">
+                <div class="form-canvas" style="height: calc(100vh - 171px); overflow: auto">
+                    <el-form :label-position="formConfig.labelPosition" :size="formConfig.size" :label-width="formConfig.labelWidth + 'px'" style="min-height: 100%; padding: 12px">
                         <draggable
                             v-model="formItems"
                             item-key="id"
@@ -160,17 +155,11 @@
                             <!-- 计算字段配置 (非容器组件支持) -->
                             <template v-if="!currentItem.slots">
                                 <div class="config-section-title">联动与计算</div>
-                                <ComputedFieldSetting
-                                    :item="currentItem"
-                                    :available-fields="getAvailableFields()"
-                                    :available-subforms="getAvailableSubforms()"
-                                />
+                                <ComputedFieldSetting :item="currentItem" :available-fields="getAvailableFields()" :available-subforms="getAvailableSubforms()" />
                             </template>
                         </el-form>
                     </div>
-                    <div v-else class="empty-selection-tip">
-                        请在中间画布中点击选中要配置的组件
-                    </div>
+                    <div v-else class="empty-selection-tip">请在中间画布中点击选中要配置的组件</div>
                 </div>
 
                 <!-- 3.2 表单全局配置 -->
@@ -202,7 +191,7 @@
                 </div>
             </div>
         </div>
-    
+
         <!-- 4. 🚀 真机全屏实时预览弹窗 (ProDialog) -->
         <ProDialog
             v-model="previewVisible"
@@ -239,13 +228,7 @@
                 <el-tabs v-model="previewActiveTab" type="border-card">
                     <el-tab-pane label="表单交互渲染" name="form">
                         <div class="preview-form-wrapper">
-                            <DynamicForm
-                                ref="previewFormRef"
-                                v-model="previewData"
-                                :schema="previewSchema"
-                                :ui-config="previewUiConfig"
-                                device-mode="pc"
-                            />
+                            <DynamicForm ref="previewFormRef" v-model="previewData" :schema="previewSchema" :ui-config="previewUiConfig" device-mode="pc" />
                         </div>
                     </el-tab-pane>
 
@@ -282,13 +265,7 @@
                             <div class="nav-title">{{ formConfig.name || '审批申请单' }}</div>
                         </div>
                         <div class="mobile-form-body">
-                            <DynamicForm
-                                ref="previewMobileFormRef"
-                                v-model="previewData"
-                                :schema="previewSchema"
-                                :ui-config="previewUiConfig"
-                                device-mode="mobile"
-                            />
+                            <DynamicForm ref="previewMobileFormRef" v-model="previewData" :schema="previewSchema" :ui-config="previewUiConfig" device-mode="mobile" />
                         </div>
                     </div>
 
@@ -305,8 +282,8 @@
                             <template #reference>
                                 <el-button size="small" link type="primary" style="margin-left: 8px">查看实时数据 (JSON)</el-button>
                             </template>
-                            <div style="max-height: 260px; overflow-y: auto;">
-                                <pre style="font-size: 11px; margin: 0; font-family: monospace;">{{ JSON.stringify(previewData, null, 2) }}</pre>
+                            <div style="max-height: 260px; overflow-y: auto">
+                                <pre style="font-size: 11px; margin: 0; font-family: monospace">{{ JSON.stringify(previewData, null, 2) }}</pre>
                             </div>
                         </el-popover>
                     </div>
@@ -322,7 +299,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, watch, onMounted, onUnmounted, getCurrentInstance } from 'vue';
+import { ref, reactive, computed, watch, onMounted, onUnmounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import draggable from 'vuedraggable/src/vuedraggable';
 import {
@@ -355,11 +332,12 @@ import { useHistory } from './hooks/useHistory.js';
 import DynamicForm from './components/DynamicForm.vue';
 import DesignItemRenderer from './designer/DesignItemRenderer.vue';
 import ComputedFieldSetting from './designer/ComputedFieldSetting.vue';
+import { getFormDesignDetail, updateFormDesign, addFormDesign } from '@/api/formDesign';
+import { useTabs } from '@/composables/useTabs';
 
-const { proxy } = getCurrentInstance();
 const route = useRoute();
-const router = useRouter();
 const { idkey } = route.query;
+const { closeCurrentAndGo } = useTabs();
 
 // 图标字典
 const iconMap = {
@@ -437,14 +415,7 @@ const handleRestoreSnapshot = snapshot => {
     }
 };
 
-const {
-    canUndo,
-    canRedo,
-    undo,
-    redo,
-    recordSnapshot,
-    initHistory,
-} = useHistory({
+const { canUndo, canRedo, undo, redo, recordSnapshot, initHistory } = useHistory({
     maxSteps: 30,
     onRestore: handleRestoreSnapshot,
 });
@@ -455,7 +426,7 @@ watch(
     () => {
         recordSnapshot(getSnapshotData(), false);
     },
-    { deep: true }
+    { deep: true },
 );
 
 // 全局键盘快捷键拦截器 (Ctrl+Z 撤销 / Ctrl+Y 重做)
@@ -506,7 +477,7 @@ onUnmounted(() => {
 
 const getDesignDetail = async () => {
     try {
-        const res = await proxy.$api.designDetail({ id: idkey });
+        const res = await getFormDesignDetail({ id: idkey });
         if (res.code === 200 && res.data) {
             Object.assign(formConfig, res.data.ui_config || {}, {
                 name: res.data.name,
@@ -666,10 +637,13 @@ const saveFormSchema = async () => {
             ...(idkey ? {} : { status: 2 }), // 仅新增表单时默认设为草稿(2)，编辑保存时不传 status，防止将已发布表单降级
         };
 
-        const res = idkey ? await proxy.$api.designUpdate(payload) : await proxy.$api.designAdd(payload);
+        const res = idkey ? await updateFormDesign(payload) : await addFormDesign(payload);
         if (res.code === 200) {
             ElMessage.success(idkey ? '表单已成功更新！' : '表单已成功保存！');
-            router.push('/home/formDesignList');
+            closeCurrentAndGo({
+                path: '/home/formDesignList',
+                state: { needRefresh: true },
+            });
         } else {
             ElMessage.error(res.message || '保存失败');
         }
@@ -767,7 +741,9 @@ const handleResetPreview = () => {
     border: 1px solid var(--el-border-color-lighter);
     background-color: var(--el-bg-color-page);
     border-radius: 8px;
-    transition: background-color 0.3s ease, border-color 0.3s ease;
+    transition:
+        background-color 0.3s ease,
+        border-color 0.3s ease;
 }
 
 /* 1. 左侧物料库 */
@@ -777,7 +753,9 @@ const handleResetPreview = () => {
     border-right: 1px solid var(--el-border-color-lighter);
     display: flex;
     flex-direction: column;
-    transition: background-color 0.3s ease, border-color 0.3s ease;
+    transition:
+        background-color 0.3s ease,
+        border-color 0.3s ease;
 }
 
 .widget-group-title {
@@ -850,7 +828,9 @@ const handleResetPreview = () => {
     border: 1px solid var(--el-border-color-lighter);
     border-radius: 8px;
     box-shadow: var(--el-box-shadow-lighter);
-    transition: background-color 0.3s ease, border-color 0.3s ease;
+    transition:
+        background-color 0.3s ease,
+        border-color 0.3s ease;
 }
 
 .canvas-item-slot-wrapper {
@@ -880,7 +860,9 @@ const handleResetPreview = () => {
     border-left: 1px solid var(--el-border-color-lighter);
     display: flex;
     flex-direction: column;
-    transition: background-color 0.3s ease, border-color 0.3s ease;
+    transition:
+        background-color 0.3s ease,
+        border-color 0.3s ease;
 }
 
 .section-header {
@@ -890,7 +872,9 @@ const handleResetPreview = () => {
     align-items: center;
     border-bottom: 1px solid var(--el-border-color-lighter);
     background: var(--el-bg-color);
-    transition: background-color 0.3s ease, border-color 0.3s ease;
+    transition:
+        background-color 0.3s ease,
+        border-color 0.3s ease;
 }
 
 .section-header h4 {
@@ -1011,7 +995,9 @@ const handleResetPreview = () => {
     /* 曜石黑铝合金精密金属外壳 (保持仿真硬件工业级深黑金属质感) */
     border: 11px solid #0f172a;
     border-radius: 48px;
-    box-shadow: 0 25px 50px -12px rgba(15, 23, 42, 0.35), 0 0 0 1px rgba(255, 255, 255, 0.12) inset;
+    box-shadow:
+        0 25px 50px -12px rgba(15, 23, 42, 0.35),
+        0 0 0 1px rgba(255, 255, 255, 0.12) inset;
     display: flex;
     flex-direction: column;
     overflow: hidden;
@@ -1058,7 +1044,9 @@ const handleResetPreview = () => {
     color: var(--el-text-color-primary);
     z-index: 10;
     border-bottom: 1px solid var(--el-border-color-lighter);
-    transition: background-color 0.3s ease, border-color 0.3s ease;
+    transition:
+        background-color 0.3s ease,
+        border-color 0.3s ease;
 }
 
 .status-time {
@@ -1116,7 +1104,9 @@ const handleResetPreview = () => {
     position: sticky;
     top: 0;
     z-index: 5;
-    transition: background-color 0.3s ease, border-color 0.3s ease;
+    transition:
+        background-color 0.3s ease,
+        border-color 0.3s ease;
 }
 
 .mobile-form-body {

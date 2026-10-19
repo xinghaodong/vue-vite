@@ -139,3 +139,29 @@ html.dark .lf-grid svg circle {
 html.dark .lf-grid svg path {
     stroke: rgba(255, 255, 255, 0.08) !important;
 }
+
+/* ========================================================================
+ * 4. 全局默认尺寸按钮修身优化 (仅针对 default 尺寸按钮做 29px 精致化处理)
+ *    保持 input/select 等其他组件 32px 舒适度不变，消除默认实底按钮笨重厚度
+ * ======================================================================== */
+.el-button:not(.el-button--small):not(.el-button--large) {
+    height: 29px !important;
+    padding: 0 12px !important;
+    font-size: 13px !important;
+    line-height: 26px !important;
+    border-radius: 4px;
+}
+
+/* 默认尺寸圆形图标按钮：保持严格宽高比与居中 */
+.el-button.is-circle:not(.el-button--small):not(.el-button--large) {
+    width: 29px !important;
+    height: 29px !important;
+    padding: 0 !important;
+}
+
+/* 默认尺寸纯文字链接按钮 (link)：保持自适应高度与紧凑内边距 */
+.el-button.is-link:not(.el-button--small):not(.el-button--large) {
+    height: auto !important;
+    padding: 2px 4px !important;
+    line-height: 1.5 !important;
+}

@@ -32,13 +32,17 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, onUnmounted, getCurrentInstance } from 'vue';
+import { ref, reactive, onMounted, onUnmounted } from 'vue';
+import { useRouter } from 'vue-router';
+import { ElMessage } from 'element-plus';
 import useUserInfoStore from '@/stores/user'; //引入仓库
 import menuStore from '@/stores/menu'; //引入仓库
 import { storeToRefs } from 'pinia'; //引入pinia转换
+import { login as loginApi } from '@/api/auth';
+
+const router = useRouter();
 const userInfoStore = useUserInfoStore();
 const { userInfo } = storeToRefs(userInfoStore); // 响应式
-const { proxy } = getCurrentInstance();
 const menuInfoStore = menuStore();
 const { editableTabsValue, btnPermsArry } = storeToRefs(menuInfoStore); // 响应式
 let intervalId = null;
@@ -49,9 +53,6 @@ onMounted(async () => {
         // 定时器执行的逻辑
         changeBg();
     }, 5000);
-    // if (proxy.$websocket.socket) {
-    //     proxy.$websocket.close();
-    // }
 });
 // 销毁
 onUnmounted(() => {
@@ -93,7 +94,7 @@ const ruleFormRef = ref(null);
 const onSubmit = formEl => {
     formEl.validate(async valid => {
         if (valid) {
-            const data = await proxy.$api.login(ruleForm);
+            const data = await loginApi(ruleForm);
 
             console.log(localStorage.getItem('theme'), 'data', data);
 
@@ -118,17 +119,10 @@ const onSubmit = formEl => {
                     }
                 }
 
-                // localStorage.setItem('theme', data.data.informationObject.theme);
-                // if (data.data.informationObject.theme) {
-                //     document.documentElement.classList.add('dark');
-                // } else {
-                //     document.documentElement.classList.remove('dark');
-                // }
-                // userInfoStore.changeUserInfo(data.data);
                 sessionStorage.setItem('token', data.data.token);
                 sessionStorage.setItem('refreshToken', data.data.refreshToken);
-                proxy.$router.push('/index');
-                proxy.$message.success(data.message);
+                router.push('/index');
+                ElMessage.success(data.message);
             }
         } else {
             return false;

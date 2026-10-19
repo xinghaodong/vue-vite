@@ -252,18 +252,25 @@
 </template>
 
 <script setup>
-import { ref, onMounted, nextTick, reactive, getCurrentInstance, computed, watch } from 'vue';
+import { ref, onMounted, nextTick, reactive, computed, watch } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
+import { ElMessage } from 'element-plus';
 import DynamicForm from '@/pages/formDesign/components/DynamicForm.vue';
 import { isContainerWidget } from '@/pages/formDesign/widgets/index.js';
-const { proxy } = getCurrentInstance();
-import { useRoute } from 'vue-router';
 import { useLogicFlow, EDGE_TYPES } from './hooks/useLogicFlow.js';
 import { useFlowStatus } from './hooks/useFlowStatus.js';
 import { registerCustomNodes } from './customNodes.js';
 import { useTheme } from '@/composables/useTheme';
-import { ElMessage } from 'element-plus';
-
+import {
+    getApprovalHistory as fetchApprovalHistory,
+    addWorkflow,
+    getWorkflowDetail,
+} from '@/api/workflow';
+import { getFormDesignDetail, getAllFormDesigns } from '@/api/formDesign';
+import { getAllUsers } from '@/api/user';
+import { useTabs } from '@/composables/useTabs';
 const { isDark } = useTheme();
+const { closeCurrentAndGo } = useTabs();
 
 const props = defineProps({
     workflowId: {
@@ -373,7 +380,7 @@ const loadFormFields = async formId => {
         return;
     }
     try {
-        const res = await proxy.$api.designDetail({ id: formId });
+        const res = await getFormDesignDetail({ id: formId });
         if (res.code === 200 && res.data?.schema) {
             const schema = typeof res.data.schema === 'string' ? JSON.parse(res.data.schema) : res.data.schema;
             currentFormFields.value = extractFieldsFromSchema(schema);
@@ -835,7 +842,7 @@ const handleAgentRoleChange = val => {
 // 获取审批历史 主要用于给流程设计器显示状态
 const getApprovalHistory = async () => {
     try {
-        let data = await proxy.$api.getApprovalHistory({ id: props.appId });
+        let data = await fetchApprovalHistory({ id: props.appId });
         if (data.code == 200) {
             approvalHistoryData.value = data.data;
             return approvalHistoryData.value;
@@ -849,12 +856,12 @@ const getApprovalHistory = async () => {
 const previewForm = async () => {
     const formId = ruleForm.value.formId;
     if (!formId) {
-        proxy.$message.warning('请先选择关联表单');
+        ElMessage.warning('请先选择关联表单');
         return;
     }
     previewVisible.value = true;
     // 根据formId 查询表单接口
-    const data = await proxy.$api.designDetail({ id: formId });
+    const data = await getFormDesignDetail({ id: formId });
     if (data.code == 200) {
         formSchema.value = JSON.parse(data.data.schema);
         uiConfig.value = data.data.ui_config;
@@ -947,10 +954,13 @@ const saveWorkflow = async () => {
         obj.id = idkey;
     }
     try {
-        res = await proxy.$api.logicadd(obj);
+        res = await addWorkflow(obj);
         if (res && res.code == 200) {
             ElMessage.success('保存成功');
-            proxy.$router.push({ path: '/home/logicFlowList' });
+            closeCurrentAndGo({
+                path: '/home/logicFlowList',
+                state: { needRefresh: true },
+            });
         } else {
             ElMessage.error(res?.message || '保存失败');
         }
@@ -962,7 +972,7 @@ const saveWorkflow = async () => {
 // 获取流程设计器
 const getLogicdetail = async () => {
     try {
-        const res = await proxy.$api.logicdetail({ id: idkey });
+        const res = await getWorkflowDetail({ id: idkey });
         if (res.code === 200) {
             ruleForm.value = res.data;
             // 🌟 优先从后端实体字段或 graphData.edgeType 中读取连线风格
@@ -999,14 +1009,14 @@ const injectNodeStatusIntoGraphData = () => {
 };
 
 const findAll = async () => {
-    const res = await proxy.$api.findAll();
+    const res = await getAllUsers();
     if (res.code === 200) {
         options.value = res.data;
     }
 };
 
 const designNoPage = async () => {
-    const res = await proxy.$api.designNoPage({ status: '1' });
+    const res = await getAllFormDesigns({ status: '1' });
     if (res.code === 200) {
         console.log('表单列表', res.data);
         mockFormList.value = res.data;

@@ -141,12 +141,19 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, getCurrentInstance } from 'vue';
+import { ref, reactive, onMounted } from 'vue';
+import { ElMessage, ElMessageBox } from 'element-plus';
 import { Plus } from '@element-plus/icons-vue';
 import useUserInfoStore from '@/stores/user';
 import { storeToRefs } from 'pinia';
+import {
+    getOrganizationList,
+    addOrganization,
+    updateOrganization,
+    deleteOrganization,
+    getOrganizationDetail,
+} from '@/api/organization';
 
-const { proxy } = getCurrentInstance();
 const proTableRef = ref(null);
 const dialogVisible = ref(false);
 const userInfoStore = useUserInfoStore();
@@ -230,67 +237,64 @@ const resetForm = () => {
     if (ruleFormRef.value) ruleFormRef.value.resetFields();
 };
 
-const onSubmit = formEl => {
-    formEl.validate(async valid => {
-        if (!valid) {
-            return false;
-        }
-        const submitData = { ...form };
-        if (submitData.orgType !== 'company') {
-            submitData.legalEntityName = submitData.legalEntityName || null;
-            submitData.taxCode = submitData.taxCode || null;
-        }
-        if (submitData.taxCode) {
-            submitData.taxCode = submitData.taxCode.trim();
-        }
-        if (submitData.legalEntityName) {
-            submitData.legalEntityName = submitData.legalEntityName.trim();
-        }
+const onSubmit = async formEl => {
+    if (!formEl) return;
+    await formEl.validate();
+    const submitData = { ...form };
+    if (submitData.orgType !== 'company') {
+        submitData.legalEntityName = submitData.legalEntityName || null;
+        submitData.taxCode = submitData.taxCode || null;
+    }
+    if (submitData.taxCode) {
+        submitData.taxCode = submitData.taxCode.trim();
+    }
+    if (submitData.legalEntityName) {
+        submitData.legalEntityName = submitData.legalEntityName.trim();
+    }
 
-        if (form.organid) {
-            // 更新组织
-            proxy.$api.updateOrganization(submitData).then(res => {
-                if (res.code == 200) {
-                    proxy.$message.success(res.message);
-                    dialogVisible.value = false;
-                    proTableRef.value?.refresh();
-                }
-            });
-        } else {
-            // 新增组织
-            if (submitData.parentId == 0) {
-                submitData.parentId = '';
-            }
-            const data = await proxy.$api.addOrganization(submitData);
-            if (data.code == 200) {
-                dialogVisible.value = false;
-                proxy.$message.success(data.message);
-                proTableRef.value?.refresh();
-            }
+    if (form.organid) {
+        // 更新组织
+        const res = await updateOrganization(submitData);
+        if (res.code == 200) {
+            ElMessage.success(res.message);
+            dialogVisible.value = false;
+            proTableRef.value?.refresh();
         }
-    });
+    } else {
+        // 新增组织
+        if (submitData.parentId == 0) {
+            submitData.parentId = '';
+        }
+        const data = await addOrganization(submitData);
+        if (data.code == 200) {
+            dialogVisible.value = false;
+            ElMessage.success(data.message);
+            proTableRef.value?.refresh();
+        }
+    }
 };
 
 // 删除
 const handleDelete = async row => {
-    proxy.$messageBox
-        .confirm('确定要删除吗?', '提示', {
+    try {
+        await ElMessageBox.confirm('确定要删除吗?', '提示', {
             type: 'warning',
-        })
-        .then(async () => {
-            const data = await proxy.$api.deleteOrganization({ id: row });
-            if (data.code == 200) {
-                proxy.$message.success(data.message);
-                proTableRef.value?.refresh();
-            }
         });
+        const data = await deleteOrganization({ id: row });
+        if (data.code == 200) {
+            ElMessage.success(data.message);
+            proTableRef.value?.refresh();
+        }
+    } catch (err) {
+        // 取消删除
+    }
 };
 
 // 修改
 const handleEdit = async row => {
     dialogVisible.value = true;
     resetForm();
-    const data = await proxy.$api.detailOrganization({ id: row });
+    const data = await getOrganizationDetail({ id: row });
     Object.assign(form, {
         ...formTemplate,
         ...data.data,
@@ -303,7 +307,7 @@ const handleEdit = async row => {
 
 // ProTable 数据请求驱动：拉取组织架构并同步树形下拉数据
 const getOrganTableData = async () => {
-    const res = await proxy.$api.getOrganizationList();
+    const res = await getOrganizationList();
     const treedata = getParentMenuTree(res.data);
     treeDatas.value = treedata;
     treeData.value = res.data;

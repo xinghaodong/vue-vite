@@ -109,10 +109,11 @@
 </template>
 
 <script setup>
-import { ref, getCurrentInstance, reactive, watch } from 'vue';
+import { ref, reactive, watch } from 'vue';
 import { Plus } from '@element-plus/icons-vue';
+import { ElMessage, ElMessageBox } from 'element-plus';
+import { getFundList, getFundSearch, addFund, deleteFund } from '@/api/fund';
 
-const { proxy } = getCurrentInstance();
 const proTableRef = ref(null);
 const ruleFormRef = ref(null);
 const dialogVisible = ref(false);
@@ -153,7 +154,7 @@ const columns = [
 // ProTable 数据请求驱动适配
 const getFundTableData = async (params = {}) => {
     const { pageNum, pageSize } = params;
-    const res = await proxy.$api.getFundList({
+    const res = await getFundList({
         page: pageNum,
         pageSize
     });
@@ -172,8 +173,8 @@ const remoteMethod = query => {
         loading.value = true;
         setTimeout(async () => {
             try {
-                const { data } = await proxy.$api.getFundSearch({ key: query });
-                options.value = data.Datas || [];
+                const { data } = await getFundSearch({ key: query });
+                options.value = data?.Datas || [];
             } catch (err) {
                 console.error('基金检索失败:', err);
             } finally {
@@ -194,56 +195,43 @@ const addList = () => {
 
 const onSubmit = async formEl => {
     if (!formEl) return false;
-    return new Promise(resolve => {
-        formEl.validate(async valid => {
-            if (!valid) {
-                proxy.$message.error('请选择基金');
-                return resolve(false);
-            }
+    const valid = await formEl.validate().catch(() => false);
+    if (!valid) return false;
 
-            if (ruleForm && ruleForm.codeArr.length > 0) {
-                const itemsToSave = selectedItems.value.map(item => ({
-                    ...item,
-                    code: item.CODE,
-                    name: item.NAME,
-                    datas: JSON.stringify(item)
-                }));
+    if (!selectedItems.value || selectedItems.value.length === 0) {
+        ElMessage.warning('请检索并选择至少一支基金');
+        return false;
+    }
 
-                try {
-                    const { code, message } = await proxy.$api.addFund({ items: itemsToSave });
-                    if (code == 200) {
-                        proxy.$message.success(message || '保存成功');
-                        dialogVisible.value = false;
-                        proTableRef.value?.refresh();
-                        resolve(true);
-                    } else {
-                        resolve(false);
-                    }
-                } catch (err) {
-                    resolve(false);
-                }
-            } else {
-                resolve(false);
-            }
-        });
-    });
+    const itemsToSave = selectedItems.value.map(item => ({
+        ...item,
+        code: item.CODE,
+        name: item.NAME,
+        datas: JSON.stringify(item)
+    }));
+
+    try {
+        const res = await addFund({ items: itemsToSave });
+        ElMessage.success(res?.message || '保存成功');
+        proTableRef.value?.refresh();
+        // ProDialog 自动关闭弹窗并结束 loading，无需手动设置 dialogVisible.value = false
+    } catch (err) {
+        console.error('保存基金失败:', err);
+        return false;
+    }
 };
 
 const handleDelete = row => {
-    proxy.$messageBox
+    ElMessageBox
         .confirm('确定要删除关注的该基金吗?', '提示', {
             type: 'warning',
         })
         .then(async () => {
-            const data = await proxy.$api.deleteFund({ id: row.id });
-            if (data.code == 200) {
-                proxy.$message.success(data.message);
-                proTableRef.value?.refresh();
-            }
+            const data = await deleteFund({ id: row.id });
+            ElMessage.success(data?.message || '删除成功');
+            proTableRef.value?.refresh();
         })
-        .catch(() => {
-            proxy.$message.info('已取消');
-        });
+        .catch(() => {});
 };
 
 watch(

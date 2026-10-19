@@ -50,12 +50,14 @@
 </template>
 
 <script setup>
-import { ref, getCurrentInstance } from 'vue';
+import { ref } from 'vue';
+import { ElMessage } from 'element-plus';
 import ApprovalDrawer from './components/ApprovalDrawer.vue';
 import useUserInfoStore from '@/stores/user.js';
+import { getMyTodoInstances, approveWorkflow, getApprovalHistory } from '@/api/workflow';
+import { getFormDesignDetail } from '@/api/formDesign';
 
 const userInfoStore = useUserInfoStore();
-const { proxy } = getCurrentInstance();
 const proTableRef = ref(null);
 
 const showCodeDialog = ref(false);
@@ -88,7 +90,7 @@ const columns = [
 // ProTable 数据请求驱动适配
 const getTodoList = async (params = {}) => {
     const { pageNum, pageSize, title } = params;
-    const res = await proxy.$api.getMyTodoInstances({
+    const res = await getMyTodoInstances({
         userId: userInfoStore?.userInfo?.id,
         page: pageNum,
         pageSize,
@@ -105,9 +107,9 @@ const getTodoList = async (params = {}) => {
 // 提交审批结果并刷新表格
 const handleSubmitApproval = async (objs) => {
     try {
-        const res = await proxy.$api.approve(objs);
+        const res = await approveWorkflow(objs);
         if (res.code == 200) {
-            proxy.$message.success('提交成功');
+            ElMessage.success('提交成功');
             showCodeDialog.value = false;
             proTableRef.value?.refresh();
         }
@@ -123,8 +125,8 @@ const govueFlow = async (row) => {
 
     try {
         const [res, historyRes] = await Promise.all([
-            proxy.$api.designDetail({ id: row.formId }),
-            proxy.$api.getApprovalHistory({ id: row.id }),
+            getFormDesignDetail({ id: row.formId }),
+            getApprovalHistory({ id: row.id }),
         ]);
 
         if (historyRes?.data?.formSchemaSnapshot) {
@@ -143,7 +145,7 @@ const govueFlow = async (row) => {
         showCodeDialog.value = true;
     } catch (err) {
         console.error('获取待办详情失败:', err);
-        proxy.$message.error('加载待办详情失败');
+        ElMessage.error('加载待办详情失败');
     }
 };
 </script>

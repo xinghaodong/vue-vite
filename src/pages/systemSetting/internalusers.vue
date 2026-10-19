@@ -76,7 +76,7 @@
                         name="avatar"
                         :data="{ userId: ruleForm.id || '' }"
                     >
-                        <img v-if="ruleForm.avatar?.filePath" :src="proxy.$api.img_url + ruleForm.avatar?.filePath" class="avatar" />
+                        <img v-if="ruleForm.avatar?.filePath" :src="formatAvatarUrl(ruleForm.avatar?.filePath)" class="avatar" />
                         <el-icon v-else class="avatar-uploader-icon"><Plus /></el-icon>
                     </el-upload>
                 </el-form-item>
@@ -107,12 +107,24 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, onBeforeUnmount, getCurrentInstance } from 'vue';
+import { ref, reactive, onMounted } from 'vue';
 import { Plus } from '@element-plus/icons-vue';
-const { proxy } = getCurrentInstance();
+import { ElMessage, ElMessageBox } from 'element-plus';
+import {
+    getUserList as fetchUserList,
+    addUser,
+    updateUser,
+    deleteUser,
+    getUserDetail,
+    banUser,
+} from '@/api/user';
+import { getRoleList } from '@/api/role';
+import { getOrganizationList } from '@/api/organization';
+
 const proTableRef = ref(null);
 const ruleFormRef = ref(null);
-const uploadUrl = `${proxy.$api.baseUrl}/upload/uploadFile`;
+const uploadUrl = `${import.meta.env.VITE_PROXY_DOMAIN || ''}/upload/uploadFile`;
+const imgBaseUrl = import.meta.env.VITE_STATIC_URL || '';
 const headers = { Authorization: sessionStorage.getItem('token') };
 const roleList = ref([]);
 
@@ -208,14 +220,14 @@ const columns = [
 ];
 
 // 请求列表函数，对接 ProTable 的 request-api
-const getUserList = async (params) => {
+const getUserList = async params => {
     try {
         const query = {
             page: params.pageNum,
             pageSize: params.pageSize,
             username: params.username,
             name: params.name,
-            is_active: params.is_active
+            is_active: params.is_active,
         };
         // 过滤空查询字段
         Object.keys(query).forEach(key => {
@@ -223,20 +235,20 @@ const getUserList = async (params) => {
                 delete query[key];
             }
         });
-        const res = await proxy.$api.find(query);
+        const res = await fetchUserList(query);
         return {
             data: {
                 list: res?.data?.data || [],
-                total: res?.data?.total || 0
-            }
+                total: res?.data?.total || 0,
+            },
         };
     } catch (error) {
         console.error('获取用户列表失败:', error);
         return {
             data: {
                 list: [],
-                total: 0
-            }
+                total: 0,
+            },
         };
     }
 };
@@ -282,25 +294,26 @@ const rules = {
     roleIds: [{ required: true, message: '请选择角色', trigger: 'change' }],
     organid: [{ required: true, message: '请选择组织', trigger: 'change' }],
 };
-// 重置表单sF
+// 重置表单
 const resetForm = () => {
     ruleForm = reactive({ ...formTemplate });
     if (ruleFormRef.value) ruleFormRef.value.resetFields();
 };
 const dialogVisible = ref(false);
 
-onMounted(() => {
-    proxy.$api.getRolsList().then(res => {
-        roleList.value = res.data;
-    });
-    // 组织列表
-    proxy.$api.getOrganizationList().then(res => {
-        zztree.value = res.data;
-    });
+onMounted(async () => {
+    try {
+        const [rolesRes, orgRes] = await Promise.all([
+            getRoleList(),
+            getOrganizationList(),
+        ]);
+        roleList.value = rolesRes?.data || [];
+        zztree.value = orgRes?.data || [];
+    } catch (err) {
+        console.error('加载角色或组织列表失败:', err);
+    }
 });
-onBeforeUnmount(() => {
-    // proxy.$websocket.close();
-});
+
 const handleAvatarSuccess = (res, uploadFile) => {
     const { fileName, filePath, fileSize, id } = res.data;
     ruleForm.avatar = { fileName, filePath, fileSize, id };
@@ -310,7 +323,7 @@ const formatAvatarUrl = path => {
     if (!path) return '';
     if (path.startsWith('http://') || path.startsWith('https://')) return path;
     const cleanPath = path.replace(/^[/\\]+/, '').replace(/\\/g, '/');
-    return `${proxy.$api.img_url}${cleanPath}`;
+    return `${imgBaseUrl}${cleanPath}`;
 };
 
 const beforeAvatarUpload = rawFile => {
@@ -321,76 +334,66 @@ const beforeAvatarUpload = rawFile => {
 const getInternalUsers = () => {
     proTableRef.value?.getTableList();
 };
-const onSubmit = formEl => {
-    formEl.validate(async valid => {
-        if (valid) {
-            //如果id存在，则修改
-            if (ruleForm.id) {
-                const data = await proxy.$api.update(ruleForm);
-                if (data.code == 200) {
-                    dialogVisible.value = false;
-                    proxy.$message.success(data.message);
-                    getInternalUsers();
-                }
-                return;
-            }
-            const data = await proxy.$api.add(ruleForm);
-            if (data.code == 200) {
-                dialogVisible.value = false;
-                proxy.$message.success(data.message);
-                getInternalUsers();
-            }
-        } else {
-            return false;
-        }
-    });
+
+const onSubmit = async formEl => {
+    if (!formEl) return false;
+    const valid = await formEl.validate().catch(() => false);
+    if (!valid) return false;
+
+    try {
+        const isEdit = Boolean(ruleForm.id);
+        const api = isEdit ? updateUser : addUser;
+        const res = await api(ruleForm);
+        ElMessage.success(res?.message || (isEdit ? '修改成功' : '新增成功'));
+        getInternalUsers();
+        // ProDialog 自动关闭弹窗并结束 loading，无需手动设置 dialogVisible.value = false
+    } catch (err) {
+        console.error('保存用户异常:', err);
+        return false;
+    }
 };
+
 // 修改
-const handleEdit = row => {
+const handleEdit = async row => {
     dialogVisible.value = true;
-    proxy.$api.internalusersDetail({ id: row.id }).then(res => {
+    try {
+        const res = await getUserDetail({ id: row.id });
         Object.assign(ruleForm, res.data);
-        // ruleForm.roleIds = res.data.data.map(item => item.id);
-    });
+    } catch (err) {
+        console.error('获取用户详情异常:', err);
+    }
 };
+
 // 删除
 const handleDelete = row => {
-    proxy.$messageBox
-        .confirm('确定要删除吗?', '提示', {
-            type: '提示',
+    ElMessageBox
+        .confirm('确定要删除该用户吗?', '提示', {
+            type: 'warning',
         })
         .then(async () => {
-            const data = await proxy.$api.delete({ id: row.id });
-            if (data.code == 200) {
-                proxy.$message.success(data.message);
-                getInternalUsers();
-            }
+            const data = await deleteUser({ id: row.id });
+            ElMessage.success(data?.message || '删除成功');
+            getInternalUsers();
         })
-        .catch(() => {
-            proxy.$message.info('已取消');
-        });
+        .catch(() => {});
 };
+
 const handleUnitChange = val => {};
+
 // 禁用/解除禁用
 const handleRelieve = row => {
-    let fromData = {
-        id: row.id,
-        is_active: row.is_active === 1 ? 0 : 1,
-    };
-    proxy
-        .$confirm('此操作将该用户, 是否继续?', '提示', {
-            type: '提示',
+    const targetActive = row.is_active === 1 ? 0 : 1;
+    const actionText = targetActive === 1 ? '启用' : '禁用';
+    ElMessageBox
+        .confirm(`此操作将${actionText}该用户，是否继续?`, '提示', {
+            type: 'warning',
         })
         .then(async () => {
-            const data = await proxy.$api.post('/api/internalusers/ban', fromData);
-            if (data.code == 200) {
-                proxy.$message.success(data.message);
-                getInternalUsers();
-            }
+            const data = await banUser({ id: row.id, is_active: targetActive });
+            ElMessage.success(data?.message || `${actionText}成功`);
+            getInternalUsers();
         })
-        .catch(async () => {
-            await proxy.$message.info('已取消');
-        });
+        .catch(() => {});
 };
 </script>
 <style scoped>

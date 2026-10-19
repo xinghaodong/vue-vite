@@ -72,7 +72,7 @@
 </template>
 
 <script setup>
-import { ref, shallowRef, computed, watch, onBeforeUnmount, getCurrentInstance } from 'vue';
+import { ref, shallowRef, computed, watch, onBeforeUnmount } from 'vue';
 import '@wangeditor/editor/dist/css/style.css';
 import { Editor, Toolbar } from '@wangeditor/editor-for-vue';
 import axios from 'axios';
@@ -110,7 +110,8 @@ const props = defineProps({
 });
 
 const emit = defineEmits(['update:modelValue']);
-const { proxy } = getCurrentInstance() || {};
+const baseUrl = import.meta.env.VITE_PROXY_DOMAIN || 'http://127.0.0.1:3001/api';
+const staticBase = import.meta.env.VITE_STATIC_URL || 'http://127.0.0.1:3001/api/';
 
 // 计算高度
 const currentHeight = computed(() => {
@@ -156,7 +157,7 @@ editorConfig.MENU_CONF['uploadImage'] = {
     base64LimitSize: 5 * 1024, // 5KB 以下小图标直接 base64
     async customUpload(file, insertFn) {
         if (!file) return;
-        const uploadUrl = `${proxy?.$api?.baseUrl || 'http://127.0.0.1:3001/api'}/upload/uploadFile`;
+        const uploadUrl = `${baseUrl}/upload/uploadFile`;
         const formData = new FormData();
         formData.append('avatar', file); // 🌟 字段名严格设为后端 Multer 指定的 avatar
 
@@ -173,7 +174,6 @@ editorConfig.MENU_CONF['uploadImage'] = {
 
             // 计算完整的图片访问绝对路径 (与 FileUploadWidget 统一规范)
             let fullImgUrl = '';
-            const staticBase = import.meta.env.VITE_STATIC_URL || proxy?.$api?.img_url || 'http://127.0.0.1:3001/api/';
             const filePath = data.filePath || data.path;
             if (filePath) {
                 const cleanPath = String(filePath).replace(/\\/g, '/').replace(/^\/+/, '');
