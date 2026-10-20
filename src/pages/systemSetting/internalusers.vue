@@ -1,23 +1,10 @@
 <template>
     <div class="internal-users-container">
         <!-- 接入大厂级超级表格 ProTable (内置响应式搜索、自动分页、密度切换、列显隐、全屏与局部刷新) -->
-        <ProTable
-            ref="proTableRef"
-            title="内部用户与权限管理"
-            :columns="columns"
-            :request-api="getUserList"
-            row-key="id"
-            :border="true"
-        >
+        <ProTable ref="proTableRef" title="内部用户与权限管理" :columns="columns" :request-api="getUserList" row-key="id" :border="true">
             <!-- 头部操作按钮区域 -->
             <template #tableHeader>
-                <el-button
-                    type="primary"
-                    :icon="Plus"
-                    @click="handleAdd"
-                >
-                    新增用户
-                </el-button>
+                <el-button type="primary" :icon="Plus" @click="handleAdd"> 新增用户 </el-button>
             </template>
 
             <!-- 头像列具名插槽 -->
@@ -45,14 +32,7 @@
             <!-- 权限角色列具名插槽 -->
             <template #roles="{ row }">
                 <div v-if="row?.roles && row.roles.length" class="role-tags-cell">
-                    <el-tag
-                        v-for="role in row.roles"
-                        :key="role.id"
-                        size="small"
-                        type="primary"
-                        effect="light"
-                        round
-                    >
+                    <el-tag v-for="role in row.roles" :key="role.id" size="small" type="primary" effect="light" round>
                         {{ role.name }}
                     </el-tag>
                 </div>
@@ -124,16 +104,10 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue';
+import { ref, reactive, onMounted, computed } from 'vue';
 import { Plus } from '@element-plus/icons-vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import {
-    getUserList as fetchUserList,
-    addUser,
-    updateUser,
-    deleteUser,
-    getUserDetail,
-} from '@/api/user';
+import { getUserList as fetchUserList, addUser, updateUser, deleteUser, getUserDetail } from '@/api/user';
 import { getRoleList } from '@/api/role';
 import { getOrganizationList } from '@/api/organization';
 
@@ -145,12 +119,12 @@ const headers = { Authorization: sessionStorage.getItem('token') };
 const roleList = ref([]);
 
 // ProTable 列配置与搜索配置
-const columns = [
+const columns = computed(() => [
     {
         type: 'index',
         label: '#',
         width: 60,
-        align: 'center'
+        align: 'center',
     },
     {
         prop: 'username',
@@ -160,8 +134,8 @@ const columns = [
         search: {
             el: 'input',
             order: 1,
-            props: { placeholder: '请输入用户账号' }
-        }
+            props: { placeholder: '请输入用户账号' },
+        },
     },
     {
         prop: 'name',
@@ -171,57 +145,72 @@ const columns = [
         search: {
             el: 'input',
             order: 2,
-            props: { placeholder: '请输入用户姓名' }
-        }
+            props: { placeholder: '请输入用户姓名' },
+        },
     },
     {
         prop: 'avatar',
         label: '头像',
         width: 80,
-        align: 'center'
+        align: 'center',
     },
     {
         prop: 'email',
         label: '邮箱',
         minWidth: 180,
-        align: 'center'
+        align: 'center',
+        search: {
+            el: 'input',
+            order: 3,
+            props: { placeholder: '请输入邮箱' },
+        },
     },
     {
         prop: 'roles',
         label: '权限角色',
         minWidth: 160,
-        align: 'center'
+        align: 'center',
+        search: {
+            el: 'select',
+            order: 4,
+            options: roleList.value, // 已在 onMounted 中加载好的角色列表
+            props: {
+                placeholder: '请选择角色',
+                multiple: true, // 开启多选
+                value: 'id', // 绑定的值字段
+                label: 'name', // 显示的文本字段
+            },
+        },
     },
     {
         prop: 'created_at',
         label: '创建时间',
         minWidth: 170,
-        align: 'center'
+        align: 'center',
     },
     {
         prop: 'updated_at',
         label: '更新时间',
         minWidth: 170,
-        align: 'center'
+        align: 'center',
     },
     {
         prop: 'operation',
         label: '操作',
         width: 140,
         fixed: 'right',
-        align: 'center'
-    }
-];
+        align: 'center',
+    },
+]);
 
 // 请求列表函数，对接 ProTable 的 request-api
 const getUserList = async params => {
+    console.log(params, 'params');
     try {
         const query = {
             page: params.pageNum,
             pageSize: params.pageSize,
-            username: params.username,
-            name: params.name,
-            is_active: params.is_active,
+            ...params,
         };
         // 过滤空查询字段
         Object.keys(query).forEach(key => {
@@ -297,10 +286,7 @@ const dialogVisible = ref(false);
 
 onMounted(async () => {
     try {
-        const [rolesRes, orgRes] = await Promise.all([
-            getRoleList(),
-            getOrganizationList(),
-        ]);
+        const [rolesRes, orgRes] = await Promise.all([getRoleList(), getOrganizationList()]);
         roleList.value = rolesRes?.data || [];
         zztree.value = orgRes?.data || [];
     } catch (err) {
@@ -360,10 +346,9 @@ const handleEdit = async row => {
 
 // 删除
 const handleDelete = row => {
-    ElMessageBox
-        .confirm('确定要删除该用户吗?', '提示', {
-            type: 'warning',
-        })
+    ElMessageBox.confirm('确定要删除该用户吗?', '提示', {
+        type: 'warning',
+    })
         .then(async () => {
             const data = await deleteUser({ id: row.id });
             ElMessage.success(data?.message || '删除成功');
