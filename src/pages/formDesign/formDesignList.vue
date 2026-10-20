@@ -117,28 +117,72 @@ const columns = [
         minWidth: 180,
         search: {
             el: 'input',
-            props: { placeholder: '请输入表单名称' }
-        }
+            order: 1,
+            props: { placeholder: '请输入表单名称' },
+        },
     },
-    { prop: 'status', label: '状态', width: 120, align: 'center' },
-    { prop: 'created_at', label: '创建时间', width: 180, align: 'center' },
-    { prop: 'updated_at', label: '更新时间', width: 180, align: 'center' },
-    { prop: 'operation', label: '操作', width: 260, fixed: 'right', align: 'left' }
+    {
+        prop: 'status',
+        label: '状态',
+        width: 120,
+        align: 'center',
+        search: {
+            el: 'select',
+            order: 2,
+            options: [
+                { label: '草稿', value: '0' },
+                { label: '发布', value: '1' },
+                { label: '停用', value: '2' },
+            ],
+            props: { placeholder: '请选择状态' },
+        },
+    },
+    {
+        prop: 'created_at',
+        label: '创建时间',
+        width: 180,
+        align: 'center',
+        search: {
+            el: 'date',
+            order: 3,
+            props: {
+                type: 'daterange',
+                startPlaceholder: '开始时间',
+                endPlaceholder: '结束时间',
+            },
+        },
+    },
+    {
+        prop: 'updated_at',
+        label: '更新时间',
+        width: 180,
+        align: 'center',
+        search: {
+            el: 'date',
+            order: 4,
+            props: {
+                type: 'daterange',
+                startPlaceholder: '开始时间',
+                endPlaceholder: '结束时间',
+            },
+        },
+    },
+    { prop: 'operation', label: '操作', width: 260, fixed: 'right', align: 'left' },
 ];
 
-// ProTable 数据请求驱动适配
+// ProTable 数据请求驱动适配 (直接解构透传，零冗余空值清洗)
 const getFormDesignList = async (params = {}) => {
-    const { pageNum, pageSize, name } = params;
+    const { pageNum, pageSize, ...rest } = params;
     const res = await fetchDesignList({
         page: pageNum,
         pageSize,
-        name
+        ...rest,
     });
     return {
         data: {
             list: res?.data?.data || [],
-            total: res?.data?.total || 0
-        }
+            total: res?.data?.total || 0,
+        },
     };
 };
 

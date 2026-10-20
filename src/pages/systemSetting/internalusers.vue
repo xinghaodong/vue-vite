@@ -187,12 +187,30 @@ const columns = computed(() => [
         label: '创建时间',
         minWidth: 170,
         align: 'center',
+        search: {
+            el: 'date',
+            order: 5,
+            props: {
+                type: 'daterange',
+                startPlaceholder: '开始时间',
+                endPlaceholder:'结束时间',
+            }
+        }
     },
     {
         prop: 'updated_at',
         label: '更新时间',
         minWidth: 170,
         align: 'center',
+        search: {
+            el: 'date',
+            order: 6,
+            props: {
+                type: 'daterange',
+                startPlaceholder: '开始时间',
+                endPlaceholder:'结束时间',
+            }
+        }
     },
     {
         prop: 'operation',
