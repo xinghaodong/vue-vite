@@ -247,23 +247,24 @@ onBeforeUnmount(() => {
 /* 设计态仿真骨架 */
 .richtext-design-skeleton {
     width: 100%;
-    border: 1px solid #dcdfe6;
+    border: 1px solid var(--el-border-color-light);
     border-radius: 6px;
-    background: #ffffff;
+    background: var(--el-bg-color);
     display: flex;
     flex-direction: column;
     overflow: hidden;
     user-select: none;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+    transition: background-color 0.3s ease, border-color 0.3s ease;
 }
 
 .skeleton-toolbar {
-    background: #f8fafc;
-    border-bottom: 1px solid #e2e8f0;
+    background: var(--el-fill-color-light);
+    border-bottom: 1px solid var(--el-border-color-lighter);
     padding: 6px 10px;
     display: flex;
     justify-content: space-between;
     align-items: center;
+    transition: background-color 0.3s ease, border-color 0.3s ease;
 }
 
 .mock-btn-group {
@@ -278,9 +279,9 @@ onBeforeUnmount(() => {
     justify-content: center;
     padding: 2px 6px;
     font-size: 11px;
-    color: #64748b;
-    background: #ffffff;
-    border: 1px solid #e2e8f0;
+    color: var(--el-text-color-regular);
+    background: var(--el-bg-color);
+    border: 1px solid var(--el-border-color-light);
     border-radius: 3px;
     height: 22px;
 }
@@ -288,7 +289,7 @@ onBeforeUnmount(() => {
 .mock-divider {
     width: 1px;
     height: 14px;
-    background: #cbd5e1;
+    background: var(--el-border-color-light);
     margin: 0 2px;
 }
 
@@ -309,40 +310,120 @@ onBeforeUnmount(() => {
 .skeleton-body {
     flex: 1;
     padding: 12px;
-    background: #fafafa;
+    background: var(--el-bg-color-page);
     display: flex;
     align-items: flex-start;
+    transition: background-color 0.3s ease;
 }
 
 .mock-placeholder {
     font-size: 13px;
-    color: #94a3b8;
+    color: var(--el-text-color-placeholder);
 }
 
 /* 运行态样式 */
 .richtext-runtime-box {
-    border: 1px solid #dcdfe6;
+    border: 1px solid var(--el-border-color-light);
     border-radius: 6px;
     overflow: hidden;
-    background: #ffffff;
-    transition: border-color 0.2s ease;
+    background: var(--el-bg-color);
+    transition: border-color 0.2s ease, background-color 0.3s ease;
 }
 
 .richtext-runtime-box:focus-within {
-    border-color: #409eff;
+    border-color: var(--el-color-primary);
 }
 
 .richtext-runtime-box.is-disabled {
-    background: #f5f7fa;
-    border-color: #e4e7ed;
+    background: var(--el-fill-color-light);
+    border-color: var(--el-border-color-lighter);
 }
 
 .runtime-toolbar {
-    border-bottom: 1px solid #e2e8f0;
-    background: #f8fafc;
+    border-bottom: 1px solid var(--el-border-color-lighter) !important;
 }
 
 .runtime-editor {
     width: 100%;
+}
+</style>
+
+<style>
+/* ========================================================================
+ * 🌟 WangEditor v5 暗黑模式全套原生自适应映射
+ * ======================================================================== */
+html.dark {
+    /* 1. 核心 CSS 变量注入，驱动 WangEditor 内部体系 */
+    --w-e-textarea-bg-color: var(--el-bg-color, #141414);
+    --w-e-textarea-color: var(--el-text-color-primary, #e2e8f0);
+    --w-e-textarea-border-color: var(--el-border-color-light, #334155);
+    --w-e-textarea-slight-border-color: var(--el-border-color-lighter, #1e293b);
+    --w-e-textarea-slight-color: var(--el-text-color-placeholder, #64748b);
+    --w-e-textarea-slight-bg-color: var(--el-fill-color-darker, #1e293b);
+    --w-e-textarea-selected-border-color: var(--el-color-primary, #409eff);
+    --w-e-textarea-handler-bg-color: var(--el-color-primary, #409eff);
+
+    --w-e-toolbar-color: var(--el-text-color-regular, #94a3b8);
+    --w-e-toolbar-bg-color: var(--el-bg-color-overlay, #1d1e1f);
+    --w-e-toolbar-active-color: #ffffff;
+    --w-e-toolbar-active-bg-color: var(--el-fill-color, #262727);
+    --w-e-toolbar-disabled-color: var(--el-text-color-disabled, #475569);
+    --w-e-toolbar-border-color: var(--el-border-color-lighter, #262727);
+
+    --w-e-modal-button-bg-color: var(--el-bg-color-overlay, #1d1e1f);
+    --w-e-modal-button-border-color: var(--el-border-color-light, #334155);
+}
+
+/* 2. 暗黑模式下 WangEditor 悬浮下拉菜单、颜色拾取器、弹窗模态层深度适配 */
+html.dark .w-e-drop-panel,
+html.dark .w-e-select-list,
+html.dark .w-e-modal,
+html.dark .w-e-hover-bar {
+    background-color: var(--el-bg-color-overlay) !important;
+    border-color: var(--el-border-color-light) !important;
+    color: var(--el-text-color-primary) !important;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45) !important;
+}
+
+html.dark .w-e-select-list ul li:hover,
+html.dark .w-e-select-list ul .selected {
+    background-color: var(--el-fill-color) !important;
+    color: var(--el-color-primary) !important;
+}
+
+html.dark .w-e-modal input[type='text'],
+html.dark .w-e-modal input[type='number'],
+html.dark .w-e-modal textarea {
+    background-color: var(--el-bg-color) !important;
+    border-color: var(--el-border-color-light) !important;
+    color: var(--el-text-color-primary) !important;
+}
+
+html.dark .w-e-modal button {
+    background-color: var(--el-fill-color-light) !important;
+    border-color: var(--el-border-color-light) !important;
+    color: var(--el-text-color-primary) !important;
+}
+
+html.dark .w-e-modal button:hover {
+    background-color: var(--el-color-primary) !important;
+    color: #ffffff !important;
+    border-color: var(--el-color-primary) !important;
+}
+
+/* 3. 编辑器内容区 placeholder 暗黑颜色 */
+html.dark .w-e-text-placeholder {
+    color: var(--el-text-color-placeholder) !important;
+}
+
+/* 4. 代码块与引用块暗黑样式 */
+html.dark .w-e-text-container [data-slate-editor] code {
+    background-color: var(--el-fill-color-darker) !important;
+    color: #e2e8f0 !important;
+}
+html.dark .w-e-text-container [data-slate-editor] blockquote {
+    background-color: var(--el-fill-color-darker) !important;
+    border-left-color: var(--el-color-primary) !important;
+    color: var(--el-text-color-regular) !important;
 }
 </style>

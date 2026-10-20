@@ -30,7 +30,7 @@
                 >
                     <template #label>
                         <div class="custom-tab-item-box">
-                            <el-icon v-if="showTabsIcon" class="tab-label-icon">
+                            <el-icon v-if="showTabsIcon" :size="16" class="tab-label-icon">
                                 <component :is="getTabIcon(item)" />
                             </el-icon>
                             <span class="tab-label-text">{{ item.name }}</span>
@@ -45,14 +45,14 @@
             <!-- 快捷刷新按钮 -->
             <el-tooltip content="刷新当前页" placement="bottom">
                 <div class="tab-action-icon-btn" @click="$emit('refresh-route')">
-                    <el-icon :size="15"><RefreshRight /></el-icon>
+                    <el-icon :size="16"><RefreshRight /></el-icon>
                 </div>
             </el-tooltip>
 
             <!-- 批量关闭下拉菜单 -->
             <el-dropdown trigger="click" placement="bottom-end" @command="handleCommand">
                 <div class="tab-action-icon-btn more-btn">
-                    <el-icon :size="14"><ArrowDown /></el-icon>
+                    <el-icon :size="16"><ArrowDown /></el-icon>
                 </div>
                 <template #dropdown>
                     <el-dropdown-menu>
@@ -382,7 +382,7 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .layout-tabs-container {
-    height: 38px;
+    height: 40px;
     background: var(--el-bg-color);
     border-bottom: 1px solid var(--el-border-color-lighter);
     display: flex;
@@ -425,15 +425,28 @@ onBeforeUnmount(() => {
     color: var(--el-text-color-secondary);
     line-height: 30px;
     height: 30px;
+    width: 22px;
     display: flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
+    font-size: 16px !important;
+    transition: all 0.2s ease;
+}
+
+:deep(.el-tabs__nav-next:hover),
+:deep(.el-tabs__nav-prev:hover) {
+    color: var(--el-color-primary);
+}
+
+:deep(.el-tabs__nav-next .el-icon),
+:deep(.el-tabs__nav-prev .el-icon) {
+    font-size: 16px !important;
 }
 
 :deep(.el-tabs__item) {
-    height: 28px !important;
-    line-height: 26px !important;
+    height: 30px !important;
+    line-height: 30px !important;
     font-size: 13px !important;
     color: var(--el-text-color-regular) !important;
     background: var(--el-fill-color-light) !important;
@@ -547,7 +560,7 @@ onBeforeUnmount(() => {
 
 /* 风格 2: 胶囊风格 (Capsule) */
 .tabs-style-capsule :deep(.el-tabs__item) {
-    border-radius: 14px !important;
+    border-radius: 15px !important;
     padding: 0 12px !important;
 }
 

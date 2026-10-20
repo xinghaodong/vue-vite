@@ -62,8 +62,8 @@
                         <template v-if="currentEdgeConfig.isFromDiamond">
                             <el-form-item label="分支类型">
                                 <el-radio-group v-model="currentEdgeConfig.isDefault">
-                                    <el-radio :label="false">条件分支（按表达式判断）</el-radio>
-                                    <el-radio :label="true">默认兜底分支（Else）</el-radio>
+                                    <el-radio :value="false">条件分支（按表达式判断）</el-radio>
+                                    <el-radio :value="true">默认兜底分支（Else）</el-radio>
                                 </el-radio-group>
                             </el-form-item>
 
@@ -108,8 +108,8 @@
                             <!-- 多人审批模式选择 (当选择 2 人及以上时展示) -->
                             <el-form-item label="多人审批方式" v-if="currentNodeConfig.properties.assignees?.length > 1">
                                 <el-radio-group v-model="currentNodeConfig.properties.approvalMode">
-                                    <el-radio label="or">或签 / 抢办（任意 1 人同意即可）</el-radio>
-                                    <el-radio label="and">会签（所有审批人必须全部同意）</el-radio>
+                                    <el-radio value="or">或签 / 抢办（任意 1 人同意即可）</el-radio>
+                                    <el-radio value="and">会签（所有审批人必须全部同意）</el-radio>
                                 </el-radio-group>
                                 <div class="default-branch-tip" style="margin-top: 8px">
                                     {{ currentNodeConfig.properties.approvalMode === 'and' ? '💡 会签模式：当前节点将同时发给选中的所有审批人，所有人全部点击同意后流程才推进。' : '💡 或签/抢办：当前节点同时通知选中的所有人，任意一人抢先审批通过，流程即刻流向下一节点。' }}
@@ -658,52 +658,6 @@ const initLogicFlow = () => {
             });
         }
     }
-};
-// 通用的颜色计算函数
-const calculateNodeColors = (properties, globalStatus) => {
-    const status = properties?.nodeStatus;
-    const title = properties?.nodeTitle;
-
-    let fill, stroke;
-
-    // 特殊处理开始和结束节点
-    if (title === '开始') {
-        fill = '#d4edda'; // 浅绿
-        stroke = '#155724'; // 深绿
-    } else if (title === '结束') {
-        if (globalStatus == 2) {
-            fill = '#c3e6cb'; // 整个流程通过 - 绿
-            stroke = '#28a745';
-        } else if (globalStatus == 3) {
-            fill = '#f5c6cb'; // 整个流程拒绝 - 红
-            stroke = '#dc3545';
-        } else {
-            fill = '#fff'; // 流程进行中 - 灰
-            stroke = '#000';
-        }
-    } else {
-        // 普通节点按状态着色
-        switch (status) {
-            case '2' || 2: // 通过
-                fill = '#d4edda';
-                stroke = '#155724';
-                break;
-            case '3' || 3: // 驳回
-                fill = '#f5c6cb';
-                stroke = '#dc3545';
-                break;
-            case '1' || 1: // 审批中
-                fill = '#fff3cd';
-                stroke = '#ffc107';
-                break;
-            default: // 未开始
-                fill = '#fff';
-                stroke = '#000';
-                break;
-        }
-    }
-
-    return { fill, stroke };
 };
 
 // 🌟 应用配置逻辑（适配连线及节点两种模式）
@@ -1296,5 +1250,49 @@ html.light .lf-grid svg path,
 
 .el-drawer__header {
     margin-bottom: 16px;
+}
+.lf-dndpanel{
+    border-radius: 8px;
+    background-color: var(--el-bg-color-overlay);
+    border: 1px solid var(--el-border-color-light);
+    box-shadow: var(--el-box-shadow-light);
+    transition: background-color 0.3s ease, border-color 0.3s ease;
+}
+
+/* ========================================================================
+ * 🌟 SVG 原生穿透：拖拽中的连线与锚点自适应系统品牌色，彻底解决暗黑模式黑线隐形
+ * ======================================================================== */
+/* 8. 正在拖拽拉出的连线 (anchorLine)：精准覆盖 <g class="lf-anchor"> 内的实时连线元素 */
+.lf-anchor line,
+.lf-anchor path,
+g.lf-anchor > line,
+g.lf-anchor > path,
+.lf-anchor-line,
+svg line.lf-anchor-line,
+svg path.lf-anchor-line {
+    stroke: var(--el-color-primary, #60a5fa) !important;
+    stroke-width: 2.5px !important;
+    stroke-dasharray: 4, 4 !important;
+}
+
+/* 9. 节点连接锚点 (anchor)：自适应暗黑背景与系统主题色描边 */
+.lf-node-anchor,
+.lf-node-anchor circle,
+circle.lf-node-anchor {
+    stroke: var(--el-color-primary, #60a5fa) !important;
+    fill: var(--el-bg-color, #141414) !important;
+    transition: fill 0.2s, stroke 0.2s, r 0.2s;
+}
+
+.lf-node-anchor-hover,
+.lf-node-anchor-hover circle,
+.lf-node-anchor:hover circle {
+    fill: var(--el-color-primary, #60a5fa) !important;
+    stroke: #ffffff !important;
+}
+
+/* 10. 节点文本自适应系统主文本色 */
+.lf-node-text text {
+    fill: var(--el-text-color-primary) !important;
 }
 </style>

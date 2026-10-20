@@ -238,7 +238,7 @@ const handleDelete = async row => {
     height: 100%;
 }
 .preview-scroll-box {
-    max-height: 65vh;
+    /* max-height: 65vh; */
     overflow-y: auto;
     padding: 10px;
     border-radius: 4px;

@@ -14,7 +14,6 @@
             v-for="opt in optionsList"
             :key="opt.value"
             :value="opt.value"
-            :label="opt.value"
         >
             {{ opt.label }}
         </el-radio>

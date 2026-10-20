@@ -60,7 +60,7 @@
                             <el-button :icon="Right" :disabled="!canRedo" @click="redo">重做</el-button>
                         </el-tooltip>
                         <el-divider direction="vertical" style="margin: 0 4px" />
-                        <el-button type="success" :icon="View" @click="handleOpenPreview">真机全屏预览</el-button>
+                        <el-button type="primary" :icon="View" @click="handleOpenPreview">真机全屏预览</el-button>
                         <el-button @click="clearCanvas">清空画布</el-button>
                         <el-button type="primary" @click="saveFormSchema">保存表单</el-button>
                     </div>
@@ -69,7 +69,7 @@
 
             <div class="section-content canvas-scroll" style="overflow: hidden">
                 <div class="form-canvas" style="height: calc(100vh - 171px); overflow: auto">
-                    <el-form :label-position="formConfig.labelPosition" :size="formConfig.size" :label-width="formConfig.labelWidth + 'px'" style="min-height: 100%; padding: 12px">
+                    <el-form :label-position="formConfig.labelPosition" :size="formConfig.size" :label-width="formConfig.labelWidth + 'px'" style="padding: 12px">
                         <draggable
                             v-model="formItems"
                             item-key="id"
@@ -827,7 +827,6 @@ const handleResetPreview = () => {
     min-height: calc(100vh - 204px);
     border: 1px solid var(--el-border-color-lighter);
     border-radius: 8px;
-    box-shadow: var(--el-box-shadow-lighter);
     transition:
         background-color 0.3s ease,
         border-color 0.3s ease;

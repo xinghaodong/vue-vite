@@ -18,9 +18,9 @@
 
         <el-form-item label="卡片阴影">
             <el-radio-group v-model="propsData.shadow" size="small">
-                <el-radio-button label="always">常驻</el-radio-button>
-                <el-radio-button label="hover">悬停</el-radio-button>
-                <el-radio-button label="never">无阴影</el-radio-button>
+                <el-radio-button value="always">常驻</el-radio-button>
+                <el-radio-button value="hover">悬停</el-radio-button>
+                <el-radio-button value="never">无阴影</el-radio-button>
             </el-radio-group>
         </el-form-item>
 

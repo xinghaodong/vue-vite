@@ -36,31 +36,19 @@
             </el-scrollbar>
         </div>
 
-        <!-- 2. 第二列：二级/三级子菜单栏 (200px，支持独立折叠为 0px) -->
+        <!-- 2. 第二列：二级/三级子菜单栏 (200px，统一折叠为 64px 图标态) -->
         <div
             v-if="hasSubMenu"
             class="columns-sub-aside"
             :class="{ 'is-collapsed': isColumnsSubCollapse }"
         >
-            <!-- 子菜单栏顶部标题与折叠开关 -->
-            <div class="sub-aside-header">
-                <span class="sub-header-title">{{ currentFirstTitle }}</span>
-                <div
-                    class="sub-collapse-trigger"
-                    @click="layoutStore.toggleColumnsSubCollapse()"
-                >
-                    <el-icon :size="14">
-                        <DArrowLeft v-if="!isColumnsSubCollapse" />
-                        <DArrowRight v-else />
-                    </el-icon>
-                </div>
-            </div>
-
-            <!-- 子菜单滚动树 -->
+            <!-- 子菜单滚动树 (通顶展示，折叠由 Header 统一控制) -->
             <el-scrollbar class="sub-aside-scrollbar">
                 <el-menu
                     router
                     :default-active="activeSubMenu"
+                    :collapse="isColumnsSubCollapse"
+                    :collapse-transition="false"
                     class="columns-sub-menu"
                     @select="handleMenuSelect"
                 >
@@ -97,7 +85,7 @@
 import { ref, computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { storeToRefs } from 'pinia';
-import { DArrowLeft, DArrowRight, Menu } from '@element-plus/icons-vue';
+import { Fold, Menu } from '@element-plus/icons-vue';
 import Logo from '../components/Sidebar/Logo.vue';
 import SidebarItem from '../components/Sidebar/SidebarItem.vue';
 import Header from '../components/Header/index.vue';
@@ -211,9 +199,9 @@ const handleRefreshRoute = () => {
 }
 
 .first-menu-item {
-    width: 52px;
+    width: 100%;
     height: 52px;
-    border-radius: 8px;
+    border-radius: 4px;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -231,7 +219,7 @@ const handleRefreshRoute = () => {
 .first-menu-item.is-active {
     color: #ffffff;
     background: var(--el-color-primary);
-    box-shadow: 0 4px 12px rgba(64, 158, 255, 0.35);
+    /* box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12); */
 }
 
 .first-menu-icon {
@@ -263,44 +251,7 @@ const handleRefreshRoute = () => {
 }
 
 .columns-sub-aside.is-collapsed {
-    width: 0 !important;
-    border-right: none;
-}
-
-.sub-aside-header {
-    height: 50px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 0 16px;
-    border-bottom: 1px solid var(--el-border-color-lighter);
-    flex-shrink: 0;
-}
-
-.sub-header-title {
-    font-size: 14px;
-    font-weight: 600;
-    color: var(--el-text-color-primary);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.sub-collapse-trigger {
-    width: 24px;
-    height: 24px;
-    border-radius: 4px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    color: var(--el-text-color-secondary);
-    transition: all 0.2s ease;
-}
-
-.sub-collapse-trigger:hover {
-    color: var(--el-color-primary);
-    background: var(--el-fill-color);
+    width: 64px !important;
 }
 
 .sub-aside-scrollbar {
@@ -311,6 +262,10 @@ const handleRefreshRoute = () => {
 .columns-sub-menu {
     border-right: none !important;
     background: transparent !important;
+}
+
+.columns-sub-menu:not(.el-menu--collapse) {
+    width: 200px;
 }
 
 /* 3. 右侧主体容器 */

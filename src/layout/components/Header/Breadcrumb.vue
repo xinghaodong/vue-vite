@@ -11,36 +11,34 @@
   ========================================================================
 -->
 <template>
-    <el-breadcrumb class="app-breadcrumb" separator="/">
-        <transition-group name="breadcrumb">
-            <el-breadcrumb-item
-                v-for="(item, index) in breadcrumbs"
-                :key="item.path || item.title || index"
+    <el-breadcrumb class="app-breadcrumb" :separator-icon="ArrowRight">
+        <el-breadcrumb-item
+            v-for="(item, index) in breadcrumbs"
+            :key="item.path || item.title || index"
+        >
+            <!-- 最后一级为当前页，或者无跳转地址的中间目录：不可点击 -->
+            <span
+                v-if="index === breadcrumbs.length - 1 || !item.path || item.path === route.path"
+                class="no-redirect"
             >
-                <!-- 最后一级为当前页，或者无跳转地址的中间目录：不可点击 -->
-                <span
-                    v-if="index === breadcrumbs.length - 1 || !item.path || item.path === route.path"
-                    class="no-redirect"
-                >
-                    <el-icon v-if="showBreadcrumbIcon && item.icon" class="breadcrumb-icon">
-                        <component :is="item.icon" />
-                    </el-icon>
-                    <span>{{ item.title }}</span>
-                </span>
+                <el-icon v-if="showBreadcrumbIcon && item.icon" class="breadcrumb-icon">
+                    <component :is="item.icon" />
+                </el-icon>
+                <span>{{ item.title }}</span>
+            </span>
 
-                <!-- 可点击跳转的父级或首页 -->
-                <a
-                    v-else
-                    class="redirect-link"
-                    @click.prevent="handleLink(item)"
-                >
-                    <el-icon v-if="showBreadcrumbIcon && item.icon" class="breadcrumb-icon">
-                        <component :is="item.icon" />
-                    </el-icon>
-                    <span>{{ item.title }}</span>
-                </a>
-            </el-breadcrumb-item>
-        </transition-group>
+            <!-- 可点击跳转的父级或首页 -->
+            <a
+                v-else
+                class="redirect-link"
+                @click.prevent="handleLink(item)"
+            >
+                <el-icon v-if="showBreadcrumbIcon && item.icon" class="breadcrumb-icon">
+                    <component :is="item.icon" />
+                </el-icon>
+                <span>{{ item.title }}</span>
+            </a>
+        </el-breadcrumb-item>
     </el-breadcrumb>
 </template>
 
@@ -48,6 +46,7 @@
 import { computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { storeToRefs } from 'pinia';
+import { ArrowRight } from '@element-plus/icons-vue';
 import useLayoutStore from '@/stores/layout.js';
 
 const route = useRoute();
@@ -129,17 +128,5 @@ const handleLink = (item) => {
 .breadcrumb-icon {
     font-size: 15px;
     line-height: 1;
-}
-
-/* 面包屑切页平滑动画 */
-.breadcrumb-enter-active,
-.breadcrumb-leave-active {
-    transition: all 0.25s ease;
-}
-
-.breadcrumb-enter-from,
-.breadcrumb-leave-to {
-    opacity: 0;
-    transform: translateX(12px);
 }
 </style>

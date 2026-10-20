@@ -2,14 +2,19 @@
 import { h, RectNode, RectNodeModel, CircleNode, CircleNodeModel, DiamondNode, DiamondNodeModel } from '@logicflow/core';
 
 /**
+ * 辅助函数：安全嗅探当前是否处于暗黑模式
+ */
+const isDarkMode = () => typeof document !== 'undefined' && document.documentElement.classList.contains('dark');
+
+/**
  * 纯函数：根据节点属性、全局审批状态以及当前暗黑模式，自适应计算节点填充色和边框色
  * @param {Object} properties - 节点 properties
  * @param {string|number} globalStatus - 流程全局审批状态 (1:进行中, 2:通过, 3:拒绝)
- * @param {boolean} [isDark] - 是否为暗黑模式 (默认自动从 document.documentElement 嗅探)
+ * @param {boolean} [isDark] - 是否为暗黑模式 (默认自动嗅探)
  * @returns {{ fill: string, stroke: string }}
  */
 export function calculateNodeColors(properties = {}, globalStatus, isDark) {
-    const dark = isDark ?? (typeof document !== 'undefined' && document.documentElement.classList.contains('dark'));
+    const dark = isDark ?? isDarkMode();
     const status = properties?.nodeStatus ?? properties?.status;
     const title = properties?.nodeTitle ?? properties?.title;
 
@@ -25,7 +30,7 @@ export function calculateNodeColors(properties = {}, globalStatus, isDark) {
         } else if (globalStatus == 3) {
             return dark ? { fill: '#450a0a', stroke: '#ef4444' } : { fill: '#f5c6cb', stroke: '#dc3545' }; // 驳回
         } else {
-            return dark ? { fill: '#1e293b', stroke: '#64748b' } : { fill: '#ffffff', stroke: '#94a3b8' }; // 未完成
+            return dark ? { fill: '#1d1e1f', stroke: '#363637' } : { fill: '#ffffff', stroke: '#94a3b8' }; // 未完成
         }
     }
 
@@ -41,12 +46,12 @@ export function calculateNodeColors(properties = {}, globalStatus, isDark) {
         case 1: // 审批中
             return dark ? { fill: '#451a03', stroke: '#f59e0b' } : { fill: '#fff3cd', stroke: '#ffc107' };
         default: // 未开始 / 默认待审批节点
-            return dark ? { fill: '#1e293b', stroke: '#475569' } : { fill: '#ffffff', stroke: '#cbd5e1' };
+            return dark ? { fill: '#1d1e1f', stroke: '#363637' } : { fill: '#ffffff', stroke: '#cbd5e1' };
     }
 }
 
 /**
- * 注册所有自定义节点（纯函数，解耦闭包）
+ * 注册所有自定义节点（连线与锚点样式已交由全局 CSS 变量统一托管，纯净解耦）
  * @param {LogicFlow} lf - LogicFlow 实例
  */
 export function registerCustomNodes(lf) {
@@ -54,16 +59,10 @@ export function registerCustomNodes(lf) {
     class StartNodeModel extends CircleNodeModel {
         getNodeStyle() {
             const style = super.getNodeStyle();
-            const dark = typeof document !== 'undefined' && document.documentElement.classList.contains('dark');
+            const dark = isDarkMode();
             style.fill = dark ? '#064e3b' : '#d4edda';
             style.stroke = dark ? '#10b981' : '#155724';
             style.strokeWidth = 2;
-            return style;
-        }
-        getTextStyle() {
-            const style = super.getTextStyle();
-            const dark = typeof document !== 'undefined' && document.documentElement.classList.contains('dark');
-            style.color = dark ? '#f1f5f9' : '#1e293b';
             return style;
         }
     }
@@ -78,8 +77,8 @@ export function registerCustomNodes(lf) {
     class EndNodeModel extends CircleNodeModel {
         getNodeStyle() {
             const style = super.getNodeStyle();
+            const dark = isDarkMode();
             const globalStatus = this.properties?.globalStatus;
-            const dark = typeof document !== 'undefined' && document.documentElement.classList.contains('dark');
             if (globalStatus == 2) {
                 style.fill = dark ? '#064e3b' : '#c3e6cb';
                 style.stroke = dark ? '#10b981' : '#28a745';
@@ -87,16 +86,10 @@ export function registerCustomNodes(lf) {
                 style.fill = dark ? '#450a0a' : '#f5c6cb';
                 style.stroke = dark ? '#ef4444' : '#dc3545';
             } else {
-                style.fill = dark ? '#1e293b' : '#ffffff';
-                style.stroke = dark ? '#64748b' : '#94a3b8';
+                style.fill = dark ? '#1d1e1f' : '#ffffff';
+                style.stroke = dark ? '#363637' : '#94a3b8';
             }
             style.strokeWidth = 3; // 结束事件经典粗边框
-            return style;
-        }
-        getTextStyle() {
-            const style = super.getTextStyle();
-            const dark = typeof document !== 'undefined' && document.documentElement.classList.contains('dark');
-            style.color = dark ? '#f1f5f9' : '#1e293b';
             return style;
         }
     }
@@ -117,25 +110,19 @@ export function registerCustomNodes(lf) {
             style.radius = 6;
             return style;
         }
-        getTextStyle() {
-            const style = super.getTextStyle();
-            const dark = typeof document !== 'undefined' && document.documentElement.classList.contains('dark');
-            style.color = dark ? '#f1f5f9' : '#1e293b';
-            return style;
-        }
     }
     class CustomRectView extends RectNode {
         getShape() {
             const { model } = this.props;
             const { x, y, width, height, properties = {} } = model || {};
             const rectShape = super.getShape();
-            const dark = typeof document !== 'undefined' && document.documentElement.classList.contains('dark');
+            const dark = isDarkMode();
 
             const assignees = properties?.assignees || [];
             const mode = properties?.approvalMode || 'or';
             const children = [rectShape];
 
-            // 1. 若配置了多位审批人，在右上角渲染高质感 [会签] / [或签] 胶囊徽章
+            // 若配置了多位审批人，在右上角渲染 [会签] / [或签] 胶囊徽章
             if (Array.isArray(assignees) && assignees.length > 1) {
                 const isAnd = mode === 'and';
                 const badgeWidth = 68;
@@ -170,7 +157,7 @@ export function registerCustomNodes(lf) {
 
                 children.push(badgeBg, badgeText);
             } else if (properties?.assigneeName) {
-                // 2. 单审批人且已指定姓名时，右上角展示小巧人名标签
+                // 单审批人且已指定姓名时，右上角展示小巧人名标签
                 const rawName = String(properties.assigneeName);
                 const name = rawName.length > 4 ? rawName.slice(0, 4) + '..' : rawName;
                 const badgeWidth = 56;
@@ -223,12 +210,6 @@ export function registerCustomNodes(lf) {
             style.stroke = stroke;
             return style;
         }
-        getTextStyle() {
-            const style = super.getTextStyle();
-            const dark = typeof document !== 'undefined' && document.documentElement.classList.contains('dark');
-            style.color = dark ? '#f1f5f9' : '#1e293b';
-            return style;
-        }
     }
     class CustomDiamondView extends DiamondNode {}
     lf.register({
@@ -241,22 +222,16 @@ export function registerCustomNodes(lf) {
     class CustomAiAgentModel extends RectNodeModel {
         getNodeStyle() {
             const style = super.getNodeStyle();
-            const dark = typeof document !== 'undefined' && document.documentElement.classList.contains('dark');
+            const dark = isDarkMode();
             const calculated = calculateNodeColors(this.properties, this.properties?.globalStatus);
-            style.fill = calculated.fill && calculated.fill !== '#ffffff' && calculated.fill !== '#1e293b'
+            style.fill = calculated.fill && calculated.fill !== '#ffffff' && calculated.fill !== '#1d1e1f'
                 ? calculated.fill
                 : (dark ? '#221938' : '#FAF5FF');
-            style.stroke = calculated.stroke && calculated.stroke !== '#cbd5e1' && calculated.stroke !== '#475569'
+            style.stroke = calculated.stroke && calculated.stroke !== '#cbd5e1' && calculated.stroke !== '#363637'
                 ? calculated.stroke
                 : (dark ? '#a855f7' : '#9333EA');
             style.strokeWidth = 2;
             style.radius = 8;
-            return style;
-        }
-        getTextStyle() {
-            const style = super.getTextStyle();
-            const dark = typeof document !== 'undefined' && document.documentElement.classList.contains('dark');
-            style.color = dark ? '#f1f5f9' : '#1e293b';
             return style;
         }
     }
@@ -264,7 +239,7 @@ export function registerCustomNodes(lf) {
         getShape() {
             const { model } = this.props;
             const { x, y, width, height, properties } = model;
-            const dark = typeof document !== 'undefined' && document.documentElement.classList.contains('dark');
+            const dark = isDarkMode();
             const roleName = properties?.agentRoleName || '🤖 AI审查';
 
             const rectShape = super.getShape();

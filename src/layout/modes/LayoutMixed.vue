@@ -28,7 +28,7 @@
                             :class="{ 'is-active': activeFirstKey === item._key }"
                             @click="handleSelectFirstLevel(item)"
                         >
-                            <el-icon v-if="item.icon" class="mixed-nav-icon">
+                            <el-icon :size="18" v-if="item.icon" class="mixed-nav-icon">
                                 <component :is="item.icon" />
                             </el-icon>
                             <span class="mixed-nav-title">{{ item.name }}</span>
@@ -215,26 +215,45 @@ const handleRefreshRoute = () => {
     align-items: center;
 }
 
+.mixed-first-nav-wrapper :deep(.el-scrollbar),
+.mixed-first-nav-wrapper :deep(.el-scrollbar__view) {
+    height: 100%;
+    display: flex;
+    align-items: center;
+}
+
+/* 彻底禁止纵向滚动与溢出，隐藏纵向滚动条 */
+.mixed-first-nav-wrapper :deep(.el-scrollbar__wrap) {
+    overflow-y: hidden !important;
+    height: 100%;
+}
+
+.mixed-first-nav-wrapper :deep(.el-scrollbar__bar.is-vertical) {
+    display: none !important;
+}
+
 .mixed-first-nav-list {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 4px;
     height: 49px;
     white-space: nowrap;
 }
 
 .mixed-nav-item {
+    position: relative;
     display: flex;
     align-items: center;
     gap: 6px;
-    height: 34px;
-    padding: 0 14px;
-    border-radius: 6px;
+    height: 100%;
+    padding: 0 16px;
+    border-radius: 0;
     cursor: pointer;
     font-size: 13px;
     font-weight: 500;
     color: var(--el-text-color-regular);
-    transition: all 0.25s ease;
+    user-select: none;
+    transition: color 0.2s ease, background-color 0.2s ease;
 }
 
 .mixed-nav-item:hover {
@@ -243,9 +262,20 @@ const handleRefreshRoute = () => {
 }
 
 .mixed-nav-item.is-active {
-    color: #ffffff;
+    color: var(--el-color-primary);
+    background: var(--el-color-primary-light-9);
+    font-weight: 600;
+}
+
+.mixed-nav-item.is-active::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 2.5px;
     background: var(--el-color-primary);
-    box-shadow: 0 2px 8px rgba(64, 158, 255, 0.35);
+    border-radius: 2px 2px 0 0;
 }
 
 .mixed-actions-box {

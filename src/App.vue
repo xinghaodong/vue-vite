@@ -27,6 +27,10 @@ import WujieVue from 'wujie-vue3';
 import { ref, watch, computed } from 'vue';
 import zhCn from 'element-plus/es/locale/lang/zh-cn';
 import useLayoutStore from '@/stores/layout.js';
+import { initTheme } from '@/composables/useTheme';
+
+// 应用首屏初始化主题与主色色阶
+initTheme();
 
 const layoutStore = useLayoutStore();
 const componentSize = computed(() => layoutStore.componentSize);
@@ -83,7 +87,21 @@ body {
 .table {
     display: block !important;
 }
-/*#nprogress .bar {
-    background-color: red !important;
-}*/
+/* ========================================================================
+ * 🌟 NProgress 路由加载进度条：全量联动系统品牌色 (无论暗黑还是换色盘)
+ * ======================================================================== */
+#nprogress .bar {
+    background: var(--el-color-primary) !important;
+    height: 2.5px !important;
+    z-index: 99999 !important;
+}
+
+#nprogress .peg {
+    box-shadow: 0 0 10px var(--el-color-primary), 0 0 5px var(--el-color-primary) !important;
+}
+
+#nprogress .spinner-icon {
+    border-top-color: var(--el-color-primary) !important;
+    border-left-color: var(--el-color-primary) !important;
+}
 </style>

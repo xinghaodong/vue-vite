@@ -14,18 +14,18 @@
     <div class="setting-group">
         <el-form-item label="风格类型">
             <el-radio-group v-model="propsData.tabType" size="small">
-                <el-radio-button label="border-card">边框卡片</el-radio-button>
-                <el-radio-button label="card">选项卡</el-radio-button>
-                <el-radio-button label="default">下划线</el-radio-button>
+                <el-radio-button value="border-card">边框卡片</el-radio-button>
+                <el-radio-button value="card">选项卡</el-radio-button>
+                <el-radio-button value="default">下划线</el-radio-button>
             </el-radio-group>
         </el-form-item>
 
         <el-form-item label="标签位置">
             <el-radio-group v-model="propsData.tabPosition" size="small">
-                <el-radio-button label="top">顶部</el-radio-button>
-                <el-radio-button label="bottom">底部</el-radio-button>
-                <el-radio-button label="left">左侧</el-radio-button>
-                <el-radio-button label="right">右侧</el-radio-button>
+                <el-radio-button value="top">顶部</el-radio-button>
+                <el-radio-button value="bottom">底部</el-radio-button>
+                <el-radio-button value="left">左侧</el-radio-button>
+                <el-radio-button value="right">右侧</el-radio-button>
             </el-radio-group>
         </el-form-item>
 

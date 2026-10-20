@@ -13,18 +13,40 @@
 
 import { ref, nextTick } from 'vue';
 import api from '@/utils/request';
+import useLayoutStore from '@/stores/layout.js';
+import { applyThemeColor } from '@/utils/color.js';
 
 // 全局单例响应式暗黑模式状态
 const isDark = ref(localStorage.getItem('theme') === 'dark');
 
 /**
- * 确保初始进入应用时 html.dark 类名与 localStorage 保持绝对同步
+ * 确保初始进入应用时 html.dark 类名与主题色色阶与 localStorage 保持绝对同步
  */
 export const initTheme = () => {
     if (isDark.value) {
         document.documentElement.classList.add('dark');
     } else {
         document.documentElement.classList.remove('dark');
+    }
+
+    try {
+        const layoutStore = useLayoutStore();
+        applyThemeColor(layoutStore.primaryColor || '#409EFF', isDark.value);
+    } catch (_) {
+        let savedColor = '#409EFF';
+        try {
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (key && key.startsWith('system-layout-settings')) {
+                    const data = JSON.parse(localStorage.getItem(key) || '{}');
+                    if (data.primaryColor) {
+                        savedColor = data.primaryColor;
+                        break;
+                    }
+                }
+            }
+        } catch (_) {}
+        applyThemeColor(savedColor, isDark.value);
     }
 };
 
@@ -109,6 +131,14 @@ export function useTheme() {
             document.documentElement.classList.add('dark');
         } else {
             document.documentElement.classList.remove('dark');
+        }
+
+        // 🌟 联动刷新当前主题色在暗黑/明亮模式下的色阶衍生变量
+        try {
+            const layoutStore = useLayoutStore();
+            applyThemeColor(layoutStore.primaryColor || '#409EFF', targetDark);
+        } catch (_) {
+            applyThemeColor('#409EFF', targetDark);
         }
 
         // 如果传入了用户信息，异步静默同步后端偏好设置

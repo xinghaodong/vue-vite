@@ -12,9 +12,13 @@
 
 import { defineStore } from 'pinia';
 import useUserInfoStore from './user.js';
+import { applyThemeColor } from '@/utils/color.js';
 
 // 系统出厂默认布局配置 (用于初始兜底与一键恢复出厂设置)
 export const defaultLayoutSettings = {
+    // 0. 系统品牌主题颜色 (默认极客蓝)
+    primaryColor: '#409EFF',
+
     // 1. 核心布局架构: 'vertical' (纵向经典) | 'columns' (分栏双列) | 'horizontal' (横向通栏) | 'mixed' (综合混合)
     layoutMode: 'vertical',
     // 侧边栏折叠状态 (纵向/混合模式)
@@ -95,6 +99,14 @@ export const useLayoutStore = defineStore('layout', {
             } catch (_) {}
             return getLayoutStorageKey(uid);
         },
+
+        // 当前活跃布局的侧边栏折叠状态 (分栏模式映射 isColumnsSubCollapse，纵向/混合模式映射 isCollapse)
+        isCurrentSidebarCollapsed: (state) => {
+            if (state.layoutMode === 'columns') {
+                return state.isColumnsSubCollapse;
+            }
+            return state.isCollapse;
+        },
     },
 
     actions: {
@@ -105,6 +117,7 @@ export const useLayoutStore = defineStore('layout', {
             try {
                 const key = this.currentStorageKey;
                 const persistData = {
+                    primaryColor: this.primaryColor,
                     layoutMode: this.layoutMode,
                     isCollapse: this.isCollapse,
                     isColumnsSubCollapse: this.isColumnsSubCollapse,
@@ -120,6 +133,18 @@ export const useLayoutStore = defineStore('layout', {
             } catch (e) {
                 console.warn('[LayoutStore] 持久化配置失败:', e);
             }
+        },
+
+        /**
+         * 设置系统品牌主题色并动态更新 DOM 色阶
+         * @param {string} color
+         */
+        setPrimaryColor(color) {
+            if (!color) return;
+            this.primaryColor = color;
+            this.saveSettingsToStorage();
+            const isDark = typeof document !== 'undefined' && document.documentElement.classList.contains('dark');
+            applyThemeColor(color, isDark);
         },
 
         /**
@@ -143,11 +168,15 @@ export const useLayoutStore = defineStore('layout', {
         },
 
         /**
-         * 切换主侧边栏折叠状态
+         * 切换主侧边栏折叠状态 (自动适配当前布局模式)
          * @param {boolean} [forceState]
          */
         toggleCollapse(forceState) {
-            this.isCollapse = typeof forceState === 'boolean' ? forceState : !this.isCollapse;
+            if (this.layoutMode === 'columns') {
+                this.isColumnsSubCollapse = typeof forceState === 'boolean' ? forceState : !this.isColumnsSubCollapse;
+            } else {
+                this.isCollapse = typeof forceState === 'boolean' ? forceState : !this.isCollapse;
+            }
             this.saveSettingsToStorage();
         },
 
@@ -184,6 +213,8 @@ export const useLayoutStore = defineStore('layout', {
         initUserLayout(userId) {
             const userSettings = loadSettingsFromStorage(userId);
             Object.assign(this, userSettings);
+            const isDark = typeof document !== 'undefined' && document.documentElement.classList.contains('dark');
+            applyThemeColor(this.primaryColor || defaultLayoutSettings.primaryColor, isDark);
         },
 
         /**
@@ -197,6 +228,8 @@ export const useLayoutStore = defineStore('layout', {
 
             // 2. 覆盖回默认 State
             Object.assign(this, defaultLayoutSettings);
+            const isDark = typeof document !== 'undefined' && document.documentElement.classList.contains('dark');
+            applyThemeColor(defaultLayoutSettings.primaryColor, isDark);
         },
     },
 });

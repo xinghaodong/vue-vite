@@ -167,7 +167,7 @@ onBeforeUnmount(() => {
 .header-actions-container {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 10px;
     height: 100%;
 }
 

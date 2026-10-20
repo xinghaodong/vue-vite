@@ -40,8 +40,8 @@ defineProps({
 .sidebar-logo-container {
     position: relative;
     width: 100%;
-    height: 52px;
-    line-height: 52px;
+    height: 50px;
+    line-height: 50px;
     background: var(--el-bg-color);
     border-bottom: 1px solid var(--el-border-color-lighter);
     text-align: center;
@@ -90,7 +90,7 @@ defineProps({
     color: var(--el-text-color-primary);
     font-weight: 600;
     font-size: 16px;
-    line-height: 52px;
+    line-height: 50px;
     letter-spacing: 0.5px;
     white-space: nowrap;
     overflow: hidden;

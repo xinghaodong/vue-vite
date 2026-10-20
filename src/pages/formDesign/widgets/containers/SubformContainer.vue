@@ -68,7 +68,7 @@ defineProps({
     border-radius: 8px;
     padding: 12px 14px;
     box-sizing: border-box;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+    /* box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04); */
 }
 
 .subform-header-bar {

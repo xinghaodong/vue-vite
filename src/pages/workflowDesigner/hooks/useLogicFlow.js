@@ -20,89 +20,41 @@ export const EDGE_TYPES = [
  * @returns {Object}
  */
 export function getLogicFlowTheme(isDark) {
-    if (isDark) {
-        return {
-            baseNode: {
-                fill: '#1e293b',
-                stroke: '#475569',
-                strokeWidth: 1.5,
-            },
-            baseEdge: {
-                stroke: '#94a3b8',
-                strokeWidth: 2,
-            },
-            nodeText: {
-                color: '#f1f5f9',
-                fontSize: 13,
-                overflowMode: 'ellipsis',
-            },
-            edgeText: {
-                color: '#e2e8f0',
-                fontSize: 12,
-                background: {
-                    fill: '#1e293b',
-                    stroke: '#475569',
-                    radius: 4,
-                },
-            },
-            bezier: {
-                stroke: '#94a3b8',
-                strokeWidth: 2,
-            },
-            polyline: {
-                stroke: '#94a3b8',
-                strokeWidth: 2,
-            },
-            line: {
-                stroke: '#94a3b8',
-                strokeWidth: 2,
-            },
-            arrow: {
-                offset: 8,
-                verticalLength: 6,
-            },
-        };
-    }
+    const strokeEdge = isDark ? '#94a3b8' : '#64748b';
+    const primary = isDark ? '#60a5fa' : '#409eff';
     return {
         baseNode: {
-            fill: '#ffffff',
-            stroke: '#cbd5e1',
+            fill: isDark ? '#1d1e1f' : '#ffffff',
+            stroke: isDark ? '#363637' : '#cbd5e1',
             strokeWidth: 1.5,
         },
-        baseEdge: {
-            stroke: '#64748b',
-            strokeWidth: 2,
+        baseEdge: { stroke: strokeEdge, strokeWidth: 2 },
+        bezier: { stroke: strokeEdge, strokeWidth: 2 },
+        polyline: { stroke: strokeEdge, strokeWidth: 2 },
+        line: { stroke: strokeEdge, strokeWidth: 2 },
+        // 🌟 核心：拖拽连线与锚点显式配置高亮色，杜绝官方源码内部默认 #000 黑色
+        anchorLine: { stroke: primary, strokeWidth: 2, strokeDasharray: '4,4' },
+        anchor: {
+            stroke: primary,
+            fill: isDark ? '#141414' : '#ffffff',
+            r: 4.5,
+            hover: { r: 8, fill: primary, fillOpacity: 0.6, stroke: '#ffffff' },
         },
         nodeText: {
-            color: '#1e293b',
+            color: isDark ? '#f0f0f0' : '#1e293b',
             fontSize: 13,
             overflowMode: 'ellipsis',
         },
         edgeText: {
-            color: '#334155',
+            color: isDark ? '#e2e8f0' : '#334155',
             fontSize: 12,
             background: {
-                fill: '#ffffff',
-                stroke: '#cbd5e1',
+                fill: isDark ? '#1d1e1f' : '#ffffff',
+                stroke: isDark ? '#363637' : '#cbd5e1',
                 radius: 4,
             },
         },
-        bezier: {
-            stroke: '#64748b',
-            strokeWidth: 2,
-        },
-        polyline: {
-            stroke: '#64748b',
-            strokeWidth: 2,
-        },
-        line: {
-            stroke: '#64748b',
-            strokeWidth: 2,
-        },
-        arrow: {
-            offset: 8,
-            verticalLength: 6,
-        },
+        arrow: { offset: 8, verticalLength: 6 },
     };
 }
 

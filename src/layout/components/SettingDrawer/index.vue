@@ -119,6 +119,40 @@
                 </div>
             </div>
 
+            <!-- 2.5 系统品牌主题色 -->
+            <div class="setting-block">
+                <div class="block-title-row">
+                    <span class="block-title">系统主题色</span>
+                    <div class="theme-color-extra">
+                        <span class="color-hex-tag">{{ layoutStore.primaryColor }}</span>
+                        <!-- 自定义取色器 -->
+                        <el-color-picker
+                            :model-value="layoutStore.primaryColor"
+                            size="small"
+                            :show-alpha="false"
+                            :predefine="presetThemeColors.map(c => c.color)"
+                            @change="handleCustomColorChange"
+                        />
+                    </div>
+                </div>
+
+                <div class="theme-color-palette">
+                    <div
+                        v-for="item in presetThemeColors"
+                        :key="item.color"
+                        class="theme-color-item"
+                        :class="{ 'is-active': isCurrentColor(item.color) }"
+                        :style="{ backgroundColor: item.color }"
+                        :title="item.name"
+                        @click="handleSelectColor(item.color)"
+                    >
+                        <el-icon v-if="isCurrentColor(item.color)" :size="13" class="color-check-icon">
+                            <Check />
+                        </el-icon>
+                    </div>
+                </div>
+            </div>
+
             <!-- 3. 界面功能开关组 (iOS/macOS 圆角卡片面板) -->
             <div class="setting-block">
                 <div class="block-title-row">
@@ -133,7 +167,8 @@
                             <span class="row-label">折叠侧边栏</span>
                         </div>
                         <el-switch
-                            :model-value="layoutStore.isCollapse"
+                            :model-value="layoutStore.isCurrentSidebarCollapsed"
+                            :disabled="layoutStore.layoutMode === 'horizontal'"
                             size="small"
                             @update:model-value="layoutStore.toggleCollapse"
                         />
@@ -338,6 +373,35 @@ const currentLayoutLabel = computed(() => {
     };
     return map[layoutStore.layoutMode] || '纵向经典';
 });
+
+// 经典大厂系统品牌主题色预设
+const presetThemeColors = [
+    { name: '极客蔚蓝 (默认)', color: '#409EFF' },
+    { name: '翡翠生机', color: '#00B96B' },
+    { name: '极光科技', color: '#722ED1' },
+    { name: '活力暖阳', color: '#FA8C16' },
+    { name: '珊瑚粉红', color: '#EB2F96' },
+    { name: '极客天青', color: '#13C2C2' },
+    { name: '商务深蓝', color: '#165DFF' },
+    { name: '玄武深灰', color: '#475569' },
+];
+
+// 判断是否为当前选中主题色
+const isCurrentColor = (color) => {
+    return (layoutStore.primaryColor || '').toLowerCase() === color.toLowerCase();
+};
+
+// 选择预设主题色
+const handleSelectColor = (color) => {
+    layoutStore.setPrimaryColor(color);
+};
+
+// 自定义取色器修改颜色
+const handleCustomColorChange = (color) => {
+    if (color) {
+        layoutStore.setPrimaryColor(color);
+    }
+};
 
 // 选择布局模式
 const handleSelectLayout = (mode) => {
@@ -716,5 +780,76 @@ const handleReset = () => {
 
 .reset-action-btn:hover .btn-icon {
     transform: rotate(-90deg);
+}
+
+/* 7. 系统品牌主题色调色盘 */
+.theme-color-extra {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.color-hex-tag {
+    font-size: 11px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-weight: 600;
+    color: var(--el-color-primary);
+    background: var(--el-color-primary-light-9);
+    padding: 1px 6px;
+    border-radius: 4px;
+    letter-spacing: 0.5px;
+    border: 1px solid var(--el-color-primary-light-8);
+}
+
+:deep(.el-color-picker--small) {
+    height: 24px;
+}
+
+:deep(.el-color-picker--small .el-color-picker__trigger) {
+    width: 24px;
+    height: 24px;
+    padding: 2px;
+    border-radius: 6px;
+    border: 1px solid var(--el-border-color-lighter);
+}
+
+.theme-color-palette {
+    display: grid;
+    grid-template-columns: repeat(8, 1fr);
+    gap: 8px;
+    padding: 12px;
+    background: var(--el-fill-color-blank);
+    border: 1px solid var(--el-border-color-lighter);
+    border-radius: 12px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+}
+
+.theme-color-item {
+    aspect-ratio: 1;
+    width: 100%;
+    max-width: 32px;
+    border-radius: 6px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    transition: all 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+}
+
+.theme-color-item:hover {
+    transform: translateY(-2px) scale(1.08);
+    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.18);
+}
+
+.theme-color-item.is-active {
+    transform: scale(1.1);
+    box-shadow: 0 0 0 2px var(--el-bg-color), 0 0 0 4px var(--el-color-primary);
+}
+
+.color-check-icon {
+    color: #ffffff;
+    filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.5));
 }
 </style>

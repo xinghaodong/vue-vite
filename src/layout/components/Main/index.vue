@@ -97,7 +97,7 @@ defineExpose({
    所有子组件全部锚定在同一个单元格 (row 1, col 1)。
    即使两个组件同时存在，也会自然重叠在同一坐标系，绝不可能被挤压到下方！ */
 .main-content-box {
-    padding: 14px;
+    padding: 12px;
     height: 100%;
     min-height: 100%;
     box-sizing: border-box;

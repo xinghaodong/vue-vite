@@ -67,31 +67,46 @@ html.light {
     --container-secondary-fill: #f7f8fc;
 }
 
-/* 2. 暗黑模式变量 (Dark Mode - 优雅深邃高对比黑金紫夜) */
+/* 2. 暗黑模式变量 (Dark Mode - Vercel / Apple 纯正中性炭黑流派，零杂色高对比) */
 html.dark {
-    /* 自定义 Element 深色基底 */
-    --el-bg-color: #18222b;
-    --el-bg-color-page: #0f171e;
-    --el-bg-color-overlay: #1e293b;
+    /* 统一 Element 中性炭黑基底 (彻底清除 #18222b 偏青与 #1e293b 偏蓝冲突) */
+    --el-bg-color-page: #0a0a0a;
+    --el-bg-color: #141414;
+    --el-bg-color-overlay: #1d1e1f;
 
-    /* 基础通用背景与边框 */
-    --app-card-bg: #1e293b;
-    --app-card-border: #334155;
-    --app-text-main: #f1f5f9;
-    --app-text-muted: #94a3b8;
-    --app-box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
+    /* 统一暗黑中性边框色阶 */
+    --el-border-color-extra-light: #1f1f1f;
+    --el-border-color-lighter: #262727;
+    --el-border-color-light: #2e3033;
+    --el-border-color: #363637;
 
-    /* AI 智能审查卡片专用 Token (深邃暗紫金) */
-    --app-ai-card-bg: linear-gradient(135deg, #1e1b2e 0%, #151322 100%);
-    --app-ai-card-border: #4c3b6e;
-    --app-ai-card-shadow: 0 2px 12px rgba(0, 0, 0, 0.4);
-    --app-ai-role-bg: #2e2547;
-    --app-ai-role-text: #c4b5fd;
-    --app-ai-box-bg: #221d33;
-    --app-ai-box-border: #383050;
-    --app-ai-box-text: #e2e8f0;
-    --app-ai-item-bg: #1c1829;
-    --app-ai-item-text: #f1f5f9;
+    /* 统一暗黑中性填充色阶 */
+    --el-fill-color-blank: #141414;
+    --el-fill-color-darker: #101010;
+    --el-fill-color-dark: #181818;
+    --el-fill-color: #202020;
+    --el-fill-color-light: #262626;
+    --el-fill-color-lighter: #2a2a2a;
+    --el-fill-color-extra-light: #1a1a1a;
+
+    /* 基础通用背景与边框 (纯净中性黑，绝无色调跑偏) */
+    --app-card-bg: #1d1e1f;
+    --app-card-border: #2e3033;
+    --app-text-main: #f0f0f0;
+    --app-text-muted: #8c8c8c;
+    --app-box-shadow: 0 2px 10px rgba(0, 0, 0, 0.45);
+
+    /* AI 智能审查卡片专用 Token (深邃暗金灰) */
+    --app-ai-card-bg: linear-gradient(135deg, #18181c 0%, #121215 100%);
+    --app-ai-card-border: #383842;
+    --app-ai-card-shadow: 0 2px 12px rgba(0, 0, 0, 0.5);
+    --app-ai-role-bg: #22222a;
+    --app-ai-role-text: #d4d4d8;
+    --app-ai-box-bg: #1a1a1e;
+    --app-ai-box-border: #2a2a30;
+    --app-ai-box-text: #e4e4e7;
+    --app-ai-item-bg: #161619;
+    --app-ai-item-text: #f4f4f5;
 
     /* 异常与合规结果展示框 */
     --app-ai-anomaly-bg: #2b1719;
@@ -109,12 +124,12 @@ html.dark {
     --app-tip-reject-text: #f89898;
 
     /* 流程时间轴与审批人条目 Token */
-    --app-timeline-item-bg: #1e293b;
-    --app-timeline-item-border: #334155;
-    --app-timeline-comment-bg: rgba(15, 23, 42, 0.65);
+    --app-timeline-item-bg: #1d1e1f;
+    --app-timeline-item-border: #2e3033;
+    --app-timeline-comment-bg: rgba(20, 20, 20, 0.75);
 
     /* 聊天与输入框填充 */
-    --container-secondary-fill: #222933;
+    --container-secondary-fill: #181818;
 }
 
 /* ========================================================================

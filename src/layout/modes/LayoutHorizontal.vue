@@ -147,26 +147,73 @@ const handleRefreshRoute = () => {
     align-items: center;
 }
 
+.horizontal-menu-wrapper :deep(.el-scrollbar),
+.horizontal-menu-wrapper :deep(.el-scrollbar__view) {
+    height: 100%;
+    display: flex;
+    align-items: center;
+}
+
+/* 彻底禁止纵向滚动与溢出，隐藏纵向滚动条 */
+.horizontal-menu-wrapper :deep(.el-scrollbar__wrap) {
+    overflow-y: hidden !important;
+    height: 100%;
+}
+
+.horizontal-menu-wrapper :deep(.el-scrollbar__bar.is-vertical) {
+    display: none !important;
+}
+
 .horizontal-nav-menu {
     border-bottom: none !important;
     background: transparent !important;
-    height: 50px;
-    line-height: 50px;
+    height: 100%;
     display: flex;
     white-space: nowrap;
+    gap: 4px;
 }
 
+/* 一级菜单项基准样式：高度 49px 精确避开 header 的 1px 下边框，彻底杜绝纵向溢出 */
 .horizontal-nav-menu :deep(.el-sub-menu__title),
 .horizontal-nav-menu :deep(.el-menu-item) {
-    height: 50px !important;
-    line-height: 50px !important;
-    border-bottom: 2px solid transparent !important;
+    position: relative;
+    height: 49px !important;
+    line-height: 49px !important;
+    padding: 0 16px !important;
+    border-bottom: none !important;
+    font-size: 13px !important;
+    font-weight: 500;
+    color: var(--el-text-color-regular) !important;
+    transition: color 0.2s ease, background-color 0.2s ease !important;
+    box-sizing: border-box;
 }
 
+/* 悬浮态：轻底 + 品牌主色 */
+.horizontal-nav-menu :deep(.el-sub-menu__title:hover),
+.horizontal-nav-menu :deep(.el-menu-item:hover) {
+    color: var(--el-color-primary) !important;
+    background: var(--el-fill-color-light) !important;
+}
+
+/* 激活态（普通菜单项与子菜单父级）：品牌浅底 + 品牌主色 + 加粗强调 */
 .horizontal-nav-menu :deep(.el-menu-item.is-active),
 .horizontal-nav-menu :deep(.el-sub-menu.is-active .el-sub-menu__title) {
-    border-bottom: 2px solid var(--el-color-primary) !important;
     color: var(--el-color-primary) !important;
+    background: var(--el-color-primary-light-9) !important;
+    font-weight: 600 !important;
+}
+
+/* 激活态底部指示条：2.5px 高度 + 2px 顶角微圆角，与 LayoutMixed 像素级对齐 */
+.horizontal-nav-menu :deep(.el-menu-item.is-active::after),
+.horizontal-nav-menu :deep(.el-sub-menu.is-active .el-sub-menu__title::after) {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 2.5px;
+    background: var(--el-color-primary);
+    border-radius: 2px 2px 0 0;
 }
 
 .horizontal-actions-wrapper {

@@ -120,12 +120,12 @@ provide('formContext', {
     padding: 12px 16px 16px;
     margin-bottom: 12px;
     transition: all 0.2s ease;
-    box-shadow: var(--el-box-shadow-lighter);
+    /* box-shadow: var(--el-box-shadow-lighter); */
 }
 
 .subform-row-card:hover {
     border-color: var(--el-border-color);
-    box-shadow: var(--el-box-shadow-light);
+    /* box-shadow: var(--el-box-shadow-light); */
 }
 
 .row-card-header {
