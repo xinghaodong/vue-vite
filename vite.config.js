@@ -1,17 +1,16 @@
 import { defineConfig, loadEnv } from 'vite';
 import vue from '@vitejs/plugin-vue';
 import path from 'path';
-import Unocss from 'unocss/vite';
 
 export default defineConfig(({ mode, command }) => {
     const { VITE_PORT, VITE_BASE_URL, VITE_PROXY_DOMAIN_REAL } = loadEnv(mode, process.cwd());
     const alias = {
-        '@': path.resolve(__dirname, './src'),
+        '@': path.resolve(import.meta.dirname, './src'),
     };
 
     const commonConfig = {
         base: VITE_BASE_URL,
-        plugins: [vue(), Unocss()],
+        plugins: [vue()],
         resolve: {
             alias,
             extensions: ['.mjs', '.js', '.ts', '.jsx', '.tsx', '.json', '.vue'],
@@ -32,6 +31,7 @@ export default defineConfig(({ mode, command }) => {
             outDir: 'dist', // 业务输出到 dist
             emptyOutDir: true, // 清理 dist 目录
             copyPublicDir: true, // 业务需要 public 目录
+            chunkSizeWarningLimit: 2500, // 将警告阈值从 500 kB 调高至 2500 kB
         },
     };
 

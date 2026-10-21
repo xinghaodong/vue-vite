@@ -10,8 +10,8 @@ import zhCn from 'element-plus/es/locale/lang/zh-cn'; // 引入中文语言包
 import { checkPermissions } from './utils/permissions';
 import hasPermi from './directives/hasPermi'; // 引入自定义指令
 // import '@/assets/css/tailwind.css';
-import 'uno.css';
 // import 'highlight.js/styles/github.css';
+import '@/assets/css/tailwind.css';
 import 'element-plus/theme-chalk/dark/css-vars.css';
 import '@/assets/css/dark/css-vars.css';
 import '@/assets/css/theme-transition.css';

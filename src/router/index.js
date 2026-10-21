@@ -80,15 +80,11 @@ const router = createRouter({
             component: () => import('@/pages/cesium/realtimeFlyDemo.vue'),
             meta: { title: '边飞边建实时三维建模仿真' },
         },
+        // 官方规范 Catch-all 404 路由：匹配所有未命中路径，彻底消除首屏[VUE_ROUTER_R0004]警告
         // {
-        //     name: 'cesium3d',
-        //     path: '/cesium3d',
-        //     component: () => import('@/pages/cesium/cesium3d.vue'),
-        // },
-        // {
-        //     name: 'formDesign',
-        //     path: '/formDesign',
-        //     component: () => import('@/pages/formDesign/formDesign.vue'),
+        //     path: '/:pathMatch(.*)*',
+        //     name: 'NotFound',
+        //     component: () => import('@/pages/404.vue'),
         // },
     ],
 });
@@ -159,12 +155,6 @@ const setupDynamicRoutes = async () => {
                 router.addRoute(route);
             }
         });
-        // console.log('路由表:', router.getRoutes());
-        // 添加一个catch-all路由，确保无效路由会重定向到 404
-        router.addRoute({
-            path: '/:catchAll(.*)', // 使用 catchAll 匹配所有路径
-            redirect: '/404', // 重定向到 404 页面
-        });
         return res;
     } catch (error) {
         console.error('动态路由加载异常:', error);
@@ -172,9 +162,9 @@ const setupDynamicRoutes = async () => {
     }
 };
 
-// 路由守卫
+// 路由守卫（升级为 Vue Router 5 现代规范：使用 return 代替废弃的 next() 回调）
 let dynamicRoutesLoaded = false; // 防止重复加载动态路由
-router.beforeEach(async (to, from, next) => {
+router.beforeEach(async (to, from) => {
     NProgress.start(); // 开启进度条
     const useMenuStores = useMenuStore();
     const funcAll = () => {
@@ -185,22 +175,18 @@ router.beforeEach(async (to, from, next) => {
         // localStorage.clear();
     };
 
-    // 如果是ai界面直接放行 无需登录
+    // 如果是无需登录的白名单路由，直接放行
     if (to.path === '/ai' || to.path === '/cesium' || to.path === '/cesium2d' || to.path === '/newcesium' || to.path === '/aaa') {
-        next();
         return;
     }
     if (to.path === '/login') {
-        // sessionStorage.clear(); // 清除所有 sessionStorage 数据
-        // useMenuStores.changeRemoveAll();
         funcAll();
-        next(); // 登录页直接放行
-        return;
+        return; // 登录页直接放行
     }
-    // 如果没有 refToken 则跳转回登录页
+    // 如果没有 refreshToken 则跳转回登录页
     if (!sessionStorage.getItem('refreshToken')) {
         funcAll();
-        return next('/login');
+        return '/login';
     }
 
     if (!dynamicRoutesLoaded) {
@@ -208,24 +194,20 @@ router.beforeEach(async (to, from, next) => {
             await setupDynamicRoutes();
 
             dynamicRoutesLoaded = true; // 标记动态路由已加载
-            next({ ...to, replace: true }); // 重新导航到当前路径，确保新添加的路由生效
-            return;
+            return { ...to, replace: true }; // 重新导航到当前路径，确保新添加的路由生效
         } catch (err) {
             funcAll();
-            next('/login'); // 跳转到登录页
+            return '/login'; // 跳转到登录页
         }
     } else {
-        // 增加判 对按钮路由 也要更新tab菜单
-        // 从菜单里找到对应的对象
-        // useMenuStores.changeMenu(to);
+        // 增加判断：对按钮路由也要更新tab菜单
         let obj = findNodeById(backendRoutes, to.name);
         if (obj && obj.menutype == 2) {
             obj.url = to.fullPath;
-            // to.fullPath = to.fullPath.replace(/^\//, '');
             useMenuStores.changeMenu(obj);
             useMenuStores.changeTabsValue(obj.url);
         }
-        next(); // 正常导航
+        return; // 正常放行
     }
 });
 function filterMenuTree(menuTree) {
