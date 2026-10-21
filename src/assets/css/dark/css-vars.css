@@ -10,6 +10,18 @@
  * ========================================================================
  */
 
+:root {
+    /* ========================================================================
+     * 全局字体规范体系 (极客硬核科技栈：西文/数字优先经典等宽代码字体，中文优雅平替)
+     * ======================================================================== */
+    --app-font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial,
+        'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+    --app-font-family-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+
+    /* 全局与 Element Plus 字体变量同步收口 */
+    --el-font-family: var(--app-font-family);
+}
+
 /* 基础根节点与全局视口背景 (从第一帧起无感跟随主题) */
 html,
 body,
@@ -19,6 +31,32 @@ body,
     background-color: var(--el-bg-color-page);
     color: var(--el-text-color-primary);
     min-height: 100vh;
+}
+
+html,
+body {
+    font-family: var(--app-font-family);
+    /* 现代抗锯齿与表格等宽数字（Tabular Nums）：解决数据表格与金额数字不对齐、笔画发虚 */
+    font-feature-settings: 'tnum';
+    font-variant-numeric: tabular-nums;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+}
+
+/* 表单与交互原生控件字体继承收口，彻底隔绝组件库与原生控件字体裂化 */
+input,
+button,
+select,
+textarea {
+    font-family: inherit;
+}
+
+code,
+kbd,
+samp,
+pre {
+    font-family: var(--app-font-family-mono);
 }
 
 /* 1. 默认亮色模式变量 (Light Mode) */
