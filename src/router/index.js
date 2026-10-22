@@ -80,6 +80,13 @@ const router = createRouter({
             component: () => import('@/pages/cesium/realtimeFlyDemo.vue'),
             meta: { title: '边飞边建实时三维建模仿真' },
         },
+        // 无人机集群编队设计与表演系统 (SwarmStudio)
+        {
+            name: 'droneSwarm',
+            path: '/drone-swarm',
+            component: () => import('@/pages/droneSwarm/index.vue'),
+            meta: { title: '无人机集群编队设计与表演系统' },
+        },
         // 官方规范 Catch-all 404 路由：匹配所有未命中路径，彻底消除首屏[VUE_ROUTER_R0004]警告
         // {
         //     path: '/:pathMatch(.*)*',
