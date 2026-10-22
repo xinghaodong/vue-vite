@@ -212,13 +212,22 @@
 
                     <div class="panel-section-title">
                         <span class="icon-tag">05</span>
-                        <span>Color Applicator (原图赋色)</span>
+                        <span>Color Applicator (灯光色彩与映射)</span>
                     </div>
 
-                    <div class="param-row inline-switch">
+                    <div class="param-row">
+                        <span class="param-name">色彩映射模式</span>
+                        <el-radio-group v-model="motifOptions.colorPalette" size="small" @change="triggerMotifGenerate">
+                            <el-radio-button value="original">原图真实色彩</el-radio-button>
+                            <el-radio-button value="gradient">炫彩霓虹渐变</el-radio-button>
+                            <el-radio-button value="mono">极客青蓝</el-radio-button>
+                        </el-radio-group>
+                    </div>
+
+                    <div class="param-row inline-switch" v-if="motifOptions.colorPalette === 'original'">
                         <div>
-                            <div class="param-name">保留原图真实 RGB 色彩</div>
-                            <div class="param-hint">自动采样原图像素色彩赋给每架无人机 LED</div>
+                            <div class="param-name">智能提亮防死黑保护</div>
+                            <div class="param-hint">自动避免线稿暗黑线条在夜空画布隐形</div>
                         </div>
                         <el-switch
                             v-model="motifOptions.applyOriginalColor"
@@ -343,6 +352,7 @@ const motifOptions = reactive({
     targetCount: 800,
     canvasScale: 300,
     applyOriginalColor: true,
+    colorPalette: 'original',
 });
 
 // 生成的构型点阵
@@ -520,17 +530,17 @@ function renderAgentsToViewport(agents) {
         const screenX = centerX + agent.x * scale;
         const screenY = centerY - agent.y * scale;
 
-        // 柔和微光辉光外圈
+        // 极轻微微光
         ctx.fillStyle = agent.color || '#00f2fe';
-        ctx.globalAlpha = 0.25;
+        ctx.globalAlpha = 0.2;
         ctx.beginPath();
-        ctx.arc(screenX, screenY, 4, 0, Math.PI * 2);
+        ctx.arc(screenX, screenY, 2.2, 0, Math.PI * 2);
         ctx.fill();
 
-        // 内部核心高亮小圆点
+        // 内部高锐度高亮小圆点 (针尖级清晰)
         ctx.globalAlpha = 1.0;
         ctx.beginPath();
-        ctx.arc(screenX, screenY, 1.8, 0, Math.PI * 2);
+        ctx.arc(screenX, screenY, 1.1, 0, Math.PI * 2);
         ctx.fill();
     });
     ctx.globalAlpha = 1.0;

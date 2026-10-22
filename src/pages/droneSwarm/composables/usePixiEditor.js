@@ -48,31 +48,46 @@ export function usePixiEditor(containerRef, options = {}) {
     // 当前选中的无人机 ID
     const selectedDroneId = ref(null);
 
-    // 缓存发光光斑离屏纹理，避免重复生成
-    let sharedDotTexture = null;
+    // 缓存离屏粒子纹理
+    let sharedCrispTexture = null;
+    let sharedGlowTexture = null;
 
     /**
-     * 生成发光 LED 粒子高保真微径向渐变纹理
+     * 生成 CAD 级高锐度矢量微圆点纹理 (极致清晰，绝不发虚发糊)
      */
-    function createGlowDotTexture(app) {
-        if (sharedDotTexture) return sharedDotTexture;
-
-        const size = 32;
+    function createCrispDotTexture(app) {
+        if (sharedCrispTexture) return sharedCrispTexture;
+        const size = 16;
         const g = new Graphics();
-        // 外层柔和霓虹光晕
-        g.circle(size / 2, size / 2, size / 2);
-        g.fill({ color: 0xffffff, alpha: 0.15 });
-
-        // 中层能量泛光
-        g.circle(size / 2, size / 2, size / 4);
-        g.fill({ color: 0xffffff, alpha: 0.45 });
-
-        // 核心高亮发光白芯
-        g.circle(size / 2, size / 2, size / 8);
+        // 核心实心高亮圆点 (半径 4px)
+        g.circle(size / 2, size / 2, 4);
         g.fill({ color: 0xffffff, alpha: 1.0 });
 
-        sharedDotTexture = app.renderer.generateTexture(g);
-        return sharedDotTexture;
+        // 极轻微抗锯齿外环 (半径 5.5px)
+        g.circle(size / 2, size / 2, 5.5);
+        g.fill({ color: 0xffffff, alpha: 0.25 });
+
+        sharedCrispTexture = app.renderer.generateTexture(g);
+        return sharedCrispTexture;
+    }
+
+    /**
+     * 生成柔和霓虹夜空发光微晕纹理
+     */
+    function createGlowDotTexture(app) {
+        if (sharedGlowTexture) return sharedGlowTexture;
+        const size = 24;
+        const g = new Graphics();
+        // 柔和微晕
+        g.circle(size / 2, size / 2, 8);
+        g.fill({ color: 0xffffff, alpha: 0.2 });
+
+        // 核心白芯
+        g.circle(size / 2, size / 2, 3);
+        g.fill({ color: 0xffffff, alpha: 1.0 });
+
+        sharedGlowTexture = app.renderer.generateTexture(g);
+        return sharedGlowTexture;
     }
 
     /**
@@ -87,7 +102,7 @@ export function usePixiEditor(containerRef, options = {}) {
         g.clear();
 
         // 计算当前视口覆盖的世界坐标边界
-        const step = 40 * zoom; // 基础网格步长
+        const step = 40 * zoom;
         const majorStep = step * 5;
 
         // 次级微网格点阵/细线 (暗淡科技蓝)
@@ -130,33 +145,41 @@ export function usePixiEditor(containerRef, options = {}) {
      * 批量向画布渲染成百上千个无人机发光点位
      * @param {Array<import('../types/swarm').Agent>} agents
      * @param {Set<string|number>} dangerIds 碰撞危险点位 ID 集合
+     * @param {Object} renderOptions 渲染配置 (启用高锐度、点径大小等)
      */
-    function renderDroneAgents(agents, dangerIds = new Set()) {
+    function renderDroneAgents(agents, dangerIds = new Set(), renderOptions = {}) {
         if (!droneLayer.value || !pixiApp.value) return;
         const layer = droneLayer.value;
 
         // 彻底清空上一帧旧点位，防止对象驻留
         layer.removeChildren();
 
-        const dotTexture = createGlowDotTexture(pixiApp.value);
+        const { useGlow = false, dotScale = 1.0 } = renderOptions;
+        const texture = useGlow
+            ? createGlowDotTexture(pixiApp.value)
+            : createCrispDotTexture(pixiApp.value);
 
         agents.forEach((agent) => {
             const isDanger = dangerIds && dangerIds.has(agent.id);
-            const sprite = new Sprite(dotTexture);
+            const sprite = new Sprite(texture);
             sprite.anchor.set(0.5);
             sprite.x = agent.x;
             sprite.y = -agent.y; // 坐标系反转：数学坐标向上为正，Canvas 默认向下为正
-            sprite.width = (agent.size || 4) * (isDanger ? 4 : 3);
-            sprite.height = (agent.size || 4) * (isDanger ? 4 : 3);
+
+            // 依据 agent.size 和全局 dotScale 精准控制真实像素渲染尺寸，杜绝光晕重叠污染
+            const baseSize = (agent.size || 2.5) * dotScale;
+            const finalSize = isDanger ? baseSize * 1.6 : baseSize;
+            sprite.width = finalSize * 2.2;
+            sprite.height = finalSize * 2.2;
 
             // 危险点位强制使用刺眼警报红光 (0xff2255)，正常点位使用设定的 LED 颜色
             if (isDanger) {
                 sprite.tint = 0xff2255;
             } else if (agent.color) {
                 const hexNum = parseInt(agent.color.replace('#', ''), 16);
-                sprite.tint = isNaN(hexNum) ? 0x00ffff : hexNum;
+                sprite.tint = isNaN(hexNum) ? 0x00f2fe : hexNum;
             } else {
-                sprite.tint = 0x00ffff;
+                sprite.tint = 0x00f2fe;
             }
 
             sprite.alpha = isDanger ? 1.0 : (agent.alpha ?? 1.0);

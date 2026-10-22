@@ -26,6 +26,24 @@
         </div>
 
         <div class="hud-bottom-right">
+            <!-- 粒径大小与清晰度调节栏 -->
+            <div class="hud-dot-controls">
+                <span class="ctrl-tip">点径:</span>
+                <el-radio-group v-model="dotScale" size="small">
+                    <el-radio-button :value="0.5">细 0.5x</el-radio-button>
+                    <el-radio-button :value="0.8">标准 0.8x</el-radio-button>
+                    <el-radio-button :value="1.2">粗 1.2x</el-radio-button>
+                </el-radio-group>
+
+                <el-switch
+                    v-model="useGlow"
+                    active-text="夜空辉光"
+                    inactive-text="CAD高锐度"
+                    size="small"
+                    style="margin-left: 8px;"
+                />
+            </div>
+
             <span class="zoom-text">{{ Math.round(viewport.zoom * 100) }}%</span>
             <el-button size="small" type="primary" plain @click="resetCamera">
                 视角复位
@@ -43,7 +61,7 @@
 /**
  * 2D 创意点阵编辑器组件 (使用 Vue 3.5 useTemplateRef)
  */
-import { useTemplateRef, watch } from 'vue';
+import { ref, useTemplateRef, watch } from 'vue';
 import { usePixiEditor } from '../composables/usePixiEditor';
 
 const props = defineProps({
@@ -59,6 +77,10 @@ const props = defineProps({
 
 const emit = defineEmits(['select-agent', 'auto-relax']);
 
+// 粒径缩放比例与夜空微光开关 (默认使用 0.8x 高锐度，保证纤细分明)
+const dotScale = ref(0.8);
+const useGlow = ref(false);
+
 // 🌟 Vue 3.5 原生专属 Hook: useTemplateRef 绑定模板中的 ref="pixiContainer"
 const containerRef = useTemplateRef('pixiContainer');
 
@@ -73,12 +95,15 @@ const {
     onPointSelect: (agent) => emit('select-agent', agent),
 });
 
-// 监听无人机点位或危险集合变化，热重绘点阵
+// 监听无人机点位、危险集合、点径缩放及辉光变化，热重绘点阵
 watch(
-    [() => props.agents, () => props.dangerIds],
-    ([newAgents, dangerIds]) => {
+    [() => props.agents, () => props.dangerIds, dotScale, useGlow],
+    ([newAgents, dangerIds, scaleVal, glowVal]) => {
         if (newAgents && newAgents.length) {
-            renderDroneAgents(newAgents, dangerIds);
+            renderDroneAgents(newAgents, dangerIds, {
+                dotScale: scaleVal,
+                useGlow: glowVal,
+            });
         }
     },
     { deep: true, immediate: true }
@@ -160,6 +185,20 @@ defineExpose({
     padding: 4px 10px;
     border-radius: 6px;
     backdrop-filter: blur(8px);
+}
+
+.hud-dot-controls {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    border-right: 1px solid rgba(255, 255, 255, 0.1);
+    padding-right: 10px;
+    margin-right: 4px;
+}
+
+.ctrl-tip {
+    font-size: 11px;
+    color: #94a3b8;
 }
 
 .zoom-text {
