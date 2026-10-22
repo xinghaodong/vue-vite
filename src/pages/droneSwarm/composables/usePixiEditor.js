@@ -45,29 +45,91 @@ export function usePixiEditor(containerRef, options = {}) {
     // 鼠标在 CAD 物理世界的实时坐标 (米/像素)
     const cursorWorldPos = ref({ x: 0, y: 0 });
 
+    // 当前画布背景底色 (支持用户任意自定义及跟随主题)
+    const currentBgColor = ref(options.initialBgColor || '#0a0c14');
+
+    /**
+     * 判断颜色是否为暗色 (标准感知亮度公式)
+     */
+    function isColorDark(hex) {
+        if (!hex) return true;
+        const clean = hex.replace('#', '');
+        const r = parseInt(clean.substring(0, 2), 16) || 0;
+        const g = parseInt(clean.substring(2, 4), 16) || 0;
+        const b = parseInt(clean.substring(4, 6), 16) || 0;
+        const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+        return luminance < 0.5;
+    }
+
+    /**
+     * 动态设置视口画布背景色并触发网格与对比度重算
+     */
+    function setCanvasBackgroundColor(colorHex) {
+        if (!colorHex) return;
+        currentBgColor.value = colorHex;
+        if (!pixiApp.value) return;
+
+        const cleanHex = colorHex.replace('#', '');
+        const num = parseInt(cleanHex, 16);
+        if (!isNaN(num)) {
+            pixiApp.value.renderer.background.color = num;
+            renderCadGrid();
+            // 刷新粒子抗对比度纹理
+            if (sharedCrispTexture) {
+                try { sharedCrispTexture.destroy(true); } catch (_) {}
+                sharedCrispTexture = null;
+            }
+            if (currentRenderCache.agents && currentRenderCache.agents.length) {
+                renderDroneAgents(currentRenderCache.agents, currentRenderCache.dangerIds, currentRenderCache.options);
+            }
+        }
+    }
+
     // 当前选中的无人机 ID
     const selectedDroneId = ref(null);
 
-    // 缓存离屏粒子纹理
+    // 缓存离屏粒子纹理与当前渲染上下文
     let sharedCrispTexture = null;
     let sharedGlowTexture = null;
+    let currentRenderCache = {
+        agents: [],
+        dangerIds: new Set(),
+        options: { constantScreen: true, dotScale: 0.8, useGlow: false },
+    };
 
     /**
-     * 生成 CAD 级高锐度矢量微圆点纹理 (极致清晰，绝不发虚发糊)
+     * 生成 64x64 超采样 CAD 级高锐度矢量微圆点纹理 (边缘绝对光滑锐利，明暗背景高对比)
      */
     function createCrispDotTexture(app) {
-        if (sharedCrispTexture) return sharedCrispTexture;
-        const size = 16;
+        const isDark = isColorDark(currentBgColor.value);
+        const cacheKey = isDark ? 'dark' : 'light';
+        if (sharedCrispTexture && sharedCrispTexture.__themeMode === cacheKey) {
+            return sharedCrispTexture;
+        }
+        if (sharedCrispTexture) {
+            try { sharedCrispTexture.destroy(true); } catch (_) {}
+            sharedCrispTexture = null;
+        }
+
+        const size = 64;
         const g = new Graphics();
-        // 核心实心高亮圆点 (半径 4px)
-        g.circle(size / 2, size / 2, 4);
+
+        // 浅色背景模式下：增加细腻微对比暗圈，防止浅色/白芯 LED 点位在白底上发虚
+        if (!isDark) {
+            g.circle(size / 2, size / 2, 22);
+            g.fill({ color: 0x0f172a, alpha: 0.22 });
+        }
+
+        // 核心实心高亮圆点 (半径 18px，超清抗锯齿采样)
+        g.circle(size / 2, size / 2, 18);
         g.fill({ color: 0xffffff, alpha: 1.0 });
 
-        // 极轻微抗锯齿外环 (半径 5.5px)
-        g.circle(size / 2, size / 2, 5.5);
-        g.fill({ color: 0xffffff, alpha: 0.25 });
+        // 极细腻微亚像素抗锯齿边缘
+        g.circle(size / 2, size / 2, 21);
+        g.fill({ color: 0xffffff, alpha: isDark ? 0.35 : 0.6 });
 
         sharedCrispTexture = app.renderer.generateTexture(g);
+        sharedCrispTexture.__themeMode = cacheKey;
         return sharedCrispTexture;
     }
 
@@ -76,18 +138,41 @@ export function usePixiEditor(containerRef, options = {}) {
      */
     function createGlowDotTexture(app) {
         if (sharedGlowTexture) return sharedGlowTexture;
-        const size = 24;
+        const size = 64;
         const g = new Graphics();
-        // 柔和微晕
-        g.circle(size / 2, size / 2, 8);
-        g.fill({ color: 0xffffff, alpha: 0.2 });
+        // 外围柔和微晕
+        g.circle(size / 2, size / 2, 28);
+        g.fill({ color: 0xffffff, alpha: 0.25 });
 
         // 核心白芯
-        g.circle(size / 2, size / 2, 3);
+        g.circle(size / 2, size / 2, 12);
         g.fill({ color: 0xffffff, alpha: 1.0 });
 
         sharedGlowTexture = app.renderer.generateTexture(g);
         return sharedGlowTexture;
+    }
+
+    /**
+     * 动态补偿无人机粒子在屏幕空间的渲染尺寸 (实现 CAD 级放大无模糊、恒定针尖点)
+     */
+    function updateSpritesScale() {
+        if (!droneLayer.value) return;
+        const zoom = viewport.value.zoom;
+        const { constantScreen = true, dotScale = 0.8 } = currentRenderCache.options;
+        const layer = droneLayer.value;
+
+        // CAD 专业视口规范：点位屏幕像素尺寸恒定 (默认 ~5.5px)，
+        // 用户放大视口时拉大的是物理空间间距，而点本身永远锐利纤细，绝不糊化变成大圆盘！
+        const basePixelSize = 6.0 * dotScale;
+        const effectiveSize = constantScreen ? (basePixelSize / zoom) : (basePixelSize * 0.8);
+
+        for (let i = 0; i < layer.children.length; i++) {
+            const sprite = layer.children[i];
+            const isDanger = sprite.customIsDanger;
+            const size = isDanger ? effectiveSize * 1.5 : effectiveSize;
+            sprite.width = size;
+            sprite.height = size;
+        }
     }
 
     /**
@@ -101,12 +186,16 @@ export function usePixiEditor(containerRef, options = {}) {
 
         g.clear();
 
+        const isDark = isColorDark(currentBgColor.value);
+
         // 计算当前视口覆盖的世界坐标边界
         const step = 40 * zoom;
         const majorStep = step * 5;
 
-        // 次级微网格点阵/细线 (暗淡科技蓝)
-        g.setStrokeStyle({ width: 1, color: 0x1e2638, alpha: 0.6 });
+        // 次级微网格点阵/细线 (暗黑科技蓝 / 浅色高对比优雅灰)
+        const subGridColor = isDark ? 0x1e2638 : 0xe2e8f0;
+        const subGridAlpha = isDark ? 0.6 : 0.85;
+        g.setStrokeStyle({ width: 1, color: subGridColor, alpha: subGridAlpha });
         const startX = panX % step;
         for (let x = startX; x < width; x += step) {
             g.moveTo(x, 0);
@@ -118,8 +207,10 @@ export function usePixiEditor(containerRef, options = {}) {
             g.lineTo(width, y);
         }
 
-        // 主标尺网格粗线
-        g.setStrokeStyle({ width: 1, color: 0x2b384e, alpha: 0.8 });
+        // 主标尺网格粗线 (暗黑灰蓝 / 浅色标尺深灰)
+        const majorGridColor = isDark ? 0x2b384e : 0x94a3b8;
+        const majorGridAlpha = isDark ? 0.8 : 0.75;
+        g.setStrokeStyle({ width: 1, color: majorGridColor, alpha: majorGridAlpha });
         const majorStartX = panX % majorStep;
         for (let x = majorStartX; x < width; x += majorStep) {
             g.moveTo(x, 0);
@@ -132,29 +223,40 @@ export function usePixiEditor(containerRef, options = {}) {
         }
 
         // 世界坐标中心原点十字准星 (0, 0)
-        g.setStrokeStyle({ width: 1.5, color: 0x00f2fe, alpha: 0.9 });
+        const crossColor = isDark ? 0x00f2fe : 0x2563eb;
+        g.setStrokeStyle({ width: 1.5, color: crossColor, alpha: 0.9 });
         g.moveTo(panX - 20, panY);
         g.lineTo(panX + 20, panY);
         g.moveTo(panX, panY - 20);
         g.lineTo(panX, panY + 20);
         g.circle(panX, panY, 4);
-        g.fill({ color: 0x00f2fe, alpha: 0.4 });
+        g.fill({ color: crossColor, alpha: 0.4 });
     }
 
     /**
      * 批量向画布渲染成百上千个无人机发光点位
      * @param {Array<import('../types/swarm').Agent>} agents
      * @param {Set<string|number>} dangerIds 碰撞危险点位 ID 集合
-     * @param {Object} renderOptions 渲染配置 (启用高锐度、点径大小等)
+     * @param {Object} renderOptions 渲染配置 (启用高锐度、点径大小、恒定屏幕尺寸等)
      */
     function renderDroneAgents(agents, dangerIds = new Set(), renderOptions = {}) {
         if (!droneLayer.value || !pixiApp.value) return;
         const layer = droneLayer.value;
 
+        // 更新渲染上下文缓存
+        currentRenderCache.agents = agents;
+        currentRenderCache.dangerIds = dangerIds;
+        currentRenderCache.options = {
+            constantScreen: true,
+            dotScale: 0.8,
+            useGlow: false,
+            ...renderOptions,
+        };
+
         // 彻底清空上一帧旧点位，防止对象驻留
         layer.removeChildren();
 
-        const { useGlow = false, dotScale = 1.0 } = renderOptions;
+        const { useGlow = false, highlightDanger = true } = currentRenderCache.options;
         const texture = useGlow
             ? createGlowDotTexture(pixiApp.value)
             : createCrispDotTexture(pixiApp.value);
@@ -165,15 +267,10 @@ export function usePixiEditor(containerRef, options = {}) {
             sprite.anchor.set(0.5);
             sprite.x = agent.x;
             sprite.y = -agent.y; // 坐标系反转：数学坐标向上为正，Canvas 默认向下为正
+            sprite.customIsDanger = isDanger;
 
-            // 依据 agent.size 和全局 dotScale 精准控制真实像素渲染尺寸，杜绝光晕重叠污染
-            const baseSize = (agent.size || 2.5) * dotScale;
-            const finalSize = isDanger ? baseSize * 1.6 : baseSize;
-            sprite.width = finalSize * 2.2;
-            sprite.height = finalSize * 2.2;
-
-            // 危险点位强制使用刺眼警报红光 (0xff2255)，正常点位使用设定的 LED 颜色
-            if (isDanger) {
+            // 危险点位若开启警报高亮则使用红光 (0xff2255)，否则保持点位原汁原味的 LED 颜色
+            if (isDanger && highlightDanger) {
                 sprite.tint = 0xff2255;
             } else if (agent.color) {
                 const hexNum = parseInt(agent.color.replace('#', ''), 16);
@@ -196,6 +293,9 @@ export function usePixiEditor(containerRef, options = {}) {
 
             layer.addChild(sprite);
         });
+
+        // 立即根据当前视口 zoom 更新真实屏幕像素尺寸
+        updateSpritesScale();
     }
 
     /**
@@ -205,10 +305,13 @@ export function usePixiEditor(containerRef, options = {}) {
         const container = containerRef.value;
         if (!container) return;
 
+        const cleanHex = currentBgColor.value.replace('#', '');
+        const bgNum = parseInt(cleanHex, 16) || 0x0a0c14;
+
         const app = new Application();
         await app.init({
             resizeTo: container,
-            backgroundColor: 0x0a0c14, // 极客暗黑夜空底色
+            backgroundColor: bgNum,
             antialias: true,
             resolution: window.devicePixelRatio || 1,
             autoDensity: true,
@@ -307,6 +410,7 @@ export function usePixiEditor(containerRef, options = {}) {
                 worldContainer.value.y = viewport.value.panY;
             }
             renderCadGrid();
+            updateSpritesScale(); // 滚轮缩放时动态维持高锐度针尖粒子，杜绝模糊
         };
 
         container.addEventListener('mousedown', onMouseDown);
@@ -340,6 +444,7 @@ export function usePixiEditor(containerRef, options = {}) {
         worldContainer.value.x = viewport.value.panX;
         worldContainer.value.y = viewport.value.panY;
         renderCadGrid();
+        updateSpritesScale();
     }
 
     // 挂载与卸载生命周期管控
@@ -349,16 +454,30 @@ export function usePixiEditor(containerRef, options = {}) {
 
     onBeforeUnmount(() => {
         if (pixiApp.value) {
-            pixiApp.value.destroy(true, { children: true, texture: true });
+            try {
+                pixiApp.value.destroy(true, { children: true, texture: true });
+            } catch (err) {
+                console.warn('[PixiEditor] App destroy warning:', err);
+            }
             pixiApp.value = null;
         }
-        sharedDotTexture = null;
+        if (sharedCrispTexture) {
+            try { sharedCrispTexture.destroy(true); } catch (_) {}
+            sharedCrispTexture = null;
+        }
+        if (sharedGlowTexture) {
+            try { sharedGlowTexture.destroy(true); } catch (_) {}
+            sharedGlowTexture = null;
+        }
     });
 
     return {
         pixiApp,
         viewport,
         cursorWorldPos,
+        currentBgColor,
+        setCanvasBackgroundColor,
+        isColorDark,
         selectedDroneId,
         renderDroneAgents,
         resetCamera,

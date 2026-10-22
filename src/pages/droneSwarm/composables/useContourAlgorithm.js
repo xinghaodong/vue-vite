@@ -149,19 +149,24 @@ export function useContourAlgorithm() {
             const step = points.length / targetCount;
             for (let i = 0; i < targetCount; i++) {
                 const idx = Math.floor(i * step);
-                result.push({ ...points[idx], id: i });
+                const base = points[idx];
+                result.push({
+                    ...base,
+                    id: `uav_${i + 1}`,
+                });
             }
         } else {
-            // 升采样：循环补全并加微小空间微扰
+            // 升采样：循环插值补全并加轻微空间微扰
             for (let i = 0; i < targetCount; i++) {
                 const base = points[i % points.length];
                 const jitter = (Math.random() - 0.5) * 1.5;
                 result.push({
-                    x: base.x + jitter,
-                    y: base.y + jitter,
-                    z: 0,
-                    color: base.color || '#00ffff',
-                    id: i,
+                    ...base,
+                    x: Math.round((base.x + jitter) * 10) / 10,
+                    y: Math.round((base.y + jitter) * 10) / 10,
+                    z: base.z || 0,
+                    color: base.color || '#00f2fe',
+                    id: `uav_${i + 1}`,
                 });
             }
         }

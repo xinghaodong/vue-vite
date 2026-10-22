@@ -488,18 +488,20 @@ export function useImageProcessor() {
             selectedPoints = subsampled;
         }
 
-        // 2. 准备原始图像的高清 Canvas 供 Color Applicator 采样
-        let origCtx = null;
-        let origWidth = 1;
-        let origHeight = 1;
+        // 2. 准备原始采样图像与全图像素缓冲区 (内存高速寻址，杜绝循环单点 getImageData 性能卡顿)
+        let origData = null;
+        let origW = width;
+        let origH = height;
+
         if (originalImage) {
             const off = document.createElement('canvas');
-            origWidth = originalImage.naturalWidth || originalImage.width;
-            origHeight = originalImage.naturalHeight || originalImage.height;
-            off.width = origWidth;
-            off.height = origHeight;
-            origCtx = off.getContext('2d', { willReadFrequently: true });
-            origCtx.drawImage(originalImage, 0, 0);
+            origW = originalImage.naturalWidth || originalImage.width || width;
+            origH = originalImage.naturalHeight || originalImage.height || height;
+            off.width = origW;
+            off.height = origH;
+            const offCtx = off.getContext('2d', { willReadFrequently: true });
+            offCtx.drawImage(originalImage, 0, 0, origW, origH);
+            origData = offCtx.getImageData(0, 0, origW, origH).data;
         }
 
         // 3. 计算图案中心包围盒并归一化到世界物理坐标
@@ -517,51 +519,113 @@ export function useImageProcessor() {
         const centerX = (minX + maxX) / 2;
         const centerY = (minY + maxY) / 2;
 
-        // 4. 生成无人机 Agent 集合并进行【原色采样与智能防死黑提亮】
+        /**
+         * 🌟 商业级 SwarmStudio 原色核邻域最大饱和度采样器 (Kernel Max-Saturation Sampling)
+         * 彻底解决边缘点落在黑线描边、被抠背景缝隙导致“全变成默认青蓝”的工业硬伤！
+         */
+        function sampleKernelColor(px, py) {
+            if (!origData) return fallbackColor;
+
+            const targetX = Math.min(origW - 1, Math.max(0, Math.floor((px / width) * origW)));
+            const targetY = Math.min(origH - 1, Math.max(0, Math.floor((py / height) * origH)));
+
+            let bestR = 0;
+            let bestG = 242;
+            let bestB = 254;
+            let maxSat = -1;
+            let foundValidColor = false;
+
+            // 5x5 邻域核深度巡检
+            const radius = 3;
+            for (let dy = -radius; dy <= radius; dy++) {
+                const ny = targetY + dy;
+                if (ny < 0 || ny >= origH) continue;
+                for (let dx = -radius; dx <= radius; dx++) {
+                    const nx = targetX + dx;
+                    if (nx < 0 || nx >= origW) continue;
+
+                    const idx = (ny * origW + nx) * 4;
+                    const r = origData[idx];
+                    const g = origData[idx + 1];
+                    const b = origData[idx + 2];
+                    const a = origData[idx + 3];
+
+                    // 过滤透明像素与背景纯白像素 (L > 248)
+                    if (a < 50) continue;
+                    const lum = 0.299 * r + 0.587 * g + 0.114 * b;
+                    if (lum > 248) continue;
+
+                    // 计算色彩饱和度 (max - min)
+                    const sat = Math.max(r, g, b) - Math.min(r, g, b);
+
+                    // 若是非死黑彩色区域 (lum >= 30 且 sat >= 15)，优先记录最高饱和度像素
+                    if (lum >= 30 && sat > maxSat) {
+                        maxSat = sat;
+                        bestR = r;
+                        bestG = g;
+                        bestB = b;
+                        foundValidColor = true;
+                    } else if (!foundValidColor && lum >= 30 && sat >= maxSat) {
+                        bestR = r;
+                        bestG = g;
+                        bestB = b;
+                    }
+                }
+            }
+
+            // 如果找到了原图色彩
+            if (foundValidColor) {
+                // 夜空 LED 适度增艳增强可见度
+                const lum = 0.299 * bestR + 0.587 * bestG + 0.114 * bestB;
+                if (lum < 90) {
+                    const boost = 90 / (lum || 1);
+                    bestR = Math.min(255, Math.round(bestR * boost));
+                    bestG = Math.min(255, Math.round(bestG * boost));
+                    bestB = Math.min(255, Math.round(bestB * boost));
+                }
+                const hexR = bestR.toString(16).padStart(2, '0');
+                const hexG = bestG.toString(16).padStart(2, '0');
+                const hexB = bestB.toString(16).padStart(2, '0');
+                return `#${hexR}${hexG}${hexB}`;
+            }
+
+            // 若整核为黑白纯线稿且开启提亮保护，赋予高锐度青蓝，否则保留原色
+            return applyOriginalColor ? '#00f2fe' : '#ffffff';
+        }
+
+        // 4. 生成无人机 Agent 集合并执行指定的 Color Applicator 模式
         return selectedPoints.map((p, index) => {
             const worldX = Math.round((p.x - centerX) * scaleFactor * 10) / 10;
             const worldY = Math.round((centerY - p.y) * scaleFactor * 10) / 10;
 
             let ledColor = fallbackColor;
 
-            if (applyOriginalColor && origCtx) {
-                const origX = Math.min(origWidth - 1, Math.max(0, Math.floor((p.x / width) * origWidth)));
-                const origY = Math.min(origHeight - 1, Math.max(0, Math.floor((p.y / height) * origHeight)));
-                const pixel = origCtx.getImageData(origX, origY, 1, 1).data;
-
-                let r = pixel[0];
-                let g = pixel[1];
-                let b = pixel[2];
-                const alpha = pixel[3];
-
-                // 亮度计算
-                const lum = 0.299 * r + 0.587 * g + 0.114 * b;
-
-                // 智能防死黑保护：若是黑色线条（线稿），转为醒目的高亮青蓝或金色霓虹；若是有色区域，适度提升亮度
-                if (lum < 40 || alpha < 30) {
-                    // 黑线条防死黑，使用精细冷白或青金
-                    ledColor = '#00f2fe';
-                } else {
-                    // 提升明度，防止夜空不可见
-                    if (lum < 100) {
-                        const factor = 1.6;
-                        r = Math.min(255, Math.round(r * factor));
-                        g = Math.min(255, Math.round(g * factor));
-                        b = Math.min(255, Math.round(b * factor));
-                    }
-                    const hexR = r.toString(16).padStart(2, '0');
-                    const hexG = g.toString(16).padStart(2, '0');
-                    const hexB = b.toString(16).padStart(2, '0');
-                    ledColor = `#${hexR}${hexG}${hexB}`;
-                }
+            // 🌟 严格以 colorPalette 为总控决策分支
+            if (colorPalette === 'original') {
+                ledColor = sampleKernelColor(p.x, p.y);
             } else if (colorPalette === 'gradient') {
-                // 空间渐变炫彩模式
+                // 空间渐变：从左下至右上 (对角线平滑渐变，由极客青蓝 #00f2fe 渐变至 霓虹玫红 #ff007f 再至 极光暖金 #ffaa00)
+                const normX = (p.x - minX) / patternW;
                 const normY = (p.y - minY) / patternH;
-                // 从青蓝 (#00f2fe) 渐变到粉紫 (#ff007f)
-                const r = Math.round(normY * 255);
-                const g = Math.round((1 - normY * 0.7) * 242);
-                const b = 254;
+                const t = (normX + normY) / 2; // 0 ~ 1 对角线插值
+
+                let r, g, b;
+                if (t < 0.5) {
+                    const subT = t * 2; // 0 ~ 1
+                    r = Math.round(0 + subT * 255);
+                    g = Math.round(242 - subT * 242);
+                    b = Math.round(254 - subT * 127);
+                } else {
+                    const subT = (t - 0.5) * 2; // 0 ~ 1
+                    r = 255;
+                    g = Math.round(0 + subT * 170);
+                    b = Math.round(127 - subT * 127);
+                }
                 ledColor = `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
+            } else if (colorPalette === 'mono') {
+                ledColor = options.monoColor || '#00ff88'; // 默认醒目极光翠绿或用户选定色
+            } else {
+                ledColor = fallbackColor;
             }
 
             return {

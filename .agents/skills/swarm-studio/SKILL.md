@@ -123,6 +123,12 @@ $$D_{ij} = \sqrt{(x_i - x_j)^2 + (y_i - y_j)^2 + (z_i - z_j)^2} \ge 1.5\text{m}$
 $$\vec{F}_{ij} = \frac{\vec{p}_i - \vec{p}_j}{\|\vec{p}_i - \vec{p}_j\|} \cdot (1.5 - D_{ij}) \cdot 0.5$$
 经 15~20 次阻尼迭代迭代收敛，在最大化保留原本构型形状的前提下，一键平滑弹开重叠点位！
 
+### 3. 灯光色彩映射引擎 (Smart Color Applicator)
+工业编队中，边缘点位常落在黑色描边或透明背景缝隙上。SwarmStudio 采用**核邻域最大饱和度巡检 (Kernel Max-Saturation Sampling)**：
+* 在采样点 $5 \times 5$ 核内检索色彩饱和度 $S = \max(R,G,B) - \min(R,G,B)$；
+* 优先提取主体高纯度色彩，自动跳过透明与纯白背景，智能避免深色描边引发的死黑现象；
+* 支持多分支映射：原图真实原色采样、对角线三色渐变插值、极客单色/自定义 LED 调节。
+
 ---
 
 ## 五、 匈牙利变轨最优匹配算法 (Hungarian Morphing Solver)

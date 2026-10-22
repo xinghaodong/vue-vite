@@ -160,31 +160,50 @@ export function useThreeStage(containerRef) {
      * @param {Array<{x: number, y: number, z?: number, color?: string}>} targetPoints
      * @param {number} duration 过渡飞行时间 (秒)
      */
-    function morphToPattern(targetPoints, duration = 2.5) {
-        if (!instancedMesh || !targetPoints.length) return;
+    /**
+     * 将 2D 或 3D 点位平滑飞入舞台（GSAP 驱动插值变轨）
+     * @param {Array<{x: number, y: number, z?: number, color?: string}>} targetPoints
+     * @param {number} duration 过渡飞行时间 (秒)
+     */
+    function morphToPattern(targetPoints, duration = 2.0) {
+        if (!instancedMesh || !targetPoints || !targetPoints.length) return;
 
-        const count = Math.min(targetPoints.length, currentCapacity);
+        // 若目标点位超出当前 GPU 实例容量，自动扩容
+        if (targetPoints.length > currentCapacity) {
+            createInstancedDrones(Math.max(targetPoints.length, 1600));
+        }
 
-        // 提取当前各个实例的初始位置
+        const count = targetPoints.length;
+        const totalMeshCount = currentCapacity;
+
+        // 提取当前各个实例的初始位置与目标状态
         const startPositions = [];
-        const startColors = [];
         const targetPositions = [];
         const targetColors = [];
 
-        for (let i = 0; i < count; i++) {
+        for (let i = 0; i < totalMeshCount; i++) {
             instancedMesh.getMatrixAt(i, dummyMatrix);
             dummyPosition.setFromMatrixPosition(dummyMatrix);
             startPositions.push({ x: dummyPosition.x, y: dummyPosition.y, z: dummyPosition.z });
 
-            const target = targetPoints[i];
-            targetPositions.push({
-                x: target.x || 0,
-                y: (target.y || 0) * 0.8, // 映射到 3D 高度
-                z: target.z || (Math.random() - 0.5) * 20,
-            });
-
-            const tCol = new THREE.Color(target.color || '#00ffff');
-            targetColors.push(tCol);
+            if (i < count) {
+                const target = targetPoints[i];
+                // 🌟 3D 夜空视觉黄金高程：将图形优雅悬浮于夜空高度 Y=60m 处 (地表网格位于 Y=-120m，居中悬空)
+                targetPositions.push({
+                    x: target.x || 0,
+                    y: 60 + (target.y || 0) * 0.8,
+                    z: target.z || (Math.random() - 0.5) * 12,
+                });
+                targetColors.push(new THREE.Color(target.color || '#00f2fe'));
+            } else {
+                // 多余无人机实例优雅停降回停机坪地面 (Y=-118) 并熄灯 (纯黑)，绝不散落空中干扰主表演！
+                targetPositions.push({
+                    x: (Math.random() - 0.5) * 360,
+                    y: -118,
+                    z: (Math.random() - 0.5) * 360,
+                });
+                targetColors.push(new THREE.Color(0x000000));
+            }
         }
 
         // 动画过渡进度对象
@@ -195,7 +214,7 @@ export function useThreeStage(containerRef) {
             ease: 'power3.inOut',
             onUpdate: () => {
                 const p = animState.progress;
-                for (let i = 0; i < count; i++) {
+                for (let i = 0; i < totalMeshCount; i++) {
                     const s = startPositions[i];
                     const t = targetPositions[i];
 
@@ -208,7 +227,7 @@ export function useThreeStage(containerRef) {
                     dummyMatrix.setPosition(dummyPosition);
                     instancedMesh.setMatrixAt(i, dummyMatrix);
 
-                    // 颜色微过渡
+                    // 颜色平滑过渡
                     instancedMesh.setColorAt(i, targetColors[i]);
                 }
                 instancedMesh.instanceMatrix.needsUpdate = true;
@@ -271,8 +290,21 @@ export function useThreeStage(containerRef) {
         composer = null;
     });
 
+    /**
+     * 动态设置 3D 舞台背景与雾气颜色
+     */
+    function setStageBackgroundColor(hex) {
+        if (!scene) return;
+        const color = new THREE.Color(hex);
+        scene.background = color;
+        if (scene.fog) {
+            scene.fog.color = color;
+        }
+    }
+
     return {
         morphToPattern,
         createInstancedDrones,
+        setStageBackgroundColor,
     };
 }

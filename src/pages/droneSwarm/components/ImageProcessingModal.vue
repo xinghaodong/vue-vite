@@ -220,8 +220,18 @@
                         <el-radio-group v-model="motifOptions.colorPalette" size="small" @change="triggerMotifGenerate">
                             <el-radio-button value="original">原图真实色彩</el-radio-button>
                             <el-radio-button value="gradient">炫彩霓虹渐变</el-radio-button>
-                            <el-radio-button value="mono">极客青蓝</el-radio-button>
+                            <el-radio-button value="mono">极客单色</el-radio-button>
                         </el-radio-group>
+                    </div>
+
+                    <div class="param-row inline-color" v-if="motifOptions.colorPalette === 'mono'">
+                        <span class="param-name">单色 LED 灯光</span>
+                        <el-color-picker
+                            v-model="motifOptions.monoColor"
+                            size="small"
+                            :show-alpha="false"
+                            @change="triggerMotifGenerate"
+                        />
                     </div>
 
                     <div class="param-row inline-switch" v-if="motifOptions.colorPalette === 'original'">
@@ -353,6 +363,7 @@ const motifOptions = reactive({
     canvasScale: 300,
     applyOriginalColor: true,
     colorPalette: 'original',
+    monoColor: '#00ff88',
 });
 
 // 生成的构型点阵
@@ -436,9 +447,11 @@ function triggerMotifGenerate() {
     if (!currentIntermediateData) {
         triggerIntermediate();
     }
+    // 🌟 采样源优先使用经过扣背景和校色处理的 Canvas，保证采样干净纯粹！
+    const sampleSource = currentPreprocessedCanvas || sourceImage;
     const agents = generateMotifFromIntermediate(
         currentIntermediateData,
-        sourceImage,
+        sampleSource,
         motifOptions
     );
     generatedAgents.value = agents;
@@ -585,14 +598,16 @@ defineExpose({
 <style scoped>
 .swarm-image-wizard-dialog :deep(.el-dialog__body) {
     padding: 16px 24px;
-    background-color: #0b0f19;
+    background-color: var(--el-bg-color-page);
 }
 
 .wizard-steps-header {
     margin-bottom: 20px;
-    background: #111827;
+    background: var(--el-bg-color);
+    border: 1px solid var(--el-border-color-lighter);
     border-radius: 8px;
-    padding: 8px 12px;
+    padding: 12px 16px;
+    box-shadow: var(--el-box-shadow-light);
 }
 
 .wizard-body {
@@ -603,12 +618,13 @@ defineExpose({
 
 .wizard-sidebar-params {
     width: 380px;
-    background: #111827;
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: var(--el-bg-color);
+    border: 1px solid var(--el-border-color-lighter);
     border-radius: 10px;
     padding: 18px;
     overflow-y: auto;
     max-height: 520px;
+    box-shadow: var(--el-box-shadow-light);
 }
 
 .panel-section-title {
@@ -617,13 +633,13 @@ defineExpose({
     gap: 8px;
     font-size: 13px;
     font-weight: 600;
-    color: #e2e8f0;
+    color: var(--el-text-color-primary);
     margin-bottom: 14px;
 }
 
 .icon-tag {
-    background: rgba(0, 242, 254, 0.15);
-    color: #00f2fe;
+    background: var(--el-color-primary-light-9);
+    color: var(--el-color-primary);
     font-family: monospace;
     padding: 2px 6px;
     border-radius: 4px;
@@ -642,23 +658,23 @@ defineExpose({
 }
 
 .param-name {
-    color: #94a3b8;
+    color: var(--el-text-color-regular);
     font-size: 12px;
 }
 
 .param-val {
-    color: #00f2fe;
+    color: var(--el-color-primary);
     font-family: monospace;
     font-weight: 600;
 }
 
 .param-val.highlight {
-    color: #10b981;
+    color: var(--el-color-success);
 }
 
 .param-hint {
     font-size: 11px;
-    color: #64748b;
+    color: var(--el-text-color-placeholder);
     margin-top: 2px;
 }
 
@@ -676,8 +692,8 @@ defineExpose({
 }
 
 .mode-card {
-    background: #1e293b;
-    border: 1px solid rgba(255, 255, 255, 0.06);
+    background: var(--el-fill-color-light);
+    border: 1px solid var(--el-border-color-lighter);
     padding: 12px;
     border-radius: 8px;
     cursor: pointer;
@@ -685,26 +701,26 @@ defineExpose({
 }
 
 .mode-card:hover {
-    border-color: rgba(0, 242, 254, 0.4);
-    background: #25334a;
+    border-color: var(--el-color-primary-light-5);
+    background: var(--el-fill-color);
 }
 
 .mode-card.active {
-    border-color: #00f2fe;
-    background: rgba(0, 242, 254, 0.1);
-    box-shadow: 0 0 10px rgba(0, 242, 254, 0.2);
+    border-color: var(--el-color-primary);
+    background: var(--el-color-primary-light-9);
+    box-shadow: 0 0 10px var(--el-color-primary-light-7);
 }
 
 .mode-title {
     font-size: 13px;
     font-weight: 600;
-    color: #f8fafc;
+    color: var(--el-text-color-primary);
     margin-bottom: 4px;
 }
 
 .mode-desc {
     font-size: 11px;
-    color: #94a3b8;
+    color: var(--el-text-color-secondary);
     line-height: 1.4;
 }
 
@@ -716,13 +732,13 @@ defineExpose({
 }
 
 .safety-indicator-card.is-safe {
-    background: rgba(16, 185, 129, 0.1);
-    border-color: rgba(16, 185, 129, 0.3);
+    background: var(--el-color-success-light-9);
+    border-color: var(--el-color-success-light-5);
 }
 
 .safety-indicator-card.is-danger {
-    background: rgba(239, 68, 68, 0.1);
-    border-color: rgba(239, 68, 68, 0.3);
+    background: var(--el-color-danger-light-9);
+    border-color: var(--el-color-danger-light-5);
 }
 
 .safety-header {
@@ -735,16 +751,16 @@ defineExpose({
 }
 
 .safety-indicator-card.is-safe .safety-header {
-    color: #10b981;
+    color: var(--el-color-success);
 }
 
 .safety-indicator-card.is-danger .safety-header {
-    color: #ef4444;
+    color: var(--el-color-danger);
 }
 
 .safety-detail {
     font-size: 11px;
-    color: #94a3b8;
+    color: var(--el-text-color-secondary);
     line-height: 1.4;
 }
 
@@ -757,10 +773,11 @@ defineExpose({
     flex: 1;
     display: flex;
     flex-direction: column;
-    background: #080a10;
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: var(--el-bg-color);
+    border: 1px solid var(--el-border-color-lighter);
     border-radius: 10px;
     padding: 14px;
+    box-shadow: var(--el-box-shadow-light);
 }
 
 .stage-subheaders {
@@ -773,12 +790,12 @@ defineExpose({
 .sub-tag {
     font-size: 12px;
     font-weight: 600;
-    color: #00f2fe;
+    color: var(--el-color-primary);
 }
 
 .sub-hint {
     font-size: 11px;
-    color: #64748b;
+    color: var(--el-text-color-placeholder);
 }
 
 .canvas-viewport-box {
@@ -786,7 +803,7 @@ defineExpose({
     display: flex;
     align-items: center;
     justify-content: center;
-    background: radial-gradient(circle at center, #0f172a 0%, #080a10 100%);
+    background: var(--el-fill-color-darker);
     border-radius: 6px;
     overflow: hidden;
 }
@@ -795,7 +812,7 @@ defineExpose({
     max-width: 100%;
     max-height: 440px;
     object-fit: contain;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.6);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
 }
 
 .wizard-footer-actions {

@@ -129,13 +129,14 @@ function formatTime(seconds) {
 <style scoped>
 .timeline-bar-container {
     height: 64px;
-    background: #0f172a;
-    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    background: var(--el-bg-color);
+    border-top: 1px solid var(--el-border-color-lighter);
     display: flex;
     align-items: center;
     padding: 0 16px;
     gap: 16px;
     user-select: none;
+    transition: background-color 0.3s ease, border-color 0.3s ease;
 }
 
 .playback-controls {
@@ -147,17 +148,17 @@ function formatTime(seconds) {
 .time-display {
     font-family: var(--app-font-family-mono, monospace);
     font-size: 13px;
-    color: #94a3b8;
+    color: var(--el-text-color-secondary);
 }
 
 .current-time {
-    color: #38bdf8;
+    color: var(--el-color-primary);
     font-weight: 600;
 }
 
 .slash {
     margin: 0 4px;
-    color: #475569;
+    color: var(--el-border-color);
 }
 
 .scenes-track {
@@ -173,8 +174,8 @@ function formatTime(seconds) {
     display: flex;
     align-items: center;
     gap: 8px;
-    background: #1e293b;
-    border: 1px solid rgba(255, 255, 255, 0.06);
+    background: var(--el-fill-color-light);
+    border: 1px solid var(--el-border-color-lighter);
     border-radius: 8px;
     padding: 6px 12px;
     cursor: pointer;
@@ -184,14 +185,14 @@ function formatTime(seconds) {
 }
 
 .scene-capsule:hover {
-    border-color: rgba(56, 189, 248, 0.4);
+    border-color: var(--el-border-color);
     transform: translateY(-1px);
 }
 
 .scene-capsule.is-active {
-    background: #0c4a6e;
-    border-color: #38bdf8;
-    box-shadow: 0 0 12px rgba(56, 189, 248, 0.25);
+    background: var(--el-color-primary-light-9);
+    border-color: var(--el-color-primary);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 }
 
 .capsule-icon {
@@ -206,12 +207,12 @@ function formatTime(seconds) {
 .capsule-name {
     font-size: 12px;
     font-weight: 600;
-    color: #f1f5f9;
+    color: var(--el-text-color-primary);
 }
 
 .capsule-duration {
     font-size: 10px;
-    color: #94a3b8;
+    color: var(--el-text-color-secondary);
     font-family: var(--app-font-family-mono, monospace);
 }
 
@@ -221,9 +222,9 @@ function formatTime(seconds) {
     left: 20%;
     right: 20%;
     height: 2px;
-    background: #38bdf8;
+    background: var(--el-color-primary);
     border-radius: 999px;
-    box-shadow: 0 0 8px #38bdf8;
+    box-shadow: 0 0 6px var(--el-color-primary);
 }
 
 .add-scene-btn {
@@ -231,10 +232,10 @@ function formatTime(seconds) {
     align-items: center;
     gap: 4px;
     background: transparent;
-    border: 1px dashed rgba(255, 255, 255, 0.15);
+    border: 1px dashed var(--el-border-color);
     border-radius: 8px;
     padding: 8px 12px;
-    color: #94a3b8;
+    color: var(--el-text-color-secondary);
     font-size: 12px;
     cursor: pointer;
     transition: all 0.2s ease;
@@ -242,8 +243,8 @@ function formatTime(seconds) {
 }
 
 .add-scene-btn:hover {
-    border-color: #38bdf8;
-    color: #38bdf8;
+    border-color: var(--el-color-primary);
+    color: var(--el-color-primary);
 }
 
 .track-actions {

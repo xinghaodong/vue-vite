@@ -24,7 +24,7 @@
 /**
  * 3D 夜空发光无人机集群表演播放器组件 (使用 Vue 3.5 useTemplateRef)
  */
-import { useTemplateRef, watch } from 'vue';
+import { useTemplateRef, watch, onMounted, nextTick } from 'vue';
 import { useThreeStage } from '../composables/useThreeStage';
 
 const props = defineProps({
@@ -43,12 +43,21 @@ const containerRef = useTemplateRef('threeContainer');
 
 const { morphToPattern, createInstancedDrones } = useThreeStage(containerRef);
 
+// 组件首次挂载就绪后，立即调度变轨飞入当前构型 (彻底解决切入 3D 构型丢失的 Bug)
+onMounted(() => {
+    nextTick(() => {
+        if (props.agents && props.agents.length) {
+            morphToPattern(props.agents, 1.5);
+        }
+    });
+});
+
 // 监听点阵或构型变化，触发平滑飞行动画过渡
 watch(
     () => props.agents,
     (newAgents) => {
         if (newAgents && newAgents.length) {
-            morphToPattern(newAgents, 2.2);
+            morphToPattern(newAgents, 2.0);
         }
     },
     { deep: true }
@@ -75,7 +84,7 @@ defineExpose({
     width: 100%;
     height: 100%;
     overflow: hidden;
-    background-color: #06080e;
+    background-color: var(--el-bg-color-page);
     user-select: none;
 }
 
@@ -98,27 +107,28 @@ defineExpose({
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    background: rgba(15, 23, 42, 0.75);
-    border: 1px solid rgba(168, 85, 247, 0.3);
+    background: var(--el-bg-color-overlay);
+    border: 1px solid var(--el-border-color);
     padding: 3px 10px;
     border-radius: 4px;
-    color: #c084fc;
+    color: var(--el-color-primary);
     font-size: 11px;
     font-family: var(--app-font-family-mono, monospace);
     font-weight: 600;
     backdrop-filter: blur(8px);
+    box-shadow: var(--el-box-shadow-light);
 }
 
 .status-dot {
     width: 6px;
     height: 6px;
     border-radius: 50%;
-    background-color: #a855f7;
-    box-shadow: 0 0 8px #a855f7;
+    background-color: var(--el-color-primary);
+    box-shadow: 0 0 8px var(--el-color-primary);
 }
 
 .hud-sub {
-    color: #64748b;
+    color: var(--el-text-color-secondary);
     font-size: 11px;
     font-family: var(--app-font-family-mono, monospace);
 }
@@ -128,13 +138,14 @@ defineExpose({
     bottom: 14px;
     left: 50%;
     transform: translateX(-50%);
-    background: rgba(15, 23, 42, 0.65);
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: var(--el-bg-color-overlay);
+    border: 1px solid var(--el-border-color);
     padding: 5px 14px;
     border-radius: 20px;
-    color: #94a3b8;
+    color: var(--el-text-color-secondary);
     font-size: 12px;
     pointer-events: none;
     backdrop-filter: blur(8px);
+    box-shadow: var(--el-box-shadow-light);
 }
 </style>

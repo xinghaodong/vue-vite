@@ -44,6 +44,13 @@
                     >
                         🪐 光环
                     </el-button>
+                    <el-button
+                        v-if="currentMotif === 'custom'"
+                        size="small"
+                        type="success"
+                    >
+                        🖼️ 自定义图片构型
+                    </el-button>
                 </el-button-group>
 
                 <!-- 上传图片触发 SwarmStudio 三步骤智能转构型向导 -->
@@ -189,7 +196,7 @@ import ImageProcessingModal from './components/ImageProcessingModal.vue';
 const imageWizardRef = useTemplateRef('imageWizardModal');
 
 // 核心算法 Hooks
-const { generatePresetPattern } = useContourAlgorithm();
+const { generatePresetPattern, resampleToTargetCount } = useContourAlgorithm();
 const { checkSafety, autoRelaxCollisions } = useSpatialGrid();
 
 // 视口与项目状态
@@ -298,7 +305,14 @@ function applyPreset(motifType) {
 // 调整无人机总架数标定
 function handleCountChange(newCount) {
     showProject.droneCount = newCount;
-    applyPreset(currentMotif.value);
+    if (currentMotif.value === 'custom') {
+        // 🌟 自定义上传构型：采用均质等比重采样，完整保留用户上传的图案形状与色彩！
+        currentScene.value.agents = resampleToTargetCount(currentScene.value.agents, newCount);
+        updateLayerCount();
+        ElMessage.success(`已自适应重采样构型至 ${newCount} 架无人机！`);
+    } else {
+        applyPreset(currentMotif.value);
+    }
 }
 
 // 修改当前分镜 LED 颜色
@@ -361,6 +375,9 @@ function handleApplyWizardAgents(result) {
     currentScene.value.name = `自定义构型 (${strategy} / ${mode})`;
     currentScene.value.motifType = 'custom';
     currentMotif.value = 'custom';
+    // 同步工作台总架数标定
+    droneCount.value = agents.length;
+    showProject.droneCount = agents.length;
     updateLayerCount();
 
     ElNotification({
@@ -455,23 +472,25 @@ onMounted(() => {
     height: 100vh;
     display: flex;
     flex-direction: column;
-    background-color: #080a10;
-    color: #e2e8f0;
+    background-color: var(--el-bg-color-page);
+    color: var(--el-text-color-primary);
     overflow: hidden;
     font-family: var(--app-font-family);
+    transition: background-color 0.3s ease, color 0.3s ease;
 }
 
 /* 顶部控制栏 */
 .swarm-header {
     height: 52px;
-    background: #0d121f;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    background: var(--el-bg-color);
+    border-bottom: 1px solid var(--el-border-color-lighter);
     display: flex;
     align-items: center;
     justify-content: space-between;
     padding: 0 16px;
     z-index: 20;
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+    transition: background-color 0.3s ease, border-color 0.3s ease;
 }
 
 .header-brand {
@@ -483,13 +502,13 @@ onMounted(() => {
 .brand-logo {
     width: 32px;
     height: 32px;
-    background: linear-gradient(135deg, #00f2fe 0%, #4facfe 100%);
+    background: linear-gradient(135deg, var(--el-color-primary) 0%, var(--el-color-primary-light-3) 100%);
     border-radius: 8px;
     display: flex;
     align-items: center;
     justify-content: center;
-    color: #080a10;
-    box-shadow: 0 0 12px rgba(0, 242, 254, 0.4);
+    color: #ffffff;
+    box-shadow: 0 0 12px var(--el-color-primary-light-7);
 }
 
 .brand-titles {
@@ -501,12 +520,12 @@ onMounted(() => {
     font-size: 14px;
     font-weight: 700;
     letter-spacing: 0.5px;
-    color: #ffffff;
+    color: var(--el-text-color-primary);
 }
 
 .sub-title {
     font-size: 11px;
-    color: #94a3b8;
+    color: var(--el-text-color-secondary);
 }
 
 .header-presets {
@@ -517,7 +536,7 @@ onMounted(() => {
 
 .preset-label {
     font-size: 12px;
-    color: #94a3b8;
+    color: var(--el-text-color-secondary);
 }
 
 .upload-btn {
@@ -543,31 +562,31 @@ onMounted(() => {
 }
 
 .safety-header-pill.safe {
-    background: rgba(16, 185, 129, 0.12);
-    border-color: rgba(16, 185, 129, 0.3);
-    color: #34d399;
+    background: var(--el-color-success-light-9);
+    border-color: var(--el-color-success-light-5);
+    color: var(--el-color-success);
 }
 
 .safety-header-pill.safe .pill-dot {
     width: 6px;
     height: 6px;
     border-radius: 50%;
-    background-color: #10b981;
-    box-shadow: 0 0 6px #10b981;
+    background-color: var(--el-color-success);
+    box-shadow: 0 0 6px var(--el-color-success);
 }
 
 .safety-header-pill.danger {
-    background: rgba(239, 68, 68, 0.18);
-    border-color: rgba(239, 68, 68, 0.5);
-    color: #f87171;
+    background: var(--el-color-danger-light-9);
+    border-color: var(--el-color-danger-light-5);
+    color: var(--el-color-danger);
 }
 
 .safety-header-pill.danger .pill-dot {
     width: 6px;
     height: 6px;
     border-radius: 50%;
-    background-color: #ef4444;
-    box-shadow: 0 0 6px #ef4444;
+    background-color: var(--el-color-danger);
+    box-shadow: 0 0 6px var(--el-color-danger);
     animation: blink 1.2s infinite;
 }
 
@@ -575,7 +594,7 @@ onMounted(() => {
     font-size: 11px;
     font-weight: 700;
     padding: 0 2px;
-    color: #fca5a5 !important;
+    color: var(--el-color-danger) !important;
     text-decoration: underline;
 }
 
@@ -583,15 +602,16 @@ onMounted(() => {
     display: flex;
     align-items: center;
     gap: 6px;
-    background: #151d2f;
+    background: var(--el-fill-color-light);
     padding: 3px 8px;
     border-radius: 6px;
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    border: 1px solid var(--el-border-color-lighter);
     font-size: 12px;
+    color: var(--el-text-color-primary);
 }
 
 .stat-pill .label {
-    color: #94a3b8;
+    color: var(--el-text-color-secondary);
 }
 
 .color-picker-box {
@@ -602,7 +622,7 @@ onMounted(() => {
 
 .color-label {
     font-size: 12px;
-    color: #94a3b8;
+    color: var(--el-text-color-secondary);
 }
 
 /* 主舞台 */

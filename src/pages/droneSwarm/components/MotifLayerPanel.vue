@@ -158,11 +158,11 @@ function handleLayerColorChange(layer) {
 .motif-layer-panel {
     width: 260px;
     height: 100%;
-    background: #0d121f;
-    border-right: 1px solid rgba(255, 255, 255, 0.08);
+    background: var(--el-bg-color);
+    border-right: 1px solid var(--el-border-color-lighter);
     display: flex;
     flex-direction: column;
-    transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.3s ease, border-color 0.3s ease;
     z-index: 10;
     user-select: none;
 }
@@ -177,15 +177,15 @@ function handleLayerColorChange(layer) {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-    background: rgba(15, 23, 42, 0.6);
+    border-bottom: 1px solid var(--el-border-color-lighter);
+    background: var(--el-fill-color-light);
 }
 
 .header-left {
     display: flex;
     align-items: center;
     gap: 8px;
-    color: #e2e8f0;
+    color: var(--el-text-color-primary);
     font-size: 13px;
     font-weight: 600;
 }
@@ -199,8 +199,8 @@ function handleLayerColorChange(layer) {
 }
 
 .quota-box {
-    background: #111827;
-    border: 1px solid rgba(255, 255, 255, 0.06);
+    background: var(--el-fill-color-lighter);
+    border: 1px solid var(--el-border-color-lighter);
     border-radius: 6px;
     padding: 10px;
     margin-bottom: 12px;
@@ -214,12 +214,12 @@ function handleLayerColorChange(layer) {
 }
 
 .quota-label {
-    color: #94a3b8;
+    color: var(--el-text-color-secondary);
 }
 
 .quota-numbers {
-    color: #00f2fe;
-    font-family: monospace;
+    color: var(--el-color-primary);
+    font-family: var(--app-font-family-mono, monospace);
     font-weight: 600;
 }
 
@@ -232,8 +232,8 @@ function handleLayerColorChange(layer) {
 }
 
 .layer-item-card {
-    background: #151d2f;
-    border: 1px solid rgba(255, 255, 255, 0.06);
+    background: var(--el-fill-color-light);
+    border: 1px solid var(--el-border-color-lighter);
     border-radius: 6px;
     padding: 8px 10px;
     cursor: pointer;
@@ -241,14 +241,14 @@ function handleLayerColorChange(layer) {
 }
 
 .layer-item-card:hover {
-    border-color: rgba(0, 242, 254, 0.3);
-    background: #1a243a;
+    border-color: var(--el-border-color);
+    background: var(--el-fill-color);
 }
 
 .layer-item-card.active {
-    border-color: #00f2fe;
-    background: rgba(0, 242, 254, 0.08);
-    box-shadow: 0 0 10px rgba(0, 242, 254, 0.15);
+    border-color: var(--el-color-primary);
+    background: var(--el-color-primary-light-9);
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.08);
 }
 
 .layer-main-row {
@@ -268,7 +268,7 @@ function handleLayerColorChange(layer) {
 .layer-name {
     flex: 1;
     font-size: 12px;
-    color: #f1f5f9;
+    color: var(--el-text-color-primary);
     font-weight: 500;
     white-space: nowrap;
     overflow: hidden;
@@ -277,9 +277,9 @@ function handleLayerColorChange(layer) {
 
 .layer-count-badge {
     font-size: 10px;
-    font-family: monospace;
-    background: rgba(0, 242, 254, 0.12);
-    color: #00f2fe;
+    font-family: var(--app-font-family-mono, monospace);
+    background: var(--el-color-primary-light-9);
+    color: var(--el-color-primary);
     padding: 1px 6px;
     border-radius: 4px;
 }
@@ -294,13 +294,13 @@ function handleLayerColorChange(layer) {
 }
 
 .is-locked {
-    color: #eab308 !important;
+    color: var(--el-color-warning) !important;
 }
 
 .layer-expanded-controls {
     margin-top: 8px;
     padding-top: 8px;
-    border-top: 1px dashed rgba(255, 255, 255, 0.08);
+    border-top: 1px dashed var(--el-border-color-lighter);
 }
 
 .control-row {
@@ -311,7 +311,7 @@ function handleLayerColorChange(layer) {
 }
 
 .ctrl-label {
-    color: #94a3b8;
+    color: var(--el-text-color-secondary);
 }
 
 .panel-bottom-toolbar {
