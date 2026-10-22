@@ -83,7 +83,7 @@ const router = createRouter({
         // 无人机集群编队设计与表演系统 (SwarmStudio)
         {
             name: 'droneSwarm',
-            path: '/drone-swarm',
+            path: '/droneSwarm',
             component: () => import('@/pages/droneSwarm/index.vue'),
             meta: { title: '无人机集群编队设计与表演系统' },
         },

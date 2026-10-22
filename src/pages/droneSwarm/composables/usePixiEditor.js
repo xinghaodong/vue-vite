@@ -129,8 +129,9 @@ export function usePixiEditor(containerRef, options = {}) {
     /**
      * 批量向画布渲染成百上千个无人机发光点位
      * @param {Array<import('../types/swarm').Agent>} agents
+     * @param {Set<string|number>} dangerIds 碰撞危险点位 ID 集合
      */
-    function renderDroneAgents(agents) {
+    function renderDroneAgents(agents, dangerIds = new Set()) {
         if (!droneLayer.value || !pixiApp.value) return;
         const layer = droneLayer.value;
 
@@ -140,23 +141,25 @@ export function usePixiEditor(containerRef, options = {}) {
         const dotTexture = createGlowDotTexture(pixiApp.value);
 
         agents.forEach((agent) => {
+            const isDanger = dangerIds && dangerIds.has(agent.id);
             const sprite = new Sprite(dotTexture);
             sprite.anchor.set(0.5);
             sprite.x = agent.x;
             sprite.y = -agent.y; // 坐标系反转：数学坐标向上为正，Canvas 默认向下为正
-            sprite.width = (agent.size || 4) * 3;
-            sprite.height = (agent.size || 4) * 3;
+            sprite.width = (agent.size || 4) * (isDanger ? 4 : 3);
+            sprite.height = (agent.size || 4) * (isDanger ? 4 : 3);
 
-            // 颜色着色
-            if (agent.color) {
-                // 将 hex 字符串 #ff0055 转化为 hex 数字 0xff0055
+            // 危险点位强制使用刺眼警报红光 (0xff2255)，正常点位使用设定的 LED 颜色
+            if (isDanger) {
+                sprite.tint = 0xff2255;
+            } else if (agent.color) {
                 const hexNum = parseInt(agent.color.replace('#', ''), 16);
                 sprite.tint = isNaN(hexNum) ? 0x00ffff : hexNum;
             } else {
                 sprite.tint = 0x00ffff;
             }
 
-            sprite.alpha = agent.alpha ?? 1.0;
+            sprite.alpha = isDanger ? 1.0 : (agent.alpha ?? 1.0);
 
             // 启用高灵敏度指针事件
             sprite.eventMode = 'static';

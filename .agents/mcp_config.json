@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "rea": {
+      "command": "cmd.exe",
+      "args": ["/c", "npx", "-y", "rea-agents@latest", "--mcp"]
+    }
+  }
+}
