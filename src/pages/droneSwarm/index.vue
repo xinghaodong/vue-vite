@@ -1,84 +1,30 @@
 <template>
     <div class="drone-swarm-workbench">
-        <!-- 1. 顶部极客专业控制台 (Toolbar) -->
+        <!-- 1. 顶部应用栏：文档身份 + 全局状态 + 视图模式 -->
         <header class="swarm-header">
             <div class="header-brand">
                 <div class="brand-logo">
-                    <el-icon :size="20"><Compass /></el-icon>
+                    <el-icon :size="19"><Compass /></el-icon>
                 </div>
                 <div class="brand-titles">
-                    <span class="main-title">SwarmStudio 无人机编队设计平台</span>
-                    <span class="sub-title">2D 创意点阵 · 3D 夜空辉光表演 · SDF 工业协议 · 1.5m 空间安全网格</span>
+                    <div class="title-row">
+                        <span class="main-title">SwarmStudio</span>
+                        <span class="title-divider">/</span>
+                        <span class="main-title-sub">无人机编队设计平台</span>
+                        <span class="version-chip">SHOW · V1</span>
+                    </div>
+                    <span class="sub-title">2D 创意点阵 · 3D 夜空预演 · 分镜时间轴 · 工程数据导出</span>
                 </div>
             </div>
 
-            <!-- 中间核心操作：几何基元预设与图像转构型向导 -->
-            <div class="header-presets">
-                <span class="preset-label">几何基元：</span>
-                <el-button-group>
-                    <el-button
-                        size="small"
-                        :type="currentMotif === 'heart' ? 'primary' : 'default'"
-                        @click="applyPreset('heart')"
-                    >
-                        ❤️ 爱心
-                    </el-button>
-                    <el-button
-                        size="small"
-                        :type="currentMotif === 'star' ? 'primary' : 'default'"
-                        @click="applyPreset('star')"
-                    >
-                        ⭐ 星芒
-                    </el-button>
-                    <el-button
-                        size="small"
-                        :type="currentMotif === 'galaxy' ? 'primary' : 'default'"
-                        @click="applyPreset('galaxy')"
-                    >
-                        🐉 祥龙星系
-                    </el-button>
-                    <el-button
-                        size="small"
-                        :type="currentMotif === 'rings' ? 'primary' : 'default'"
-                        @click="applyPreset('rings')"
-                    >
-                        🪐 光环
-                    </el-button>
-                    <el-button
-                        v-if="currentMotif === 'custom'"
-                        size="small"
-                        type="success"
-                    >
-                        🖼️ 自定义图片构型
-                    </el-button>
-                </el-button-group>
-
-                <!-- 上传图片触发 SwarmStudio 三步骤智能转构型向导 -->
-                <el-upload
-                    action=""
-                    :auto-upload="false"
-                    :show-file-list="false"
-                    accept="image/*"
-                    :on-change="handleImageUpload"
-                    class="upload-btn"
-                >
-                    <el-button size="small" type="warning" plain>
-                        <el-icon><Upload /></el-icon>
-                        <span>导入图片向导 (3-Step)</span>
-                    </el-button>
-                </el-upload>
-            </div>
-
-            <!-- 右侧：架数标定、LED 颜色、安全指示与 2D/3D 模式切换 -->
             <div class="header-actions">
-                <!-- 1.5m 空间防撞状态总控徽标 -->
                 <div
                     class="safety-header-pill"
                     :class="safetyReport.isSafe ? 'safe' : 'danger'"
-                    :title="safetyReport.isSafe ? '全部点位物理间距 >= 1.5m' : `存在 ${safetyReport.dangerIds.size} 架违规碰撞点位`"
+                    :title="safetyReport.isSafe ? `2D 设计态最小间距 ${Number.isFinite(safetyReport.minObservedDistance) ? safetyReport.minObservedDistance.toFixed(2) + 'm' : '—'}（非飞行安全认证）` : `存在 ${safetyReport.collisionCount} 对点位间距小于 1.5m`"
                 >
                     <span class="pill-dot"></span>
-                    <span>{{ safetyReport.isSafe ? '1.5m 安全' : `${safetyReport.dangerIds.size} 处过密` }}</span>
+                    <span class="pill-text">{{ safetyReport.isSafe ? '间距校验通过' : `${safetyReport.collisionCount} 对过密` }}</span>
                     <el-button
                         v-if="!safetyReport.isSafe"
                         size="small"
@@ -92,16 +38,16 @@
                 </div>
 
                 <div class="stat-pill">
-                    <span class="label">总架数:</span>
-                    <el-select v-model="droneCount" size="small" style="width: 105px" @change="handleCountChange">
+                    <span class="label">架数</span>
+                    <el-select v-model="droneCount" size="small" style="width: 92px" @change="handleCountChange">
                         <el-option :value="400" label="400 架" />
                         <el-option :value="800" label="800 架" />
                         <el-option :value="1600" label="1600 架" />
                     </el-select>
                 </div>
 
-                <div class="color-picker-box" title="统一调节当前分镜无人机 LED 颜色">
-                    <span class="color-label">LED:</span>
+                <div class="color-picker-box" title="统一调节当前图层无人机 LED 颜色">
+                    <span class="color-label">LED</span>
                     <el-color-picker
                         v-model="currentLedColor"
                         size="small"
@@ -114,14 +60,85 @@
                     <el-segmented
                         v-model="viewMode"
                         :options="[
-                            { label: '2D 点阵编辑', value: '2d' },
-                            { label: '3D 夜空试飞', value: '3d' },
+                            { label: '2D 编辑', value: '2d' },
+                            { label: '3D 预演', value: '3d' },
                         ]"
                         size="small"
                     />
                 </div>
             </div>
         </header>
+
+        <!-- 2. 工具条：几何基元与图像转构型入口 -->
+        <div class="swarm-toolbar">
+            <div class="toolbar-group">
+                <span class="preset-label">几何基元</span>
+                <el-button-group class="preset-group">
+                    <el-button
+                        size="small"
+                        :type="currentMotif === 'heart' ? 'primary' : 'default'"
+                        @click="applyPreset('heart')"
+                    >
+                        爱心
+                    </el-button>
+                    <el-button
+                        size="small"
+                        :type="currentMotif === 'star' ? 'primary' : 'default'"
+                        @click="applyPreset('star')"
+                    >
+                        星芒
+                    </el-button>
+                    <el-button
+                        size="small"
+                        :type="currentMotif === 'galaxy' ? 'primary' : 'default'"
+                        @click="applyPreset('galaxy')"
+                    >
+                        祥龙星系
+                    </el-button>
+                    <el-button
+                        size="small"
+                        :type="currentMotif === 'rings' ? 'primary' : 'default'"
+                        @click="applyPreset('rings')"
+                    >
+                        光环
+                    </el-button>
+                    <el-button
+                        v-if="currentMotif === 'custom'"
+                        size="small"
+                        type="success"
+                    >
+                        自定义构型
+                    </el-button>
+                </el-button-group>
+
+                <span class="toolbar-sep"></span>
+
+                <el-upload
+                    action=""
+                    :auto-upload="false"
+                    :show-file-list="false"
+                    accept="image/*"
+                    :on-change="handleImageUpload"
+                    class="upload-btn"
+                >
+                    <el-button class="import-btn" size="small" type="warning" plain>
+                        <el-icon><Upload /></el-icon>
+                        <span>导入图片构型</span>
+                    </el-button>
+                </el-upload>
+            </div>
+
+            <div class="toolbar-right">
+                <div class="toolbar-meta">
+                    <span class="meta-item"><span class="meta-dot"></span>{{ droneCount }} 架 · {{ showProject.scenes.length }} 分镜</span>
+                    <span class="meta-item meta-item--muted">设计态工作台</span>
+                </div>
+                <el-button class="export-btn" size="small" @click="handleExportProject">
+                    <el-icon><Download /></el-icon>
+                    <span>导出工程</span>
+                </el-button>
+            </div>
+        </div>
 
         <!-- 2. 中央视口核心主舞台 (含左侧构型图层面板) -->
         <main class="swarm-main-stage">
@@ -140,10 +157,19 @@
             <div class="viewport-wrapper">
                 <Editor2D
                     v-show="viewMode === '2d'"
-                    :agents="currentScene.agents"
+                    :agents="visibleAgents"
                     :danger-ids="safetyReport.dangerIds"
+                    :locked-layer-ids="lockedLayerIds"
+                    :can-undo="undoStack.length > 0"
+                    :can-redo="redoStack.length > 0"
                     @select-agent="handleSelectAgent"
                     @auto-relax="handleAutoRelax"
+                    @move-agents="handleMoveAgents"
+                    @nudge-agents="handleNudgeAgents"
+                    @delete-agents="handleDeleteAgents"
+                    @assign-layer="handleAssignSelectionToLayer"
+                    @undo="handleUndo"
+                    @redo="handleRedo"
                 />
 
                 <!-- 3D Three.js 夜空发光无人机全景播放器 -->
@@ -161,7 +187,7 @@
             :active-scene-index="activeSceneIndex"
             @select-scene="handleSelectScene"
             @add-scene="handleAddScene"
-            @export-sdf="handleExportSdf"
+            @export-sdf="handleExportProject"
         />
 
         <!-- 4. SwarmStudio 图像智能转构型三步骤向导弹窗 (Vue 3.5 useTemplateRef) -->
@@ -180,7 +206,7 @@
  */
 import { ref, reactive, computed, onMounted, useTemplateRef } from 'vue';
 import { ElMessage, ElNotification } from 'element-plus';
-import { Compass, Upload } from '@element-plus/icons-vue';
+import { Compass, Download, Upload } from '@element-plus/icons-vue';
 
 import { createShow, createScene, createAgent } from './types/swarm';
 import { useContourAlgorithm } from './composables/useContourAlgorithm';
@@ -197,7 +223,7 @@ const imageWizardRef = useTemplateRef('imageWizardModal');
 
 // 核心算法 Hooks
 const { generatePresetPattern, resampleToTargetCount } = useContourAlgorithm();
-const { checkSafety, autoRelaxCollisions } = useSpatialGrid();
+const { checkSafety, relaxCollisions } = useSpatialGrid();
 
 // 视口与项目状态
 const viewMode = ref('2d');
@@ -225,7 +251,7 @@ const currentScene = computed(() => {
 const currentLayers = reactive([
     {
         id: 'layer_main',
-        name: '主图形层 (Main Motif)',
+        name: '主图形层',
         agentCount: 800,
         color: '#00f2fe',
         visible: true,
@@ -233,22 +259,198 @@ const currentLayers = reactive([
     },
 ]);
 
-// 实时 1.5m 空间碰撞检测计算
+// 实时 1.5m 设计态间距校验（含隐藏图层，校验对象始终是完整分镜）
 const safetyReport = computed(() => {
     const agents = currentScene.value.agents || [];
-    // 标定最小安全间距 1.5 米 (映射到 2D/3D 世界)
     return checkSafety(agents, 1.5);
 });
 
-// 一键力导向自动平滑疏散
+// 图层的可见/锁定状态现在真实参与渲染与编辑
+const visibleAgents = computed(() => {
+    const visibleLayerIds = new Set(currentLayers.filter((layer) => layer.visible).map((layer) => layer.id));
+    return (currentScene.value.agents || []).filter((agent) =>
+        visibleLayerIds.has(agent.layerId || 'layer_main')
+    );
+});
+
+const lockedLayerIds = computed(() =>
+    currentLayers.filter((layer) => layer.locked).map((layer) => layer.id)
+);
+
+// ------------------------------------------------------------------------
+// 命令式撤销/重做：点位编辑记录增量，结构性替换记录分镜快照
+// ------------------------------------------------------------------------
+const undoStack = ref([]);
+const redoStack = ref([]);
+const HISTORY_LIMIT = 80;
+
+function cloneAgent(agent) {
+    return {
+        id: agent.id,
+        x: agent.x,
+        y: agent.y,
+        z: agent.z,
+        color: agent.color,
+        layerId: agent.layerId || 'layer_main',
+        group: agent.group,
+        size: agent.size,
+        alpha: agent.alpha,
+    };
+}
+
+function pushCommand(command) {
+    if (!command) return;
+    undoStack.value.push(command);
+    if (undoStack.value.length > HISTORY_LIMIT) undoStack.value.shift();
+    redoStack.value = [];
+}
+
+function getSceneById(sceneId) {
+    return showProject.scenes.find((scene) => scene.id === sceneId);
+}
+
+function focusScene(sceneId) {
+    const sceneIndex = showProject.scenes.findIndex((scene) => scene.id === sceneId);
+    if (sceneIndex >= 0) {
+        activeSceneIndex.value = sceneIndex;
+        currentMotif.value = showProject.scenes[sceneIndex].motifType || 'custom';
+    }
+    updateLayerCount();
+}
+
+function applyChangeSet(sceneId, changes, direction) {
+    const scene = getSceneById(sceneId) || currentScene.value;
+    const agentMap = new Map((scene.agents || []).map((agent) => [agent.id, agent]));
+    for (const change of changes) {
+        const agent = agentMap.get(change.id);
+        if (!agent) continue;
+        Object.assign(agent, direction === 'undo' ? change.before : change.after);
+    }
+    updateLayerCount();
+}
+
+function recordReplace(label, beforeAgents, afterAgents) {
+    pushCommand({
+        type: 'replace',
+        label,
+        sceneId: currentScene.value.id,
+        before: beforeAgents.map(cloneAgent),
+        after: afterAgents.map(cloneAgent),
+    });
+}
+
+function isAgentInLockedLayer(agent) {
+    const layerId = agent?.layerId || 'layer_main';
+    return currentLayers.some((layer) => layer.id === layerId && layer.locked);
+}
+
+function getLockedPopulatedLayers() {
+    const populated = new Set((currentScene.value.agents || []).map((agent) => agent.layerId || 'layer_main'));
+    return currentLayers.filter((layer) => layer.locked && populated.has(layer.id));
+}
+
+// 结构级替换（预设、重采样、图像构型、整体疏散）会覆盖整层点位，必须先解锁。
+function guardLockedStructure(action) {
+    const locked = getLockedPopulatedLayers();
+    if (locked.length === 0) return false;
+    ElMessage.warning(`图层「${locked.map((layer) => layer.name).join('、')}」已锁定，无法${action}。请先解锁。`);
+    return true;
+}
+
+function applyAgentUpdates(updates, options = {}) {
+    const { label = '编辑点位', record = true } = options;
+    const agentMap = new Map((currentScene.value.agents || []).map((agent) => [agent.id, agent]));
+    const changes = [];
+
+    for (const update of updates) {
+        const agent = agentMap.get(update.id);
+        if (!agent) continue;
+        if (isAgentInLockedLayer(agent)) continue;
+
+        const before = cloneAgent(agent);
+        const after = cloneAgent(agent);
+        if (Number.isFinite(update.x)) after.x = Math.round(update.x * 100) / 100;
+        if (Number.isFinite(update.y)) after.y = Math.round(update.y * 100) / 100;
+        if (Number.isFinite(update.z)) after.z = Math.round(update.z * 100) / 100;
+        if (update.color) after.color = update.color;
+        if (update.layerId) after.layerId = update.layerId;
+
+        const changed = ['x', 'y', 'z', 'color', 'layerId'].some((key) => before[key] !== after[key]);
+        if (!changed) continue;
+
+        Object.assign(agent, after);
+        changes.push({ id: agent.id, before, after });
+    }
+
+    if (record && changes.length > 0) {
+        pushCommand({ type: 'patch', label, sceneId: currentScene.value.id, changes });
+    }
+    updateLayerCount();
+    return changes.length;
+}
+
+function handleUndo() {
+    const command = undoStack.value.pop();
+    if (!command) return;
+
+    if (command.type === 'patch') {
+        applyChangeSet(command.sceneId, command.changes, 'undo');
+        focusScene(command.sceneId);
+    } else if (command.type === 'replace') {
+        const scene = showProject.scenes.find((item) => item.id === command.sceneId);
+        if (scene) {
+            scene.agents = command.before.map((agent) => createAgent({ ...agent }));
+            const sceneIndex = showProject.scenes.indexOf(scene);
+            if (sceneIndex !== activeSceneIndex.value) activeSceneIndex.value = sceneIndex;
+        }
+    }
+
+    redoStack.value.push(command);
+    updateLayerCount();
+}
+
+function handleRedo() {
+    const command = redoStack.value.pop();
+    if (!command) return;
+
+    if (command.type === 'patch') {
+        applyChangeSet(command.sceneId, command.changes, 'redo');
+        focusScene(command.sceneId);
+    } else if (command.type === 'replace') {
+        const scene = showProject.scenes.find((item) => item.id === command.sceneId);
+        if (scene) {
+            scene.agents = command.after.map((agent) => createAgent({ ...agent }));
+            const sceneIndex = showProject.scenes.indexOf(scene);
+            if (sceneIndex !== activeSceneIndex.value) activeSceneIndex.value = sceneIndex;
+        }
+    }
+
+    undoStack.value.push(command);
+    updateLayerCount();
+}
+
+// 一键确定性疏散：疏散后必须重新校验，失败就明确失败
 function handleAutoRelax() {
     const currentAgents = currentScene.value.agents || [];
     if (currentAgents.length === 0) return;
 
-    const relaxed = autoRelaxCollisions(currentAgents, 1.5, 20);
-    currentScene.value.agents = relaxed;
+    if (guardLockedStructure('整体疏散')) return;
 
-    ElMessage.success('已完成物理力导向平滑疏散，所有点位达到 ≥ 1.5m 安全基准！');
+    const result = relaxCollisions(currentAgents, 1.5, 80);
+    applyAgentUpdates(
+        result.agents.map((agent) => ({ id: agent.id, x: agent.x, y: agent.y })),
+        { label: '间距疏散' }
+    );
+
+    if (result.report.isSafe) {
+        ElMessage.success(
+            `疏散完成：${result.iterationsRun} 轮，最小间距 ${result.report.minObservedDistance.toFixed(2)}m`
+        );
+    } else {
+        ElMessage.warning(
+            `疏散后仍有 ${result.report.collisionCount} 对过近点位，最小间距 ${result.report.minObservedDistance.toFixed(2)}m。请增大跨度或减少架数。`
+        );
+    }
 }
 
 // 初始化默认演示分镜剧本 (爱心 -> 五角星 -> 祥龙)
@@ -283,33 +485,52 @@ function initDefaultScenes() {
 }
 
 function updateLayerCount() {
-    if (currentLayers.length > 0) {
-        currentLayers[0].agentCount = currentScene.value.agents.length;
+    const counts = new Map();
+    for (const agent of currentScene.value.agents || []) {
+        const layerId = agent.layerId || 'layer_main';
+        counts.set(layerId, (counts.get(layerId) || 0) + 1);
+    }
+    for (const layer of currentLayers) {
+        layer.agentCount = counts.get(layer.id) || 0;
     }
 }
 
 // 切换几何预设母题
 function applyPreset(motifType) {
+    if (guardLockedStructure('应用基元覆盖构型')) return;
     currentMotif.value = motifType;
+    const beforeAgents = currentScene.value.agents.map(cloneAgent);
     const newPoints = generatePresetPattern(motifType, droneCount.value);
-    currentScene.value.agents = newPoints.map((p) => createAgent({ ...p, color: currentLedColor.value }));
+    currentScene.value.agents = newPoints.map((point) =>
+        createAgent({ ...point, color: currentLedColor.value, layerId: selectedLayerId.value || 'layer_main' })
+    );
     currentScene.value.motifType = motifType;
     updateLayerCount();
+    recordReplace(`应用基元 ${motifType}`, beforeAgents, currentScene.value.agents);
 
     ElMessage.success({
-        message: `已应用基元构型: ${motifType} (${droneCount.value} 架无人机)`,
+        message: `已应用基元构型: ${motifType} (${currentScene.value.agents.length} 架无人机)`,
         duration: 1500,
     });
 }
 
 // 调整无人机总架数标定
 function handleCountChange(newCount) {
+    const beforeAgents = currentScene.value.agents.map(cloneAgent);
+    if (guardLockedStructure('重采样架数')) return;
     showProject.droneCount = newCount;
     if (currentMotif.value === 'custom') {
-        // 🌟 自定义上传构型：采用均质等比重采样，完整保留用户上传的图案形状与色彩！
-        currentScene.value.agents = resampleToTargetCount(currentScene.value.agents, newCount);
+        // 自定义构型：确定性重采样，保留图层归属与原色。
+        currentScene.value.agents = resampleToTargetCount(currentScene.value.agents, newCount).map((point, index) =>
+            createAgent({
+                ...point,
+                id: point.id || `uav_${index + 1}`,
+                layerId: point.layerId || selectedLayerId.value || 'layer_main',
+            })
+        );
         updateLayerCount();
-        ElMessage.success(`已自适应重采样构型至 ${newCount} 架无人机！`);
+        recordReplace(`重采样至 ${newCount} 架`, beforeAgents, currentScene.value.agents);
+        ElMessage.success(`已确定性重采样至 ${currentScene.value.agents.length} 架无人机`);
     } else {
         applyPreset(currentMotif.value);
     }
@@ -318,18 +539,28 @@ function handleCountChange(newCount) {
 // 修改当前分镜 LED 颜色
 function handleLedColorChange(newColor) {
     if (!newColor) return;
-    currentScene.value.agents.forEach((agent) => {
-        agent.color = newColor;
-    });
-    if (currentLayers[0]) {
-        currentLayers[0].color = newColor;
+    const layer = currentLayers.find((item) => item.id === selectedLayerId.value);
+    if (!layer) return;
+    if (layer.locked) {
+        ElMessage.warning('当前图层已锁定，请先解锁再修改颜色');
+        return;
     }
+    layer.color = newColor;
+    const updates = currentScene.value.agents
+        .filter((agent) => (agent.layerId || 'layer_main') === layer.id)
+        .map((agent) => ({ id: agent.id, color: newColor }));
+    applyAgentUpdates(updates, { label: '修改图层 LED 颜色' });
 }
 
 // 切换当前激活分镜
 function handleSelectScene(index) {
     activeSceneIndex.value = index;
     currentMotif.value = currentScene.value.motifType || 'custom';
+    const layer = currentLayers.find((item) => item.id === selectedLayerId.value) || currentLayers[0];
+    if (layer) {
+        selectedLayerId.value = layer.id;
+        currentLedColor.value = layer.color;
+    }
     updateLayerCount();
 }
 
@@ -341,11 +572,14 @@ function handleAddScene() {
         duration: 5,
         transitionTime: 3,
         motifType: 'rings',
-        agents: generatePresetPattern('rings', droneCount.value),
+        agents: generatePresetPattern('rings', droneCount.value).map((point) =>
+            createAgent({ ...point, layerId: 'layer_main' })
+        ),
     });
     showProject.scenes.push(newScene);
     activeSceneIndex.value = showProject.scenes.length - 1;
     updateLayerCount();
+    selectedLayerId.value = 'layer_main';
     ElMessage.success('已新建分镜剧本！');
 }
 
@@ -371,19 +605,29 @@ function handleImageUpload(uploadFile) {
 // 向导完成后应用点位
 function handleApplyWizardAgents(result) {
     const { agents, strategy, mode } = result;
-    currentScene.value.agents = agents;
+    if (guardLockedStructure('应用图像构型')) return;
+    const beforeAgents = currentScene.value.agents.map(cloneAgent);
+    const layerId = selectedLayerId.value || 'layer_main';
+    currentScene.value.agents = agents.map((agent) =>
+        createAgent({ ...agent, layerId, group: strategy || 'default' })
+    );
     currentScene.value.name = `自定义构型 (${strategy} / ${mode})`;
     currentScene.value.motifType = 'custom';
     currentMotif.value = 'custom';
     // 同步工作台总架数标定
-    droneCount.value = agents.length;
-    showProject.droneCount = agents.length;
+    droneCount.value = currentScene.value.agents.length;
+    showProject.droneCount = currentScene.value.agents.length;
     updateLayerCount();
+    recordReplace('应用图像构型', beforeAgents, currentScene.value.agents);
+
+    const report = checkSafety(currentScene.value.agents, 1.5);
 
     ElNotification({
         title: 'SwarmStudio 构型与原色赋色成功',
-        message: `成功导入 ${agents.length} 架无人机点位，已自动映射原图色彩并执行 1.5m 空间安全网格校验！`,
-        type: 'success',
+        message: `成功导入 ${currentScene.value.agents.length} 架无人机点位。设计态最小间距 ${Number.isFinite(report.minObservedDistance) ? report.minObservedDistance.toFixed(2) : '—'}m，${
+            report.isSafe ? '间距校验通过' : `${report.collisionCount} 对点位小于 1.5m`
+        }。`,
+        type: report.isSafe ? 'success' : 'warning',
         duration: 4000,
     });
 }
@@ -391,14 +635,23 @@ function handleApplyWizardAgents(result) {
 // 图层操作
 function handleSelectLayer(layerId) {
     selectedLayerId.value = layerId;
+    const layer = currentLayers.find((item) => item.id === layerId);
+    if (layer) currentLedColor.value = layer.color;
 }
 
 function handleUpdateLayer(layer) {
-    if (layer.color) {
-        currentLedColor.value = layer.color;
-        currentScene.value.agents.forEach((a) => {
-            a.color = layer.color;
-        });
+    if (!layer || !layer.color) return;
+
+    const updates = currentScene.value.agents
+        .filter((agent) => (agent.layerId || 'layer_main') === layer.id && agent.color !== layer.color)
+        .map((agent) => ({ id: agent.id, color: layer.color }));
+    if (layer.locked && updates.length > 0) {
+        ElMessage.warning('该图层已锁定，无法修改颜色。请先解锁。');
+        return;
+    }
+    currentLedColor.value = layer.color;
+    if (updates.length > 0) {
+        applyAgentUpdates(updates, { label: `修改图层 ${layer.name} 颜色` });
     }
 }
 
@@ -413,7 +666,7 @@ function handleAddLayer() {
         locked: false,
     });
     selectedLayerId.value = newLayerId;
-    ElMessage.success('已新建构型图层！');
+    ElMessage.success('已新建空图层。在 2D 画布框选点位后点击“移入当前图层”。');
 }
 
 function handleDeleteLayer(layerId) {
@@ -421,32 +674,97 @@ function handleDeleteLayer(layerId) {
         ElMessage.warning('请至少保留一个主构型图层！');
         return;
     }
+    const layer = currentLayers.find((item) => item.id === layerId);
+    if (layer && layer.agentCount > 0) {
+        ElMessage.warning('该图层仍有无人机点位，请先框选并移入其他图层后再删除');
+        return;
+    }
     const idx = currentLayers.findIndex((l) => l.id === layerId);
     if (idx !== -1) {
         currentLayers.splice(idx, 1);
         selectedLayerId.value = currentLayers[0].id;
+        currentLedColor.value = currentLayers[0].color;
+        updateLayerCount();
         ElMessage.success('已删除图层！');
     }
 }
 
 // 选中某个无人机点位
 function handleSelectAgent(agent) {
-    ElMessage.info(`选中无人机 #${agent.id} (坐标: X ${agent.x}, Y ${agent.y})`);
+    const layer = currentLayers.find((item) => item.id === (agent.layerId || 'layer_main'));
+    ElMessage.info(
+        `选中无人机 ${agent.id} · ${layer?.name || '未分组'} · X ${Number(agent.x).toFixed(2)}m / Y ${Number(agent.y).toFixed(2)}m`
+    );
 }
 
-// 导出 SDF 编队标准工业协议数据
-function handleExportSdf() {
+// 2D 画布移动/微移/删除/图层归属
+function handleMoveAgents(updates) {
+    if (!Array.isArray(updates) || updates.length === 0) return;
+    applyAgentUpdates(updates, { label: '移动点位' });
+}
+
+function handleNudgeAgents(payload) {
+    const { ids = [], dx = 0, dy = 0 } = payload || {};
+    if (ids.length === 0 || (dx === 0 && dy === 0)) return;
+    const agentMap = new Map(currentScene.value.agents.map((agent) => [agent.id, agent]));
+    const updates = ids
+        .map((id) => agentMap.get(id))
+        .filter(Boolean)
+        .map((agent) => ({ id: agent.id, x: agent.x + dx, y: agent.y + dy }));
+    applyAgentUpdates(updates, { label: '微调点位' });
+}
+
+function handleDeleteAgents(ids) {
+    if (!Array.isArray(ids) || ids.length === 0) return;
+    const removeIds = new Set(ids);
+    const beforeAgents = currentScene.value.agents.map(cloneAgent);
+    currentScene.value.agents = currentScene.value.agents.filter(
+        (agent) => !removeIds.has(agent.id) || isAgentInLockedLayer(agent)
+    );
+    updateLayerCount();
+    const removedCount = beforeAgents.length - currentScene.value.agents.length;
+    if (removedCount === 0) {
+        ElMessage.warning('所选点位位于锁定图层，未执行删除。请先解锁图层。');
+        return;
+    }
+    recordReplace(`删除 ${removedCount} 个点位`, beforeAgents, currentScene.value.agents);
+    ElMessage.success(`已删除 ${removedCount} 个点位，可 Ctrl+Z 撤销`);
+}
+
+function handleAssignSelectionToLayer(ids) {
+    if (!Array.isArray(ids) || ids.length === 0) return;
+    const layer = currentLayers.find((item) => item.id === selectedLayerId.value);
+    if (!layer) return;
+    if (layer.locked) {
+        ElMessage.warning('当前图层已锁定，请先解锁');
+        return;
+    }
+    const updates = ids.map((id) => ({ id, layerId: layer.id }));
+    const changed = applyAgentUpdates(updates, { label: `移入图层 ${layer.name}` });
+    ElMessage.success(`已将 ${changed} 个点位移入「${layer.name}」`);
+}
+
+// 导出工程 JSON（当前格式，不是工业 SDF / 飞控协议）
+function handleExportProject() {
     const exportData = {
         meta: {
             app: 'SwarmStudio',
-            version: '1.0.0',
+            format: 'SwarmStudio Project JSON',
+            schemaVersion: 1,
             exportedAt: new Date().toISOString(),
-            totalDrones: droneCount.value,
+            totalDrones: currentScene.value.agents.length,
+            sceneCount: showProject.scenes.length,
             safetyValidation: {
-                minObservedDistance: safetyReport.value.minObservedDistance,
+                checkedAgents: safetyReport.value.checkedAgents,
+                minObservedDistance: Number.isFinite(safetyReport.value.minObservedDistance)
+                    ? safetyReport.value.minObservedDistance
+                    : null,
+                threshold: 1.5,
                 isSafe: safetyReport.value.isSafe,
+                collisionPairs: safetyReport.value.collisionCount,
             },
         },
+        layers: currentLayers.map((layer) => ({ ...layer })),
         project: showProject,
     };
 
@@ -454,11 +772,11 @@ function handleExportSdf() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `drone_swarm_sdf_${Date.now()}.json`;
+    a.download = `swarm_project_${Date.now()}.json`;
     a.click();
     URL.revokeObjectURL(url);
 
-    ElMessage.success('已成功导出标准 SDF 编队工程数据文件！');
+    ElMessage.success('编队工程数据已导出（SwarmStudio Project JSON）');
 }
 
 onMounted(() => {
@@ -468,132 +786,185 @@ onMounted(() => {
 
 <style scoped>
 .drone-swarm-workbench {
+    --swarm-surface: var(--el-bg-color);
+    --swarm-border: var(--el-border-color-lighter);
+    --swarm-radius-lg: 12px;
+    --swarm-radius-md: 8px;
+    --swarm-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 16px 32px -24px rgba(15, 23, 42, 0.5);
+
     width: 100%;
-    height: 100vh;
+    height: 100%;
+    min-height: 0;
     display: flex;
     flex-direction: column;
-    background-color: var(--el-bg-color-page);
-    color: var(--el-text-color-primary);
     overflow: hidden;
+    background: var(--el-bg-color-page);
+    color: var(--el-text-color-primary);
     font-family: var(--app-font-family);
     transition: background-color 0.3s ease, color 0.3s ease;
 }
 
-/* 顶部控制栏 */
+/* 顶部应用栏 */
 .swarm-header {
-    height: 52px;
-    background: var(--el-bg-color);
-    border-bottom: 1px solid var(--el-border-color-lighter);
+    flex: 0 0 58px;
     display: flex;
     align-items: center;
     justify-content: space-between;
+    gap: 16px;
     padding: 0 16px;
+    background: var(--swarm-surface);
+    border-bottom: 1px solid var(--swarm-border);
+    position: relative;
     z-index: 20;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
     transition: background-color 0.3s ease, border-color 0.3s ease;
 }
 
 .header-brand {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 12px;
+    min-width: 0;
 }
 
 .brand-logo {
-    width: 32px;
-    height: 32px;
-    background: linear-gradient(135deg, var(--el-color-primary) 0%, var(--el-color-primary-light-3) 100%);
-    border-radius: 8px;
+    position: relative;
+    width: 36px;
+    height: 36px;
+    flex-shrink: 0;
     display: flex;
     align-items: center;
     justify-content: center;
+    border-radius: 10px;
     color: #ffffff;
-    box-shadow: 0 0 12px var(--el-color-primary-light-7);
+    background: linear-gradient(140deg, var(--el-color-primary) 0%, var(--el-color-primary-light-3) 62%, #22d3ee 100%);
+    box-shadow: 0 8px 18px -10px var(--el-color-primary), inset 0 1px 0 rgba(255, 255, 255, 0.35);
+}
+
+.brand-logo::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    border: 1px solid rgba(255, 255, 255, 0.22);
 }
 
 .brand-titles {
     display: flex;
     flex-direction: column;
+    min-width: 0;
+}
+
+.title-row {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    min-width: 0;
 }
 
 .main-title {
-    font-size: 14px;
-    font-weight: 700;
-    letter-spacing: 0.5px;
+    font-size: 15px;
+    font-weight: 750;
+    letter-spacing: 0.2px;
+    line-height: 1.2;
     color: var(--el-text-color-primary);
 }
 
-.sub-title {
-    font-size: 11px;
-    color: var(--el-text-color-secondary);
-}
-
-.header-presets {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-}
-
-.preset-label {
+.title-divider {
     font-size: 12px;
-    color: var(--el-text-color-secondary);
+    color: var(--el-border-color);
 }
 
-.upload-btn {
-    display: inline-block;
+.main-title-sub {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--el-text-color-regular);
+    white-space: nowrap;
+}
+
+.version-chip {
+    margin-left: 2px;
+    padding: 2px 6px;
+    border-radius: 5px;
+    font-family: var(--app-font-family-mono, monospace);
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.6px;
+    color: var(--el-color-primary);
+    background: var(--el-color-primary-light-9);
+    border: 1px solid var(--el-color-primary-light-8);
+}
+
+.sub-title {
+    margin-top: 3px;
+    font-size: 11px;
+    line-height: 1.3;
+    letter-spacing: 0.15px;
+    color: var(--el-text-color-secondary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .header-actions {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 10px;
+    flex-shrink: 0;
 }
 
 .safety-header-pill {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
-    padding: 2px 10px;
-    border-radius: 12px;
+    gap: 7px;
+    height: 28px;
+    padding: 0 10px;
+    border-radius: 999px;
+    border: 1px solid transparent;
     font-size: 11px;
     font-weight: 600;
-    border: 1px solid;
+    white-space: nowrap;
     transition: all 0.2s ease;
 }
 
-.safety-header-pill.safe {
-    background: var(--el-color-success-light-9);
-    border-color: var(--el-color-success-light-5);
-    color: var(--el-color-success);
+.safety-header-pill .pill-text {
+    line-height: 1;
 }
 
-.safety-header-pill.safe .pill-dot {
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    background-color: var(--el-color-success);
-    box-shadow: 0 0 6px var(--el-color-success);
+.safety-header-pill.safe {
+    color: var(--el-color-success);
+    background: var(--el-color-success-light-9);
+    border-color: var(--el-color-success-light-7);
 }
 
 .safety-header-pill.danger {
-    background: var(--el-color-danger-light-9);
-    border-color: var(--el-color-danger-light-5);
     color: var(--el-color-danger);
+    background: var(--el-color-danger-light-9);
+    border-color: var(--el-color-danger-light-7);
 }
 
-.safety-header-pill.danger .pill-dot {
+.pill-dot {
     width: 6px;
     height: 6px;
     border-radius: 50%;
-    background-color: var(--el-color-danger);
-    box-shadow: 0 0 6px var(--el-color-danger);
+    flex-shrink: 0;
+}
+
+.safety-header-pill.safe .pill-dot {
+    background: var(--el-color-success);
+    box-shadow: 0 0 7px var(--el-color-success);
+}
+
+.safety-header-pill.danger .pill-dot {
+    background: var(--el-color-danger);
+    box-shadow: 0 0 7px var(--el-color-danger);
     animation: blink 1.2s infinite;
 }
 
 .relax-link {
-    font-size: 11px;
+    height: 20px;
+    padding: 0 2px !important;
+    font-size: 10px;
     font-weight: 700;
-    padding: 0 2px;
     color: var(--el-color-danger) !important;
     text-decoration: underline;
 }
@@ -602,46 +973,213 @@ onMounted(() => {
     display: flex;
     align-items: center;
     gap: 6px;
+    height: 28px;
+    padding: 0 4px 0 10px;
+    border-radius: var(--swarm-radius-md);
+    border: 1px solid var(--swarm-border);
     background: var(--el-fill-color-light);
-    padding: 3px 8px;
-    border-radius: 6px;
-    border: 1px solid var(--el-border-color-lighter);
     font-size: 12px;
+    white-space: nowrap;
     color: var(--el-text-color-primary);
 }
 
 .stat-pill .label {
+    font-size: 11px;
     color: var(--el-text-color-secondary);
+}
+
+.stat-pill :deep(.el-select__wrapper) {
+    min-height: 24px;
+    padding: 0 6px;
+    background: transparent;
+    box-shadow: none !important;
+    font-size: 12px;
 }
 
 .color-picker-box {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 7px;
+    height: 28px;
+    padding: 0 8px;
+    border-radius: var(--swarm-radius-md);
+    border: 1px solid var(--swarm-border);
+    background: var(--el-fill-color-lighter);
 }
 
 .color-label {
-    font-size: 12px;
+    font-size: 11px;
     color: var(--el-text-color-secondary);
+}
+
+.view-switch :deep(.el-segmented) {
+    --el-segmented-item-selected-bg-color: var(--el-color-primary);
+    --el-segmented-item-selected-color: #ffffff;
+
+    padding: 2px;
+    border-radius: var(--swarm-radius-md);
+    background: var(--el-fill-color-light);
+    font-size: 12px;
+}
+
+.view-switch :deep(.el-segmented__item) {
+    height: 24px;
+    line-height: 24px;
+    padding: 0 10px;
+}
+
+/* 工具条 */
+.swarm-toolbar {
+    flex: 0 0 44px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 0 16px;
+    background: var(--swarm-surface);
+    border-bottom: 1px solid var(--swarm-border);
+    position: relative;
+    z-index: 19;
+    transition: background-color 0.3s ease, border-color 0.3s ease;
+}
+
+.toolbar-group {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+}
+
+.preset-label {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.9px;
+    text-transform: uppercase;
+    color: var(--el-text-color-placeholder);
+    white-space: nowrap;
+}
+
+.preset-group :deep(.el-button) {
+    height: 28px;
+    padding: 0 11px;
+    border-radius: 0;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.preset-group :deep(.el-button:first-child) {
+    border-radius: 6px 0 0 6px;
+}
+
+.preset-group :deep(.el-button:last-child) {
+    border-radius: 0 6px 6px 0;
+}
+
+.preset-group :deep(.el-button--primary) {
+    box-shadow: 0 4px 10px -6px var(--el-color-primary);
+}
+
+.toolbar-sep {
+    width: 1px;
+    height: 18px;
+    flex-shrink: 0;
+    background: var(--el-border-color-lighter);
+}
+
+.upload-btn {
+    display: inline-flex;
+}
+
+.import-btn {
+    height: 28px;
+    border-radius: 6px;
+    font-size: 12px;
+}
+
+.toolbar-meta {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    font-size: 11px;
+    color: var(--el-text-color-secondary);
+    white-space: nowrap;
+}
+
+.toolbar-right {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+
+.export-btn {
+    height: 28px;
+    border-radius: 6px;
+    font-size: 12px;
+}
+
+.meta-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.meta-item--muted {
+    color: var(--el-text-color-placeholder);
+}
+
+.meta-dot {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: var(--el-color-success);
+    box-shadow: 0 0 6px var(--el-color-success);
 }
 
 /* 主舞台 */
 .swarm-main-stage {
     flex: 1;
+    min-height: 0;
     display: flex;
+    gap: 12px;
     position: relative;
     overflow: hidden;
+    background: var(--el-bg-color-page);
 }
 
 .viewport-wrapper {
     flex: 1;
+    min-width: 0;
     position: relative;
-    height: 100%;
     overflow: hidden;
+    border: 1px solid var(--swarm-border);
+    border-radius: var(--swarm-radius-lg);
+    background: #080a10;
+    box-shadow: var(--swarm-shadow);
+}
+
+.viewport-wrapper :deep(canvas) {
+    display: block;
 }
 
 @keyframes blink {
     0%, 100% { opacity: 1; }
     50% { opacity: 0.3; }
+}
+
+@media (max-width: 1400px) {
+    .sub-title { display: none; }
+}
+
+@media (max-width: 1180px) {
+    .swarm-header { gap: 10px; }
+    .toolbar-meta { display: none; }
+    .main-title-sub,
+    .title-divider { display: none; }
+}
+
+@media (max-width: 980px) {
+    .preset-label,
+    .version-chip,
+    .color-picker-box { display: none; }
 }
 </style>

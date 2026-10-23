@@ -7,15 +7,17 @@
         <div class="hud-top-left">
             <div class="hud-badge">
                 <span class="status-dot"></span>
-                <span>3D THREE.JS INSTANCED MESH (1 DRAW CALL)</span>
+                <span>3D · THREE.JS</span>
             </div>
             <div class="hud-sub">
-                BLOOM POST-PROCESSING: ACTIVE
+                实例化渲染 · BLOOM 辉光
             </div>
         </div>
 
         <div class="hud-center-hint">
-            <span>🌌 按住左键 360° 旋转视角 / 滚轮缩放 / 右键平移</span>
+            <span class="hint-item"><kbd>左键拖拽</kbd>旋转</span>
+            <span class="hint-item"><kbd>滚轮</kbd>缩放</span>
+            <span class="hint-item"><kbd>右键</kbd>平移</span>
         </div>
     </div>
 </template>
@@ -84,8 +86,16 @@ defineExpose({
     width: 100%;
     height: 100%;
     overflow: hidden;
-    background-color: var(--el-bg-color-page);
+    background: #05070d;
     user-select: none;
+}
+
+.player-3d-viewport::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: radial-gradient(ellipse at center, transparent 52%, rgba(0, 0, 0, 0.42) 100%);
 }
 
 .three-canvas-container {
@@ -95,57 +105,82 @@ defineExpose({
 
 .hud-top-left {
     position: absolute;
-    top: 14px;
-    left: 14px;
+    top: 12px;
+    left: 12px;
     display: flex;
     flex-direction: column;
     gap: 6px;
     pointer-events: none;
+    z-index: 2;
 }
 
 .hud-badge {
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    background: var(--el-bg-color-overlay);
-    border: 1px solid var(--el-border-color);
-    padding: 3px 10px;
-    border-radius: 4px;
-    color: var(--el-color-primary);
-    font-size: 11px;
+    height: 26px;
+    padding: 0 9px;
+    border-radius: 7px;
+    border: 1px solid rgba(148, 163, 184, 0.26);
+    background: rgba(15, 23, 42, 0.72);
+    color: #67e8f9;
+    font-size: 10px;
     font-family: var(--app-font-family-mono, monospace);
-    font-weight: 600;
-    backdrop-filter: blur(8px);
-    box-shadow: var(--el-box-shadow-light);
+    font-weight: 700;
+    letter-spacing: 0.55px;
+    backdrop-filter: blur(12px);
+    box-shadow: 0 10px 24px -18px #000000;
 }
 
 .status-dot {
     width: 6px;
     height: 6px;
     border-radius: 50%;
-    background-color: var(--el-color-primary);
+    background: var(--el-color-primary);
     box-shadow: 0 0 8px var(--el-color-primary);
 }
 
 .hud-sub {
-    color: var(--el-text-color-secondary);
-    font-size: 11px;
+    padding-left: 2px;
+    color: #94a3b8;
+    font-size: 10px;
     font-family: var(--app-font-family-mono, monospace);
 }
 
 .hud-center-hint {
     position: absolute;
-    bottom: 14px;
+    bottom: 12px;
     left: 50%;
     transform: translateX(-50%);
-    background: var(--el-bg-color-overlay);
-    border: 1px solid var(--el-border-color);
-    padding: 5px 14px;
-    border-radius: 20px;
-    color: var(--el-text-color-secondary);
-    font-size: 12px;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    height: 28px;
+    padding: 0 12px;
+    border-radius: 8px;
+    border: 1px solid rgba(148, 163, 184, 0.18);
+    background: rgba(15, 23, 42, 0.62);
+    color: #94a3b8;
+    font-size: 10px;
     pointer-events: none;
-    backdrop-filter: blur(8px);
-    box-shadow: var(--el-box-shadow-light);
+    white-space: nowrap;
+    backdrop-filter: blur(10px);
+}
+
+.hint-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.hud-center-hint kbd {
+    padding: 1px 5px;
+    border-radius: 4px;
+    border: 1px solid rgba(148, 163, 184, 0.25);
+    background: rgba(148, 163, 184, 0.18);
+    color: #cbd5e1;
+    font-family: var(--app-font-family-mono, monospace);
+    font-size: 9px;
 }
 </style>

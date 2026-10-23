@@ -3,114 +3,162 @@
         <!-- Pixi.js 画布 DOM 挂载容器 -->
         <div ref="pixiContainer" class="pixi-canvas-container"></div>
 
-        <!-- 极客 HUD 悬浮状态仪表盘 -->
+        <!-- 画布状态 HUD -->
         <div class="hud-top-left">
-            <div class="hud-badge">
-                <span class="status-dot"></span>
-                <span>2D PIXI.JS RENDERER v8</span>
-            </div>
-            <div class="hud-coords">
-                X: {{ cursorWorldPos.x.toFixed(1) }}m &nbsp;|&nbsp; Y: {{ cursorWorldPos.y.toFixed(1) }}m
+            <div class="hud-status-bar">
+                <div class="hud-badge">
+                    <span class="status-dot"></span>
+                    <span>2D · PIXI v8</span>
+                </div>
+                <div class="hud-coords">
+                    X {{ cursorWorldPos.x.toFixed(1) }}m · Y {{ cursorWorldPos.y.toFixed(1) }}m
+                </div>
             </div>
 
-            <!-- 1.5m 防撞安全指示胶囊 -->
             <div v-if="dangerIds && dangerIds.size > 0" class="hud-danger-pill">
-                <span class="danger-icon">⚠️</span>
-                <span>检测到 {{ dangerIds.size }} 架间距 &lt; 1.5m 违规点位</span>
-                <button class="mini-relax-btn" @click="emit('auto-relax')">一键平滑疏散</button>
+                <span class="pill-icon">!</span>
+                <span>{{ dangerIds.size }} 架间距 &lt; 1.5m</span>
+                <button class="mini-relax-btn" @click="emit('auto-relax')">平滑疏散</button>
             </div>
             <div v-else class="hud-safe-pill">
-                <span class="safe-icon">🛡️</span>
-                <span>1.5m 空间安全校验通过</span>
+                <span class="pill-icon pill-icon--safe">✓</span>
+                <span>设计态间距校验通过</span>
             </div>
         </div>
 
-        <!-- 视口右上角专业控制带 (CAD Top-Right Toolstrip，告别底部遮挡) -->
-        <div class="hud-top-right">
-            <!-- 粒径大小与清晰度调节栏 -->
-            <div class="hud-dot-controls">
-                <span class="ctrl-tip">点径:</span>
-                <el-radio-group v-model="dotScale" size="small">
-                    <el-radio-button :value="0.5">细 0.5x</el-radio-button>
-                    <el-radio-button :value="0.8">标准 0.8x</el-radio-button>
-                    <el-radio-button :value="1.2">粗 1.2x</el-radio-button>
-                </el-radio-group>
+        <!-- 2D 编辑工具带：选择 / 平移 / 撤销 / 图层归属 -->
+        <div class="hud-edit-toolbar">
+            <el-radio-group
+                :model-value="toolMode"
+                size="small"
+                class="tool-mode-group"
+                @update:model-value="setToolMode"
+            >
+                <el-radio-button value="select">选择</el-radio-button>
+                <el-radio-button value="pan">平移</el-radio-button>
+            </el-radio-group>
 
-                <el-switch
-                    v-model="constantScreen"
-                    active-text="恒定针尖(防糊)"
-                    inactive-text="物理尺寸"
-                    size="small"
-                    style="margin-left: 8px;"
-                />
+            <span class="edit-divider"></span>
 
-                <el-switch
-                    v-model="useGlow"
-                    active-text="夜空辉光"
-                    inactive-text="CAD极锐"
-                    size="small"
-                    style="margin-left: 8px;"
-                />
-
-                <el-switch
-                    v-model="highlightDanger"
-                    active-text="碰撞红标"
-                    inactive-text="原机灯光"
-                    size="small"
-                    style="margin-left: 8px;"
-                />
-            </div>
-
-            <!-- 画布底色选择控制区 (支持跟随主题、快捷工业预设与自由取色) -->
-            <div class="hud-bg-select">
-                <span class="ctrl-tip">画布底色:</span>
-                <el-dropdown trigger="click" @command="handleBgCommand">
-                    <span class="bg-picker-pill">
-                        <span class="bg-color-swatch" :style="{ backgroundColor: effectiveBgColor }"></span>
-                        <span class="bg-label">{{ bgModeLabel }}</span>
-                    </span>
-                    <template #dropdown>
-                        <el-dropdown-menu>
-                            <el-dropdown-item command="auto">
-                                <span class="swatch-mini auto-swatch"></span>
-                                跟随系统主题 ({{ isDark ? '暗黑' : '素白' }})
-                            </el-dropdown-item>
-                            <el-dropdown-item command="#080a10" divided>
-                                <span class="swatch-mini" style="background: #080a10;"></span>
-                                🌌 夜空极黑 (#080a10)
-                            </el-dropdown-item>
-                            <el-dropdown-item command="#1e293b">
-                                <span class="swatch-mini" style="background: #1e293b;"></span>
-                                📐 CAD 深灰 (#1e293b)
-                            </el-dropdown-item>
-                            <el-dropdown-item command="#ffffff">
-                                <span class="swatch-mini" style="background: #ffffff; border: 1px solid #ccc;"></span>
-                                📑 高雅素白 (#ffffff)
-                            </el-dropdown-item>
-                            <el-dropdown-item command="#f1f5f9">
-                                <span class="swatch-mini" style="background: #f1f5f9; border: 1px solid #ccc;"></span>
-                                🌫️ 工程浅灰 (#f1f5f9)
-                            </el-dropdown-item>
-                        </el-dropdown-menu>
-                    </template>
-                </el-dropdown>
-                <el-color-picker
-                    v-model="customBgColor"
-                    size="small"
-                    :predefine="['#080a10', '#1e293b', '#0f172a', '#ffffff', '#f1f5f9', '#e2e8f0']"
-                    @change="onCustomColorPick"
-                />
-            </div>
-
-            <span class="zoom-text">{{ Math.round(viewport.zoom * 100) }}%</span>
-            <el-button size="small" type="primary" plain @click="resetCamera">
-                视角复位
+            <el-button size="small" text class="edit-action-btn" :disabled="!canUndo" @click="emit('undo')">
+                撤销
             </el-button>
+            <el-button size="small" text class="edit-action-btn" :disabled="!canRedo" @click="emit('redo')">
+                重做
+            </el-button>
+
+            <span class="edit-divider"></span>
+
+            <span class="selection-count">{{ selectedCount }} 已选</span>
+            <el-button
+                size="small"
+                text
+                class="edit-action-btn"
+                :disabled="selectedCount === 0"
+                @click="assignSelectedToLayer"
+            >
+                移入当前图层
+            </el-button>
+            <el-button
+                size="small"
+                text
+                class="edit-action-btn edit-action-btn--danger"
+                :disabled="selectedCount === 0"
+                @click="deleteSelected"
+            >
+                删除
+            </el-button>
+        </div>
+
+        <!-- 画布控制带 -->
+        <div class="hud-top-right">
+            <div class="hud-toolbar">
+                <div class="hud-group">
+                    <span class="ctrl-label">点径</span>
+                    <el-radio-group v-model="dotScale" size="small" class="dot-size-group">
+                        <el-radio-button :value="0.5">细</el-radio-button>
+                        <el-radio-button :value="0.8">标准</el-radio-button>
+                        <el-radio-button :value="1.2">粗</el-radio-button>
+                    </el-radio-group>
+                </div>
+
+                <span class="hud-divider"></span>
+
+                <div class="hud-group hud-toggles">
+                    <el-tooltip content="点径不随画布缩放变化，保持屏幕针尖尺寸" placement="bottom" :show-after="300">
+                        <label class="toggle-chip" :class="{ 'is-off': !constantScreen }">
+                            <el-switch v-model="constantScreen" size="small" />
+                            <span>针尖</span>
+                        </label>
+                    </el-tooltip>
+                    <el-tooltip content="为点位叠加柔和的霓虹微光" placement="bottom" :show-after="300">
+                        <label class="toggle-chip" :class="{ 'is-off': !useGlow }">
+                            <el-switch v-model="useGlow" size="small" />
+                            <span>辉光</span>
+                        </label>
+                    </el-tooltip>
+                    <el-tooltip content="将间距不足的点位标记为高亮红色" placement="bottom" :show-after="300">
+                        <label class="toggle-chip" :class="{ 'is-off': !highlightDanger }">
+                            <el-switch v-model="highlightDanger" size="small" />
+                            <span>红标</span>
+                        </label>
+                    </el-tooltip>
+                </div>
+            </div>
+
+            <div class="hud-toolbar hud-toolbar--secondary">
+                <div class="hud-group">
+                    <span class="ctrl-label">画布</span>
+                    <el-dropdown trigger="click" @command="handleBgCommand">
+                        <span class="bg-picker-pill">
+                            <span class="bg-color-swatch" :style="{ backgroundColor: effectiveBgColor }"></span>
+                            <span class="bg-label">{{ bgModeLabel }}</span>
+                        </span>
+                        <template #dropdown>
+                            <el-dropdown-menu>
+                                <el-dropdown-item command="auto">
+                                    <span class="swatch-mini auto-swatch"></span>
+                                    跟随系统主题 ({{ isDark ? '暗黑' : '素白' }})
+                                </el-dropdown-item>
+                                <el-dropdown-item command="#080a10" divided>
+                                    <span class="swatch-mini" style="background: #080a10;"></span>
+                                    夜空极黑 (#080a10)
+                                </el-dropdown-item>
+                                <el-dropdown-item command="#1e293b">
+                                    <span class="swatch-mini" style="background: #1e293b;"></span>
+                                    CAD 深灰 (#1e293b)
+                                </el-dropdown-item>
+                                <el-dropdown-item command="#ffffff">
+                                    <span class="swatch-mini" style="background: #ffffff; border: 1px solid #ccc;"></span>
+                                    高雅素白 (#ffffff)
+                                </el-dropdown-item>
+                                <el-dropdown-item command="#f1f5f9">
+                                    <span class="swatch-mini" style="background: #f1f5f9; border: 1px solid #ccc;"></span>
+                                    工程浅灰 (#f1f5f9)
+                                </el-dropdown-item>
+                            </el-dropdown-menu>
+                        </template>
+                    </el-dropdown>
+                    <el-color-picker
+                        v-model="customBgColor"
+                        size="small"
+                        :predefine="['#080a10', '#1e293b', '#0f172a', '#ffffff', '#f1f5f9', '#e2e8f0']"
+                        @change="onCustomColorPick"
+                    />
+                </div>
+                <span class="hud-divider"></span>
+                <span class="zoom-text">{{ Math.round(viewport.zoom * 100) }}%</span>
+                <el-button size="small" class="reset-btn" @click="resetCamera">复位</el-button>
+            </div>
         </div>
 
         <!-- 悬浮操作提示 -->
         <div class="hud-guide-hint">
-            <span>💡 鼠标滚轮缩放 / 按住左键平移 / 选中点位实时调光 / 画布底色支持素白与暗黑一键切换</span>
+            <span class="hint-item"><kbd>左键框选</kbd>选择</span>
+            <span class="hint-item"><kbd>拖点</kbd>移动</span>
+            <span class="hint-item"><kbd>Shift</kbd>加选</span>
+            <span class="hint-item"><kbd>空格/中键</kbd>平移</span>
+            <span class="hint-item"><kbd>Ctrl+Z</kbd>撤销</span>
         </div>
     </div>
 </template>
@@ -119,7 +167,7 @@
 /**
  * 2D 创意点阵编辑器组件 (使用 Vue 3.5 useTemplateRef)
  */
-import { ref, computed, useTemplateRef, watch } from 'vue';
+import { ref, computed, useTemplateRef, watch, onMounted, onBeforeUnmount } from 'vue';
 import { usePixiEditor } from '../composables/usePixiEditor';
 import { useTheme } from '@/composables/useTheme';
 
@@ -132,9 +180,30 @@ const props = defineProps({
         type: Object, // Set<string|number>
         default: () => new Set(),
     },
+    lockedLayerIds: {
+        type: Array,
+        default: () => [],
+    },
+    canUndo: {
+        type: Boolean,
+        default: false,
+    },
+    canRedo: {
+        type: Boolean,
+        default: false,
+    },
 });
 
-const emit = defineEmits(['select-agent', 'auto-relax']);
+const emit = defineEmits([
+    'select-agent',
+    'auto-relax',
+    'move-agents',
+    'nudge-agents',
+    'delete-agents',
+    'assign-layer',
+    'undo',
+    'redo',
+]);
 
 // 获取全局系统黑白/暗黑主题状态
 const { isDark } = useTheme();
@@ -186,6 +255,12 @@ const containerRef = useTemplateRef('pixiContainer');
 // 挂载 Pixi 编辑器 Hook
 const {
     viewport,
+    isReady,
+    toolMode,
+    selectedIds,
+    setToolMode,
+    clearSelection,
+    selectAll,
     cursorWorldPos,
     selectedDroneId,
     setCanvasBackgroundColor,
@@ -194,7 +269,75 @@ const {
 } = usePixiEditor(containerRef, {
     initialBgColor: effectiveBgColor.value,
     onPointSelect: (agent) => emit('select-agent', agent),
+    onMoveCommit: (updates) => emit('move-agents', updates),
 });
+
+const selectedCount = computed(() => selectedIds.value.size);
+
+function assignSelectedToLayer() {
+    if (selectedIds.value.size === 0) return;
+    emit('assign-layer', [...selectedIds.value]);
+}
+
+function deleteSelected() {
+    if (selectedIds.value.size === 0) return;
+    emit('delete-agents', [...selectedIds.value]);
+    clearSelection();
+}
+
+function isTypingTarget(target) {
+    if (!target) return false;
+    const tag = target.tagName;
+    return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || target.isContentEditable;
+}
+
+function handleKeyboard(e) {
+    if (isTypingTarget(e.target)) return;
+    const modifier = e.ctrlKey || e.metaKey;
+    const key = String(e.key || '').toLowerCase();
+
+    if (modifier && key === 'z') {
+        e.preventDefault();
+        emit(e.shiftKey ? 'redo' : 'undo');
+        return;
+    }
+    if (modifier && key === 'y') {
+        e.preventDefault();
+        emit('redo');
+        return;
+    }
+    if (modifier && key === 'a') {
+        e.preventDefault();
+        selectAll();
+        return;
+    }
+    if (e.key === 'Escape') {
+        clearSelection();
+        return;
+    }
+    if (e.key === 'Delete' || e.key === 'Backspace') {
+        if (selectedIds.value.size > 0) {
+            e.preventDefault();
+            deleteSelected();
+        }
+        return;
+    }
+
+    const step = e.shiftKey ? 10 : 1;
+    const directions = {
+        ArrowLeft: { dx: -step, dy: 0 },
+        ArrowRight: { dx: step, dy: 0 },
+        ArrowUp: { dx: 0, dy: step },
+        ArrowDown: { dx: 0, dy: -step },
+    };
+    if (directions[e.key] && selectedIds.value.size > 0) {
+        e.preventDefault();
+        emit('nudge-agents', { ids: [...selectedIds.value], ...directions[e.key] });
+    }
+}
+
+onMounted(() => window.addEventListener('keydown', handleKeyboard));
+onBeforeUnmount(() => window.removeEventListener('keydown', handleKeyboard));
 
 // 响应底色变更（系统切换主题或用户手动选色）
 watch(effectiveBgColor, (newColor) => {
@@ -203,14 +346,24 @@ watch(effectiveBgColor, (newColor) => {
 
 // 监听无人机点位、危险集合、点径缩放、恒定屏幕尺寸、辉光及碰撞标红变化，热重绘点阵
 watch(
-    [() => props.agents, () => props.dangerIds, dotScale, useGlow, constantScreen, highlightDanger],
-    ([newAgents, dangerIds, scaleVal, glowVal, constScreen, dangerHigh]) => {
-        if (newAgents && newAgents.length) {
+    [
+        () => props.agents,
+        () => props.dangerIds,
+        () => props.lockedLayerIds,
+        dotScale,
+        useGlow,
+        constantScreen,
+        highlightDanger,
+        isReady,
+    ],
+    ([newAgents, dangerIds, lockedIds, scaleVal, glowVal, constScreen, dangerHigh, ready]) => {
+        if (ready && Array.isArray(newAgents)) {
             renderDroneAgents(newAgents, dangerIds, {
                 dotScale: scaleVal,
                 useGlow: glowVal,
                 constantScreen: constScreen,
                 highlightDanger: dangerHigh,
+                lockedIds: new Set(lockedIds),
             });
         }
     },
@@ -219,6 +372,8 @@ watch(
 
 defineExpose({
     resetCamera,
+    clearSelection,
+    selectAll,
 });
 </script>
 
@@ -228,7 +383,7 @@ defineExpose({
     width: 100%;
     height: 100%;
     overflow: hidden;
-    background-color: var(--el-bg-color-page);
+    background: #080a10;
     user-select: none;
 }
 
@@ -240,116 +395,347 @@ defineExpose({
 
 .hud-top-left {
     position: absolute;
-    top: 14px;
-    left: 14px;
+    top: 12px;
+    left: 12px;
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    align-items: flex-start;
+    gap: 8px;
+    max-width: 52%;
     pointer-events: none;
 }
 
-.hud-badge {
+.hud-edit-toolbar {
+    position: absolute;
+    bottom: 12px;
+    left: 50%;
+    z-index: 6;
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    height: 34px;
+    padding: 0 8px;
+    border-radius: 9px;
+    border: 1px solid rgba(148, 163, 184, 0.24);
+    background: rgba(15, 23, 42, 0.82);
+    box-shadow: 0 12px 28px -18px #000000;
+    backdrop-filter: blur(12px);
+    transform: translateX(-50%);
+    white-space: nowrap;
+}
+
+.edit-divider {
+    width: 1px;
+    height: 16px;
+    margin: 0 4px;
+    background: rgba(148, 163, 184, 0.24);
+}
+
+.selection-count {
+    min-width: 48px;
+    padding: 0 4px;
+    color: #67e8f9;
+    font-family: var(--app-font-family-mono, monospace);
+    font-size: 10px;
+    font-weight: 600;
+    text-align: center;
+}
+
+.edit-action-btn {
+    height: 24px;
+    padding: 0 6px;
+    color: #cbd5e1;
+    font-size: 11px;
+}
+
+.edit-action-btn:hover:not(.is-disabled) {
+    background: rgba(148, 163, 184, 0.16);
+    color: #ffffff;
+}
+
+.edit-action-btn--danger:hover:not(.is-disabled) {
+    color: #fca5a5;
+}
+
+.tool-mode-group :deep(.el-radio-button__inner) {
+    height: 24px;
+    padding: 0 9px;
+    border-color: rgba(148, 163, 184, 0.2);
+    background: rgba(148, 163, 184, 0.1);
+    color: #cbd5e1;
+    font-size: 11px;
+    line-height: 22px;
+    box-shadow: none;
+}
+
+.tool-mode-group :deep(.el-radio-button:first-child .el-radio-button__inner) {
+    border-radius: 5px 0 0 5px;
+}
+
+.tool-mode-group :deep(.el-radio-button:last-child .el-radio-button__inner) {
+    border-radius: 0 5px 5px 0;
+}
+
+.tool-mode-group :deep(.el-radio-button__original-radio:checked + .el-radio-button__inner) {
+    background: var(--el-color-primary);
+    border-color: var(--el-color-primary);
+    color: #ffffff;
+}
+
+.hud-status-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.hud-badge,
+.hud-coords {
     display: inline-flex;
     align-items: center;
+    height: 26px;
+    padding: 0 9px;
+    border-radius: 7px;
+    border: 1px solid rgba(148, 163, 184, 0.26);
+    background: rgba(15, 23, 42, 0.72);
+    backdrop-filter: blur(12px);
+    box-shadow: 0 10px 24px -18px #000000;
+}
+
+.hud-badge {
     gap: 6px;
-    background: var(--el-bg-color-overlay);
-    border: 1px solid var(--el-border-color);
-    padding: 3px 10px;
-    border-radius: 4px;
-    color: var(--el-color-primary);
-    font-size: 11px;
+    color: #67e8f9;
     font-family: var(--app-font-family-mono, monospace);
-    font-weight: 600;
-    backdrop-filter: blur(8px);
-    box-shadow: var(--el-box-shadow-light);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.55px;
+    white-space: nowrap;
 }
 
 .status-dot {
     width: 6px;
     height: 6px;
     border-radius: 50%;
-    background-color: var(--el-color-success);
-    box-shadow: 0 0 6px var(--el-color-success);
+    background: #34d399;
+    box-shadow: 0 0 8px #34d399;
     animation: pulse 2s infinite;
 }
 
 .hud-coords {
-    color: var(--el-text-color-secondary);
-    font-size: 12px;
+    color: #cbd5e1;
     font-family: var(--app-font-family-mono, monospace);
-    background: var(--el-bg-color-overlay);
-    border: 1px solid var(--el-border-color-lighter);
-    padding: 2px 8px;
-    border-radius: 4px;
-    box-shadow: var(--el-box-shadow-light);
+    font-size: 11px;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.hud-danger-pill,
+.hud-safe-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    height: 28px;
+    padding: 0 6px 0 9px;
+    border-radius: 8px;
+    font-size: 11px;
+    font-weight: 600;
+    white-space: nowrap;
+    backdrop-filter: blur(12px);
+    box-shadow: 0 10px 24px -18px #000000;
+}
+
+.hud-danger-pill {
+    color: #fecaca;
+    background: rgba(127, 29, 29, 0.66);
+    border: 1px solid rgba(248, 113, 113, 0.42);
+    pointer-events: auto;
+}
+
+.hud-safe-pill {
+    padding-right: 10px;
+    color: #a7f3d0;
+    background: rgba(6, 78, 59, 0.62);
+    border: 1px solid rgba(52, 211, 153, 0.38);
+}
+
+.pill-icon {
+    width: 15px;
+    height: 15px;
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background: rgba(248, 113, 113, 0.92);
+    color: #450a0a;
+    font-size: 10px;
+    font-weight: 800;
+    line-height: 1;
+}
+
+.pill-icon--safe {
+    background: rgba(52, 211, 153, 0.92);
+    color: #022c22;
+}
+
+.mini-relax-btn {
+    height: 20px;
+    padding: 0 8px;
+    border: none;
+    border-radius: 5px;
+    background: var(--el-color-danger);
+    color: #ffffff;
+    font-size: 10px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: filter 0.2s ease;
+}
+
+.mini-relax-btn:hover {
+    filter: brightness(1.12);
 }
 
 .hud-top-right {
     position: absolute;
-    top: 14px;
-    right: 14px;
+    top: 12px;
+    right: 12px;
+    z-index: 10;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 8px;
+    max-width: calc(100% - 24px);
+}
+
+.hud-toolbar {
     display: flex;
     align-items: center;
     gap: 10px;
-    background: var(--el-bg-color-overlay);
-    border: 1px solid var(--el-border-color);
-    padding: 5px 12px;
-    border-radius: 6px;
-    backdrop-filter: blur(8px);
-    box-shadow: var(--el-box-shadow-light);
-    z-index: 10;
+    padding: 5px 7px;
+    border-radius: 8px;
+    border: 1px solid rgba(148, 163, 184, 0.24);
+    background: rgba(15, 23, 42, 0.78);
+    backdrop-filter: blur(12px);
+    box-shadow: 0 12px 28px -20px #000000;
 }
 
-.hud-dot-controls {
+.hud-toolbar--secondary {
+    padding: 4px 7px;
+}
+
+.hud-group {
     display: flex;
     align-items: center;
     gap: 6px;
-    border-right: 1px solid var(--el-border-color-lighter);
-    padding-right: 10px;
-    margin-right: 4px;
 }
 
-.hud-bg-select {
-    display: flex;
+.ctrl-label {
+    font-size: 10px;
+    letter-spacing: 0.3px;
+    color: #94a3b8;
+    white-space: nowrap;
+}
+
+.hud-divider {
+    width: 1px;
+    height: 16px;
+    flex-shrink: 0;
+    background: rgba(148, 163, 184, 0.22);
+}
+
+.dot-size-group :deep(.el-radio-button__inner) {
+    height: 24px;
+    line-height: 22px;
+    padding: 0 9px;
+    border-color: rgba(148, 163, 184, 0.2);
+    background: rgba(148, 163, 184, 0.1);
+    color: #cbd5e1;
+    font-size: 11px;
+    box-shadow: none;
+}
+
+.dot-size-group :deep(.el-radio-button:first-child .el-radio-button__inner) {
+    border-radius: 5px 0 0 5px;
+}
+
+.dot-size-group :deep(.el-radio-button:last-child .el-radio-button__inner) {
+    border-radius: 0 5px 5px 0;
+}
+
+.dot-size-group :deep(.el-radio-button__original-radio:checked + .el-radio-button__inner) {
+    background: var(--el-color-primary);
+    border-color: var(--el-color-primary);
+    color: #ffffff;
+    box-shadow: 0 4px 10px -6px var(--el-color-primary);
+}
+
+.hud-toggles {
+    gap: 10px;
+}
+
+.toggle-chip {
+    display: inline-flex;
     align-items: center;
-    gap: 6px;
-    border-right: 1px solid var(--el-border-color-lighter);
-    padding-right: 10px;
-    margin-right: 4px;
+    gap: 5px;
+    color: #cbd5e1;
+    font-size: 11px;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: color 0.2s ease;
+}
+
+.toggle-chip.is-off {
+    color: #64748b;
 }
 
 .bg-picker-pill {
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    padding: 2px 8px;
-    border-radius: 4px;
-    border: 1px solid var(--el-border-color);
-    background: var(--el-fill-color-light);
-    cursor: pointer;
+    height: 24px;
+    padding: 0 7px;
+    border-radius: 6px;
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    background: rgba(148, 163, 184, 0.1);
+    color: #e2e8f0;
     font-size: 11px;
-    color: var(--el-text-color-primary);
-    transition: all 0.2s ease;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: background-color 0.2s ease, border-color 0.2s ease;
 }
 
 .bg-picker-pill:hover {
-    border-color: var(--el-color-primary);
+    border-color: rgba(103, 232, 249, 0.55);
+    background: rgba(148, 163, 184, 0.16);
+}
+
+.hud-toolbar :deep(.el-color-picker__trigger) {
+    width: 24px;
+    height: 24px;
+    padding: 2px;
+    border-radius: 5px;
+    border-color: rgba(148, 163, 184, 0.22);
+    background: rgba(148, 163, 184, 0.1);
+}
+
+.hud-toolbar :deep(.el-color-picker__color) {
+    border: none;
+    border-radius: 3px;
 }
 
 .bg-color-swatch {
     width: 12px;
     height: 12px;
     border-radius: 3px;
-    border: 1px solid var(--el-border-color);
-    box-shadow: 0 0 2px rgba(0, 0, 0, 0.15);
+    border: 1px solid rgba(255, 255, 255, 0.35);
+    box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.2);
 }
 
 .swatch-mini {
     display: inline-block;
     width: 12px;
     height: 12px;
-    border-radius: 3px;
     margin-right: 8px;
+    border-radius: 3px;
     vertical-align: middle;
 }
 
@@ -358,74 +744,90 @@ defineExpose({
     border: 1px solid var(--el-border-color);
 }
 
-.ctrl-tip {
+.zoom-text {
+    min-width: 36px;
+    color: #67e8f9;
+    font-family: var(--app-font-family-mono, monospace);
     font-size: 11px;
-    color: var(--el-text-color-secondary);
+    font-weight: 600;
+    text-align: right;
 }
 
-.zoom-text {
-    font-size: 12px;
-    font-family: var(--app-font-family-mono, monospace);
-    color: var(--el-text-color-primary);
-    font-weight: 600;
+.reset-btn {
+    height: 24px;
+    padding: 0 8px;
+    border-radius: 6px;
+    border-color: rgba(148, 163, 184, 0.22);
+    background: rgba(148, 163, 184, 0.12);
+    color: #e2e8f0;
+    font-size: 11px;
+}
+
+.reset-btn:hover {
+    border-color: var(--el-color-primary);
+    background: var(--el-color-primary);
+    color: #ffffff;
 }
 
 .hud-guide-hint {
     position: absolute;
-    bottom: 14px;
-    left: 14px;
-    color: var(--el-text-color-placeholder);
-    font-size: 12px;
+    bottom: 12px;
+    left: 12px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    height: 26px;
+    padding: 0 9px;
+    border-radius: 7px;
+    border: 1px solid rgba(148, 163, 184, 0.18);
+    background: rgba(15, 23, 42, 0.62);
+    color: #94a3b8;
+    font-size: 10px;
+    backdrop-filter: blur(10px);
     pointer-events: none;
 }
 
-.hud-danger-pill {
+.hint-item {
     display: inline-flex;
     align-items: center;
-    gap: 8px;
-    background: var(--el-color-danger-light-9);
-    border: 1px solid var(--el-color-danger-light-5);
-    padding: 3px 10px;
+    gap: 5px;
+    white-space: nowrap;
+}
+
+.hud-guide-hint kbd {
+    padding: 1px 5px;
     border-radius: 4px;
-    color: var(--el-color-danger);
-    font-size: 11px;
-    font-weight: 600;
-    backdrop-filter: blur(8px);
-    pointer-events: auto;
-}
-
-.mini-relax-btn {
-    background: var(--el-color-danger);
-    color: #ffffff;
-    border: none;
-    border-radius: 3px;
-    padding: 2px 6px;
-    font-size: 10px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: background 0.2s;
-}
-
-.mini-relax-btn:hover {
-    background: var(--el-color-danger-dark-2);
-}
-
-.hud-safe-pill {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    background: var(--el-color-success-light-9);
-    border: 1px solid var(--el-color-success-light-5);
-    padding: 3px 10px;
-    border-radius: 4px;
-    color: var(--el-color-success);
-    font-size: 11px;
-    font-weight: 600;
-    backdrop-filter: blur(8px);
+    border: 1px solid rgba(148, 163, 184, 0.25);
+    background: rgba(148, 163, 184, 0.18);
+    color: #cbd5e1;
+    font-family: var(--app-font-family-mono, monospace);
+    font-size: 9px;
 }
 
 @keyframes pulse {
     0%, 100% { opacity: 1; transform: scale(1); }
     50% { opacity: 0.4; transform: scale(0.85); }
+}
+
+@media (max-width: 900px) {
+    .hud-toolbar {
+        flex-wrap: wrap;
+        justify-content: flex-end;
+    }
+
+    .hud-guide-hint {
+        display: none;
+    }
+}
+
+@media (max-width: 1100px) {
+    .hud-guide-hint {
+        display: none;
+    }
+
+    .hud-edit-toolbar {
+        max-width: calc(100% - 24px);
+        overflow-x: auto;
+    }
 }
 </style>

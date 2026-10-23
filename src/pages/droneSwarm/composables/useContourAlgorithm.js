@@ -1,47 +1,70 @@
 /**
  * ========================================================================
  * 文件名称: useContourAlgorithm.js
- * 所属模块: 无人机集群编队系统 - 图像算法与离散化几何引擎
+ * 所属模块: 无人机集群编队系统 - 图像离散化与几何构型引擎
  * 功能说明:
- *   纯前端自主研发、零第三方大包（拒绝 15MB+ OpenCV.js）：
- *   1. 像素灰度化 (Grayscale) 与直方图统计；
- *   2. OTSU (大津法) 自适应全局最佳阈值二值化；
- *   3. 边缘轮廓多边形提取 (Radial Contour Tracing)；
- *   4. 累积弧长参数化等距重采样 (Arc-length Resampling)：
- *      - 严格保证不多不少生成指定 N 架（如 800 / 1600 架）间距相等的无人机物理点位；
- *   5. 内置纯数学高精度几何构型生成器 (爱心、五角星、太阳神鸟、文字)。
+ *   1. OTSU 自适应二值化；
+ *   2. Moore-Neighbor 有序轮廓追踪 + 全局弧长配额采样；
+ *   3. 确定性几何基元生成（爱心 / 星芒 / 星系 / 同心环）；
+ *   4. 同参数、同输入必得同一点阵，点数严格等于目标架数。
  * ========================================================================
  */
+
+import {
+    dedupePoints,
+    hashString,
+    relaxClosePoints,
+    resampleChainsExact,
+    roundTo,
+    sampleCurvesExact,
+    selectEvenly,
+    traceContours,
+} from './swarmGeometry.js';
+
+const GOLDEN_ANGLE = Math.PI * (3 - Math.sqrt(5));
+
+function ensureExactCount(points, targetCount) {
+    const target = Math.max(0, Math.floor(targetCount));
+    const unique = dedupePoints(points, 4);
+    if (unique.length >= target) return unique.slice(0, target);
+
+    const result = unique.slice();
+    let round = 1;
+    while (result.length < target && unique.length > 0) {
+        const base = unique[result.length % unique.length];
+        const angle = GOLDEN_ANGLE * result.length + round;
+        const radius = 0.01 * round;
+        result.push({
+            ...base,
+            x: base.x + Math.cos(angle) * radius,
+            y: base.y + Math.sin(angle) * radius,
+        });
+        if (result.length % unique.length === 0) round++;
+    }
+    return result;
+}
 
 export function useContourAlgorithm() {
     /**
      * OTSU 算法计算自适应最佳二值化阈值
-     * @param {Uint8ClampedArray} data 图像 RGBA 像素数组
-     * @param {number} width
-     * @param {number} height
-     * @returns {number} 最佳二值化阈值 (0~255)
      */
     function computeOtsuThreshold(data, width, height) {
         const totalPixels = width * height;
         const histogram = new Int32Array(256);
 
-        // 1. 统计灰度直方图
         for (let i = 0; i < data.length; i += 4) {
             const gray = Math.round(0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2]);
             histogram[gray]++;
         }
 
         let sumAll = 0;
-        for (let t = 0; t < 256; t++) {
-            sumAll += t * histogram[t];
-        }
+        for (let t = 0; t < 256; t++) sumAll += t * histogram[t];
 
         let sumBackground = 0;
         let weightBackground = 0;
         let maxVariance = 0;
         let optimalThreshold = 128;
 
-        // 2. 遍历阈值寻找最大类间方差
         for (let t = 0; t < 256; t++) {
             weightBackground += histogram[t];
             if (weightBackground === 0) continue;
@@ -52,8 +75,6 @@ export function useContourAlgorithm() {
             sumBackground += t * histogram[t];
             const meanBackground = sumBackground / weightBackground;
             const meanForeground = (sumAll - sumBackground) / weightForeground;
-
-            // 类间方差公式: w0 * w1 * (u0 - u1)^2
             const variance = weightBackground * weightForeground * Math.pow(meanBackground - meanForeground, 2);
 
             if (variance > maxVariance) {
@@ -66,23 +87,17 @@ export function useContourAlgorithm() {
     }
 
     /**
-     * 从上传的图片中提取指定架数的边缘轮廓点位
-     * @param {HTMLImageElement | ImageBitmap} img
-     * @param {number} targetCount 目标无人机架数 (如 800)
-     * @param {Object} options
-     * @returns {Promise<Array<{x: number, y: number, color: string}>>}
+     * 从上传图片提取有序轮廓点位。点数严格 = targetCount。
      */
     async function extractPointsFromImage(img, targetCount = 800, options = {}) {
         const { fitWidth = 600, fitHeight = 600, invert = false, thresholdOffset = 0 } = options;
 
-        // 离屏 Canvas 进行图像处理
         const canvas = document.createElement('canvas');
         canvas.width = fitWidth;
         canvas.height = fitHeight;
         const ctx = canvas.getContext('2d', { willReadFrequently: true });
         if (!ctx) return [];
 
-        // 居中自适应绘制
         const scale = Math.min(fitWidth / img.width, fitHeight / img.height);
         const drawW = img.width * scale;
         const drawH = img.height * scale;
@@ -93,162 +108,184 @@ export function useContourAlgorithm() {
         ctx.fillRect(0, 0, fitWidth, fitHeight);
         ctx.drawImage(img, offsetX, offsetY, drawW, drawH);
 
-        const imgData = ctx.getImageData(0, 0, fitWidth, fitHeight);
-        const { data } = imgData;
-
-        // OTSU 动态阈值
+        const { data } = ctx.getImageData(0, 0, fitWidth, fitHeight);
         const baseThreshold = computeOtsuThreshold(data, fitWidth, fitHeight);
         const threshold = Math.min(255, Math.max(0, baseThreshold + thresholdOffset));
 
-        // 提取边缘候选点 (边缘扫描)
-        const edgeCandidates = [];
-        for (let y = 1; y < fitHeight - 1; y += 2) {
-            for (let x = 1; x < fitWidth - 1; x += 2) {
+        // 先建立完整二值网格，再交给 Moore 邻域追踪，避免隔行扫描造成断链。
+        const binary = new Uint8Array(fitWidth * fitHeight);
+        for (let y = 0; y < fitHeight; y++) {
+            for (let x = 0; x < fitWidth; x++) {
                 const idx = (y * fitWidth + x) * 4;
                 const gray = 0.299 * data[idx] + 0.587 * data[idx + 1] + 0.114 * data[idx + 2];
                 const isForeground = invert ? gray > threshold : gray < threshold;
-
-                if (isForeground) {
-                    // 检查 4-邻域是否存在背景像素，若是则判定为轮廓边缘
-                    const idxRight = (y * fitWidth + (x + 1)) * 4;
-                    const idxDown = ((y + 1) * fitWidth + x) * 4;
-                    const grayRight = 0.299 * data[idxRight] + 0.587 * data[idxRight + 1] + 0.114 * data[idxRight + 2];
-                    const grayDown = 0.299 * data[idxDown] + 0.587 * data[idxDown + 1] + 0.114 * data[idxDown + 2];
-                    const isRightFore = invert ? grayRight > threshold : grayRight < threshold;
-                    const isDownFore = invert ? grayDown > threshold : grayDown < threshold;
-
-                    if (!isRightFore || !isDownFore) {
-                        edgeCandidates.push({
-                            x: x - fitWidth / 2,
-                            y: -(y - fitHeight / 2), // 转换为中心原点、向上为正的笛卡尔坐标
-                            color: `rgb(${data[idx]}, ${data[idx + 1]}, ${data[idx + 2]})`,
-                        });
-                    }
-                }
+                binary[y * fitWidth + x] = isForeground ? 1 : 0;
             }
         }
 
-        if (edgeCandidates.length === 0) {
+        const chains = traceContours(binary, fitWidth, fitHeight, { minLength: 4, maxChains: 512 });
+        if (chains.length === 0) {
             return generatePresetPattern('heart', targetCount);
         }
 
-        // 累积弧长采样与均质布点
-        return resampleToTargetCount(edgeCandidates, targetCount);
+        const sampled = resampleChainsExact(chains, targetCount);
+        const points = sampled.map((point, index) => ({
+            id: `uav_${index + 1}`,
+            x: roundTo(point.x - fitWidth / 2, 2),
+            y: roundTo(-(point.y - fitHeight / 2), 2),
+            z: 0,
+            color: `rgb(${data[(Math.round(point.y) * fitWidth + Math.round(point.x)) * 4]}, ${data[(Math.round(point.y) * fitWidth + Math.round(point.x)) * 4 + 1]}, ${data[(Math.round(point.y) * fitWidth + Math.round(point.x)) * 4 + 2]})`,
+        }));
+
+        return ensureExactCount(points, targetCount);
     }
 
     /**
-     * 均质重采样：将任意离散点集重采样到严格的 targetCount 架
+     * 确定性重采样。降采样保持原始点位顺序；升采样围绕局部点位做固定黄金角展开。
      */
     function resampleToTargetCount(points, targetCount) {
-        if (!points || points.length === 0) return [];
-        if (points.length === targetCount) return points;
-
-        const result = [];
-        if (points.length > targetCount) {
-            // 降采样：等间隔步进抽取
-            const step = points.length / targetCount;
-            for (let i = 0; i < targetCount; i++) {
-                const idx = Math.floor(i * step);
-                const base = points[idx];
-                result.push({
-                    ...base,
-                    id: `uav_${i + 1}`,
-                });
-            }
-        } else {
-            // 升采样：循环插值补全并加轻微空间微扰
-            for (let i = 0; i < targetCount; i++) {
-                const base = points[i % points.length];
-                const jitter = (Math.random() - 0.5) * 1.5;
-                result.push({
-                    ...base,
-                    x: Math.round((base.x + jitter) * 10) / 10,
-                    y: Math.round((base.y + jitter) * 10) / 10,
-                    z: base.z || 0,
-                    color: base.color || '#00f2fe',
-                    id: `uav_${i + 1}`,
-                });
-            }
+        const target = Math.max(0, Math.floor(targetCount));
+        const clean = dedupePoints(points || [], 4);
+        if (target === 0 || clean.length === 0) return [];
+        if (clean.length === target) {
+            return clean.map((point, index) => ({ ...point, id: `uav_${index + 1}` }));
         }
-        return result;
+
+        if (clean.length > target) {
+            return selectEvenly(clean, target).map((point, index) => ({
+                ...point,
+                id: `uav_${index + 1}`,
+            }));
+        }
+
+        let minX = Infinity;
+        let maxX = -Infinity;
+        let minY = Infinity;
+        let maxY = -Infinity;
+        for (const point of clean) {
+            if (point.x < minX) minX = point.x;
+            if (point.x > maxX) maxX = point.x;
+            if (point.y < minY) minY = point.y;
+            if (point.y > maxY) maxY = point.y;
+        }
+        const area = Math.max(1, (maxX - minX) * (maxY - minY));
+        const localRadius = Math.max(0.05, Math.sqrt(area / clean.length) * 0.12);
+
+        const baseCopies = Math.floor(target / clean.length);
+        const extra = target % clean.length;
+        const expanded = [];
+
+        clean.forEach((point, pointIndex) => {
+            const copies = baseCopies + (pointIndex < extra ? 1 : 0);
+            for (let copy = 0; copy < copies; copy++) {
+                if (copy === 0) {
+                    expanded.push({ ...point });
+                    continue;
+                }
+                const angle = GOLDEN_ANGLE * copy + (hashString(`${point.x}:${point.y}`) % 360) * (Math.PI / 180);
+                const radius = localRadius * (0.35 + 0.2 * (copy - 1));
+                expanded.push({
+                    ...point,
+                    x: roundTo(point.x + Math.cos(angle) * radius, 2),
+                    y: roundTo(point.y + Math.sin(angle) * radius, 2),
+                });
+            }
+        });
+
+        const separated = relaxClosePoints(expanded, 1.55, 24).points;
+        return ensureExactCount(separated, target).map((point, index) => ({
+            ...point,
+            id: `uav_${index + 1}`,
+            color: point.color || '#00f2fe',
+            z: point.z || 0,
+        }));
     }
 
     /**
-     * 数学几何母题预设生成器 (爱心、祥龙星系、五角星、文字)
-     * @param {'heart' | 'star' | 'rings' | 'galaxy'} type
-     * @param {number} count 架数
-     * @returns {Array<{x: number, y: number, z: number, color: string, id: number}>}
+     * 数学几何母题预设生成器。多环/多臂 + 全局弧长配额，点数严格 = count。
      */
     function generatePresetPattern(type = 'heart', count = 800) {
-        const points = [];
+        const target = Math.max(1, Math.floor(count));
+        const curves = [];
         const scale = 14;
 
+        const bandCount = target <= 400 ? 2 : target <= 800 ? 3 : target <= 1600 ? 5 : 8;
+
         if (type === 'heart') {
-            // 经典笛卡尔心形线: x = 16sin^3(t), y = 13cos(t) - 5cos(2t) - 2cos(3t) - cos(4t)
-            for (let i = 0; i < count; i++) {
-                const t = (i / count) * Math.PI * 2;
-                const r = 0.85 + Math.random() * 0.15; // 赋予一定厚度羽化
-                const x = 16 * Math.pow(Math.sin(t), 3) * scale * r;
-                const y = (13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t)) * scale * r;
-                points.push({
-                    id: i,
-                    x: Math.round(x * 10) / 10,
-                    y: Math.round(y * 10) / 10,
-                    z: (Math.random() - 0.5) * 8, // 赋予轻微 3D 厚度
-                    color: i % 2 === 0 ? '#ff2d55' : '#ff7597', // 浪漫粉红霓虹
+            for (let band = 0; band < bandCount; band++) {
+                const bandScale = 1 - band * (0.3 / Math.max(1, bandCount - 1));
+                const points = [];
+                for (let i = 0; i < 2048; i++) {
+                    const t = (i / 2048) * Math.PI * 2;
+                    const x = 16 * Math.pow(Math.sin(t), 3) * scale * bandScale;
+                    const y =
+                        (13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t)) *
+                        scale *
+                        bandScale;
+                    points.push({ x, y });
+                }
+                curves.push({
+                    points,
+                    closed: true,
+                    color: band % 2 === 0 ? '#ff2d55' : '#ff7597',
                 });
             }
         } else if (type === 'star') {
-            // 五角星参数曲线
-            for (let i = 0; i < count; i++) {
-                const t = (i / count) * Math.PI * 2;
-                const rBase = 180;
-                // 五角调制
-                const r = (rBase + Math.sin(t * 5) * 70) * (0.9 + Math.random() * 0.1);
-                const x = r * Math.cos(t);
-                const y = r * Math.sin(t);
-                points.push({
-                    id: i,
-                    x: Math.round(x * 10) / 10,
-                    y: Math.round(y * 10) / 10,
-                    z: (Math.random() - 0.5) * 6,
-                    color: '#ffcc00', // 璀璨黄金星芒
-                });
+            for (let band = 0; band < bandCount; band++) {
+                const bandScale = 1 - band * (0.28 / Math.max(1, bandCount - 1));
+                const points = [];
+                for (let i = 0; i < 2048; i++) {
+                    const t = (i / 2048) * Math.PI * 2;
+                    const radius = (180 + Math.sin(t * 5) * 70) * bandScale;
+                    points.push({ x: Math.cos(t) * radius, y: Math.sin(t) * radius });
+                }
+                curves.push({ points, closed: true, color: '#ffcc00' });
             }
         } else if (type === 'galaxy') {
-            // 祥龙旋转双螺旋星系
             const arms = 3;
-            for (let i = 0; i < count; i++) {
-                const arm = i % arms;
-                const distance = Math.pow(Math.random(), 0.5) * 260;
-                const angle = (i / count) * Math.PI * 6 + (arm * 2 * Math.PI) / arms;
-                const x = Math.cos(angle) * distance;
-                const y = Math.sin(angle) * distance;
-                points.push({
-                    id: i,
-                    x: Math.round(x * 10) / 10,
-                    y: Math.round(y * 10) / 10,
-                    z: (Math.random() - 0.5) * 20,
-                    color: arm === 0 ? '#00f2fe' : arm === 1 ? '#4facfe' : '#00c6ff',
-                });
+            const tracks = 2;
+            for (let arm = 0; arm < arms; arm++) {
+                for (let track = 0; track < tracks; track++) {
+                    const points = [];
+                    const pointsPerArm = 900;
+                    const angleOffset = (arm * Math.PI * 2) / arms + track * 0.16;
+                    for (let i = 0; i < pointsPerArm; i++) {
+                        const t = i / (pointsPerArm - 1);
+                        const angle = t * Math.PI * 4.2 + angleOffset;
+                        const radius = 24 + t * 238 - track * 10;
+                        points.push({ x: Math.cos(angle) * radius, y: Math.sin(angle) * radius });
+                    }
+                    curves.push({
+                        points,
+                        closed: false,
+                        color: arm === 0 ? '#00f2fe' : arm === 1 ? '#4facfe' : '#00c6ff',
+                    });
+                }
             }
         } else {
-            // 圆环同心圆
-            for (let i = 0; i < count; i++) {
-                const ringIndex = i % 3;
-                const radius = 80 + ringIndex * 70;
-                const t = (i / count) * Math.PI * 2 * 3;
-                points.push({
-                    id: i,
-                    x: Math.round(Math.cos(t) * radius * 10) / 10,
-                    y: Math.round(Math.sin(t) * radius * 10) / 10,
-                    z: 0,
-                    color: '#00ffcc',
-                });
+            const ringCount = Math.max(3, Math.min(8, Math.round(target / 350)));
+            for (let ring = 0; ring < ringCount; ring++) {
+                const radius = 80 + (ring * 180) / Math.max(1, ringCount - 1);
+                const points = [];
+                for (let i = 0; i < 1024; i++) {
+                    const t = (i / 1024) * Math.PI * 2;
+                    points.push({ x: Math.cos(t) * radius, y: Math.sin(t) * radius });
+                }
+                curves.push({ points, closed: true, color: '#00ffcc' });
             }
         }
 
-        return points;
+        const sampled = sampleCurvesExact(curves, target);
+        const separated = relaxClosePoints(sampled, 1.55, 40).points;
+        const exact = ensureExactCount(separated, target);
+
+        return exact.map((point, index) => ({
+            id: `uav_${index + 1}`,
+            x: roundTo(point.x, 2),
+            y: roundTo(point.y, 2),
+            z: type === 'galaxy' ? roundTo(Math.sin(index * 0.017) * 10, 2) : 0,
+            color: point.color || '#00f2fe',
+        }));
     }
 
     return {

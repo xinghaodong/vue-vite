@@ -250,11 +250,11 @@
                         <div class="safety-header">
                             <span class="safety-icon">{{ safetyReport.isSafe ? '🛡️' : '⚠️' }}</span>
                             <span class="safety-status">
-                                {{ safetyReport.isSafe ? '1.5m 碰撞安全校验通过' : `发现 ${safetyReport.dangerCount} 处过近违规` }}
+                                {{ safetyReport.isSafe ? '1.5m 设计态间距校验通过' : `发现 ${safetyReport.dangerCount} 处过近点位` }}
                             </span>
                         </div>
                         <div class="safety-detail">
-                            当前无人机最小测得物理间距: <strong>{{ safetyReport.minDist }}m</strong> (安全基准 ≥ 1.5m)
+                            当前无人机最小设计间距: <strong>{{ safetyReport.minDist }}m</strong> (校验基准 ≥ 1.5m)
                         </div>
                         <el-button
                             v-if="!safetyReport.isSafe"
@@ -329,7 +329,7 @@ const canvasRef = useTemplateRef('mainCanvas');
 
 // 算法 Hooks
 const { preprocessImage, generateIntermediateImage, generateMotifFromIntermediate } = useImageProcessor();
-const { checkSafety, autoRelaxCollisions } = useSpatialGrid();
+const { checkSafety, relaxCollisions } = useSpatialGrid();
 
 // 弹窗状态
 const visible = ref(false);
@@ -456,7 +456,7 @@ function triggerMotifGenerate() {
     );
     generatedAgents.value = agents;
 
-    // 进行 1.5m 碰撞安全校验
+    // 进行 1.5m 设计态间距校验
     evaluateSafety(agents);
 
     // 在右侧视口渲染无人机发光点位
@@ -486,11 +486,19 @@ function evaluateSafety(agents) {
  */
 function handleAutoRelax() {
     if (!generatedAgents.value.length) return;
-    const relaxed = autoRelaxCollisions(generatedAgents.value, 1.5, 20);
-    generatedAgents.value = relaxed;
-    evaluateSafety(relaxed);
-    renderAgentsToViewport(relaxed);
-    ElMessage.success('已完成物理力导向平滑疏散，所有点位达到安全基准！');
+    const result = relaxCollisions(generatedAgents.value, 1.5, 80);
+    generatedAgents.value = result.agents;
+    evaluateSafety(result.agents);
+    renderAgentsToViewport(result.agents);
+    if (result.report.isSafe) {
+        ElMessage.success(
+            `疏散完成：最小间距 ${result.report.minObservedDistance.toFixed(2)}m（阈值 1.5m）`
+        );
+    } else {
+        ElMessage.warning(
+            `疏散后仍有 ${result.report.collisionCount} 对过近点位，最小间距 ${result.report.minObservedDistance.toFixed(2)}m。请增大编队跨度或减少架数。`
+        );
+    }
 }
 
 /**

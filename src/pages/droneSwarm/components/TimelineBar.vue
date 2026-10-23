@@ -50,17 +50,11 @@
             </button>
         </div>
 
-        <!-- 右侧快速分镜操作 -->
-        <div class="track-actions">
-            <el-button size="small" type="success" plain @click="$emit('export-sdf')">
-                导出 SDF 数据
-            </el-button>
-        </div>
     </div>
 </template>
 
 <script setup>
-import { ref, computed } from 'vue';
+import { ref, computed, watch, onBeforeUnmount } from 'vue';
 
 const props = defineProps({
     scenes: {
@@ -78,6 +72,9 @@ const emit = defineEmits(['select-scene', 'add-scene', 'export-sdf']);
 const isPlaying = ref(false);
 const currentTime = ref(0);
 let timer = null;
+let playbackStartedAt = 0;
+let playbackStartTime = 0;
+let lastSceneIndex = 0;
 
 const totalDuration = computed(() => {
     return props.scenes.reduce((acc, cur) => acc + (cur.duration || 5) + (cur.transitionTime || 3), 0);
@@ -94,22 +91,38 @@ function togglePlay() {
 
 function startPlayLoop() {
     stopPlayLoop();
-    let currentIdx = props.activeSceneIndex;
+    playbackStartTime = currentTime.value;
+    playbackStartedAt = performance.now();
+    lastSceneIndex = props.activeSceneIndex;
+
     timer = setInterval(() => {
-        currentTime.value += 1;
-        if (currentTime.value >= totalDuration.value) {
+        const elapsed = playbackStartTime + (performance.now() - playbackStartedAt) / 1000;
+        if (elapsed >= totalDuration.value) {
+            playbackStartTime = 0;
+            playbackStartedAt = performance.now();
             currentTime.value = 0;
-            currentIdx = 0;
-            emit('select-scene', currentIdx);
-            return;
+            lastSceneIndex = -1;
+        } else {
+            currentTime.value = elapsed;
         }
 
-        // 简易分镜时间递进
-        if (currentTime.value % 6 === 0) {
-            currentIdx = (currentIdx + 1) % props.scenes.length;
-            emit('select-scene', currentIdx);
+        const sceneIndex = resolveSceneIndex(currentTime.value);
+        if (sceneIndex !== lastSceneIndex) {
+            lastSceneIndex = sceneIndex;
+            emit('select-scene', sceneIndex);
         }
-    }, 1000);
+    }, 100);
+}
+
+function resolveSceneIndex(time) {
+    let accumulated = 0;
+    for (let i = 0; i < props.scenes.length; i++) {
+        const scene = props.scenes[i];
+        const sceneSpan = (scene.duration || 5) + (scene.transitionTime || 3);
+        if (time < accumulated + sceneSpan) return i;
+        accumulated += sceneSpan;
+    }
+    return Math.max(0, props.scenes.length - 1);
 }
 
 function stopPlayLoop() {
@@ -118,6 +131,27 @@ function stopPlayLoop() {
         timer = null;
     }
 }
+
+watch(
+    () => props.activeSceneIndex,
+    (index) => {
+        if (isPlaying.value) return;
+        let accumulated = 0;
+        for (let i = 0; i < index && i < props.scenes.length; i++) {
+            accumulated += (props.scenes[i].duration || 5) + (props.scenes[i].transitionTime || 3);
+        }
+        currentTime.value = accumulated;
+    }
+);
+
+watch(
+    () => props.scenes.length,
+    () => {
+        if (currentTime.value > totalDuration.value) currentTime.value = 0;
+    }
+);
+
+onBeforeUnmount(stopPlayLoop);
 
 function formatTime(seconds) {
     const mins = Math.floor(seconds / 60);
@@ -128,13 +162,17 @@ function formatTime(seconds) {
 
 <style scoped>
 .timeline-bar-container {
-    height: 64px;
+    flex: 0 0 68px;
+    height: 68px;
+    margin: 12px 0 0;
     background: var(--el-bg-color);
-    border-top: 1px solid var(--el-border-color-lighter);
+    border: 1px solid var(--el-border-color-lighter);
+    border-radius: 12px;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 16px 32px -24px rgba(15, 23, 42, 0.5);
     display: flex;
     align-items: center;
-    padding: 0 16px;
-    gap: 16px;
+    padding: 0 14px;
+    gap: 14px;
     user-select: none;
     transition: background-color 0.3s ease, border-color 0.3s ease;
 }
@@ -142,13 +180,24 @@ function formatTime(seconds) {
 .playback-controls {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 10px;
+    flex-shrink: 0;
+}
+
+.playback-controls :deep(.el-button.is-circle) {
+    width: 34px;
+    height: 34px;
+    box-shadow: 0 6px 14px -8px var(--el-color-primary);
 }
 
 .time-display {
     font-family: var(--app-font-family-mono, monospace);
-    font-size: 13px;
+    font-size: 12px;
     color: var(--el-text-color-secondary);
+    padding: 3px 8px;
+    border-radius: 6px;
+    background: var(--el-fill-color-lighter);
+    white-space: nowrap;
 }
 
 .current-time {
@@ -163,23 +212,35 @@ function formatTime(seconds) {
 
 .scenes-track {
     flex: 1;
+    min-width: 0;
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 8px;
     overflow-x: auto;
-    padding: 4px 0;
+    padding: 4px 2px;
+    scrollbar-width: thin;
+    scrollbar-color: var(--el-border-color) transparent;
+}
+
+.scenes-track::-webkit-scrollbar {
+    height: 4px;
+}
+
+.scenes-track::-webkit-scrollbar-thumb {
+    border-radius: 999px;
+    background: var(--el-border-color);
 }
 
 .scene-capsule {
     display: flex;
     align-items: center;
     gap: 8px;
-    background: var(--el-fill-color-light);
+    background: var(--el-fill-color-lighter);
     border: 1px solid var(--el-border-color-lighter);
-    border-radius: 8px;
-    padding: 6px 12px;
+    border-radius: 10px;
+    padding: 7px 12px;
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: border-color 0.2s ease, background-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
     position: relative;
     white-space: nowrap;
 }
@@ -190,9 +251,9 @@ function formatTime(seconds) {
 }
 
 .scene-capsule.is-active {
-    background: var(--el-color-primary-light-9);
+    background: linear-gradient(180deg, var(--el-color-primary-light-9), var(--el-fill-color-blank));
     border-color: var(--el-color-primary);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    box-shadow: 0 8px 18px -14px var(--el-color-primary), inset 0 0 0 1px var(--el-color-primary-light-8);
 }
 
 .capsule-icon {
@@ -218,23 +279,23 @@ function formatTime(seconds) {
 
 .active-indicator {
     position: absolute;
-    bottom: -1px;
-    left: 20%;
-    right: 20%;
+    left: 12px;
+    right: 12px;
+    bottom: 0;
     height: 2px;
     background: var(--el-color-primary);
-    border-radius: 999px;
+    border-radius: 999px 999px 0 0;
     box-shadow: 0 0 6px var(--el-color-primary);
 }
 
 .add-scene-btn {
     display: flex;
     align-items: center;
-    gap: 4px;
+    gap: 5px;
     background: transparent;
-    border: 1px dashed var(--el-border-color);
-    border-radius: 8px;
-    padding: 8px 12px;
+    border: 1px dashed var(--el-border-color-darker);
+    border-radius: 10px;
+    padding: 9px 12px;
     color: var(--el-text-color-secondary);
     font-size: 12px;
     cursor: pointer;
@@ -247,8 +308,4 @@ function formatTime(seconds) {
     color: var(--el-color-primary);
 }
 
-.track-actions {
-    display: flex;
-    align-items: center;
-}
 </style>

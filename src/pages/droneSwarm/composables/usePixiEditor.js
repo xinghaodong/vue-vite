@@ -21,16 +21,44 @@ import { Application, Container, Graphics, Sprite, Texture, FederatedPointerEven
  * @param {Object} options 配置参数
  */
 export function usePixiEditor(containerRef, options = {}) {
-    const { onPointSelect = null } = options;
+    const {
+        onPointSelect = null,
+        onSelectionChange = null,
+        onMoveCommit = null,
+    } = options;
 
     /** @type {import('vue').ShallowRef<Application | null>} */
     const pixiApp = shallowRef(null);
+    const isReady = ref(false);
+    const toolMode = ref(options.initialToolMode || 'select');
+    /** @type {import('vue').Ref<Set<string|number>>} */
+    const selectedIds = ref(new Set());
     /** @type {import('vue').ShallowRef<Container | null>} */
     const worldContainer = shallowRef(null); // 可自由缩放与平移的无限世界层
     /** @type {import('vue').ShallowRef<Graphics | null>} */
     const gridGraphics = shallowRef(null);
     /** @type {import('vue').ShallowRef<Container | null>} */
     const droneLayer = shallowRef(null);
+    /** @type {import('vue').ShallowRef<Graphics | null>} */
+    const selectionGraphics = shallowRef(null);
+    /** @type {import('vue').ShallowRef<Graphics | null>} */
+    const marqueeGraphics = shallowRef(null);
+
+    /** @type {Map<string|number, Sprite>} */
+    const spriteMap = new Map();
+    /** @type {Map<string|number, Object>} */
+    const agentMap = new Map();
+    const gesture = {
+        mode: null,
+        startScreenX: 0,
+        startScreenY: 0,
+        startPanX: 0,
+        startPanY: 0,
+        startPositions: new Map(),
+        moved: false,
+    };
+    let isSpacePressed = false;
+    let unbindViewportEvents = null;
 
     // 视口变换状态 (Camera State)
     const viewport = ref({
@@ -173,6 +201,136 @@ export function usePixiEditor(containerRef, options = {}) {
             sprite.width = size;
             sprite.height = size;
         }
+        drawSelectionRings();
+    }
+
+    function drawSelectionRings() {
+        const g = selectionGraphics.value;
+        if (!g) return;
+
+        g.clear();
+        if (selectedIds.value.size === 0) return;
+
+        const zoom = Math.max(0.05, viewport.value.zoom);
+        const radius = 7.5 / zoom;
+        const lineWidth = 1.5 / zoom;
+
+        for (const id of selectedIds.value) {
+            const sprite = spriteMap.get(id);
+            if (sprite) g.circle(sprite.x, sprite.y, radius);
+        }
+        g.stroke({ width: lineWidth, color: 0x67e8f9, alpha: 0.95 });
+    }
+
+    function emitSelectionChange() {
+        drawSelectionRings();
+        if (onSelectionChange) onSelectionChange([...selectedIds.value]);
+    }
+
+    function setSelection(ids) {
+        selectedIds.value = new Set(ids || []);
+        emitSelectionChange();
+    }
+
+    function clearSelection() {
+        selectedIds.value = new Set();
+        emitSelectionChange();
+    }
+
+    function selectAll() {
+        const ids = [];
+        for (const [id, sprite] of spriteMap) {
+            if (!sprite.customLocked) ids.push(id);
+        }
+        setSelection(ids);
+    }
+
+    function setToolMode(mode) {
+        toolMode.value = mode === 'pan' ? 'pan' : 'select';
+        updateCursorStyle();
+    }
+
+    function updateCursorStyle() {
+        const container = containerRef.value;
+        if (!container) return;
+        container.style.cursor = toolMode.value === 'pan' || isSpacePressed ? 'grab' : 'crosshair';
+    }
+
+    function getScreenPoint(clientX, clientY) {
+        const container = containerRef.value;
+        if (!container) return { x: 0, y: 0 };
+        const rect = container.getBoundingClientRect();
+        return { x: clientX - rect.left, y: clientY - rect.top };
+    }
+
+    /**
+     * 以屏幕像素为单位做最近点命中。
+     * Pixi Sprite 在“恒定针尖”模式下只有约 5px，直接依赖 Sprite hitArea 很难点中；
+     * 这里给选择工具一个 10px 的容差，同时保持缩放后点选手感一致。
+     */
+    function hitTestAgent(screenX, screenY, threshold = 10) {
+        const zoom = viewport.value.zoom;
+        const panX = viewport.value.panX;
+        const panY = viewport.value.panY;
+        let nearest = null;
+
+        for (const [id, sprite] of spriteMap) {
+            if (sprite.customLocked) continue;
+            const dx = sprite.x * zoom + panX - screenX;
+            const dy = sprite.y * zoom + panY - screenY;
+            const distanceSq = dx * dx + dy * dy;
+            if (distanceSq <= threshold * threshold && (!nearest || distanceSq < nearest.distanceSq)) {
+                nearest = { id, distanceSq };
+            }
+        }
+        return nearest;
+    }
+
+    function beginMoveGesture(startScreenX, startScreenY) {
+        gesture.mode = 'move';
+        gesture.moved = false;
+        gesture.startScreenX = startScreenX;
+        gesture.startScreenY = startScreenY;
+        gesture.startPositions.clear();
+        for (const id of selectedIds.value) {
+            const sprite = spriteMap.get(id);
+            if (!sprite || sprite.customLocked) continue;
+            gesture.startPositions.set(id, { x: sprite.x, y: sprite.y });
+        }
+    }
+
+    function selectAgentAtPoint(agentId, shiftKey, screenX, screenY) {
+        const next = new Set(selectedIds.value);
+        if (shiftKey) {
+            if (next.has(agentId)) next.delete(agentId);
+            else next.add(agentId);
+        } else if (!next.has(agentId)) {
+            next.clear();
+            next.add(agentId);
+        }
+
+        selectedIds.value = next;
+        selectedDroneId.value = agentId;
+        const agent = agentMap.get(agentId);
+        if (agent && onPointSelect) onPointSelect(agent);
+        emitSelectionChange();
+
+        // 点中已选点再拖动时保持整组选择；Shift 取消选中则不进入拖拽。
+        if (next.has(agentId)) beginMoveGesture(screenX, screenY);
+    }
+
+    function drawMarquee(startX, startY, endX, endY) {
+        const g = marqueeGraphics.value;
+        if (!g) return;
+        const left = Math.min(startX, endX);
+        const top = Math.min(startY, endY);
+        const width = Math.abs(endX - startX);
+        const height = Math.abs(endY - startY);
+        g.clear();
+        g.rect(left, top, width, height);
+        g.fill({ color: 0x67e8f9, alpha: 0.08 });
+        g.rect(left, top, width, height);
+        g.stroke({ width: 1, color: 0x67e8f9, alpha: 0.9 });
     }
 
     /**
@@ -193,8 +351,8 @@ export function usePixiEditor(containerRef, options = {}) {
         const majorStep = step * 5;
 
         // 次级微网格点阵/细线 (暗黑科技蓝 / 浅色高对比优雅灰)
-        const subGridColor = isDark ? 0x1e2638 : 0xe2e8f0;
-        const subGridAlpha = isDark ? 0.6 : 0.85;
+        const subGridColor = isDark ? 0x243149 : 0xe2e8f0;
+        const subGridAlpha = isDark ? 0.72 : 0.85;
         g.setStrokeStyle({ width: 1, color: subGridColor, alpha: subGridAlpha });
         const startX = panX % step;
         for (let x = startX; x < width; x += step) {
@@ -206,10 +364,11 @@ export function usePixiEditor(containerRef, options = {}) {
             g.moveTo(0, y);
             g.lineTo(width, y);
         }
+        g.stroke();
 
         // 主标尺网格粗线 (暗黑灰蓝 / 浅色标尺深灰)
-        const majorGridColor = isDark ? 0x2b384e : 0x94a3b8;
-        const majorGridAlpha = isDark ? 0.8 : 0.75;
+        const majorGridColor = isDark ? 0x33445f : 0x94a3b8;
+        const majorGridAlpha = isDark ? 0.9 : 0.75;
         g.setStrokeStyle({ width: 1, color: majorGridColor, alpha: majorGridAlpha });
         const majorStartX = panX % majorStep;
         for (let x = majorStartX; x < width; x += majorStep) {
@@ -221,6 +380,7 @@ export function usePixiEditor(containerRef, options = {}) {
             g.moveTo(0, y);
             g.lineTo(width, y);
         }
+        g.stroke();
 
         // 世界坐标中心原点十字准星 (0, 0)
         const crossColor = isDark ? 0x00f2fe : 0x2563eb;
@@ -229,6 +389,7 @@ export function usePixiEditor(containerRef, options = {}) {
         g.lineTo(panX + 20, panY);
         g.moveTo(panX, panY - 20);
         g.lineTo(panX, panY + 20);
+        g.stroke();
         g.circle(panX, panY, 4);
         g.fill({ color: crossColor, alpha: 0.4 });
     }
@@ -240,10 +401,7 @@ export function usePixiEditor(containerRef, options = {}) {
      * @param {Object} renderOptions 渲染配置 (启用高锐度、点径大小、恒定屏幕尺寸等)
      */
     function renderDroneAgents(agents, dangerIds = new Set(), renderOptions = {}) {
-        if (!droneLayer.value || !pixiApp.value) return;
-        const layer = droneLayer.value;
-
-        // 更新渲染上下文缓存
+        // 先更新渲染上下文缓存：初始化完成前到达的首帧数据也不会丢失
         currentRenderCache.agents = agents;
         currentRenderCache.dangerIds = dangerIds;
         currentRenderCache.options = {
@@ -253,21 +411,31 @@ export function usePixiEditor(containerRef, options = {}) {
             ...renderOptions,
         };
 
+        if (!droneLayer.value || !pixiApp.value) return;
+        const layer = droneLayer.value;
+
         // 彻底清空上一帧旧点位，防止对象驻留
         layer.removeChildren();
+        spriteMap.clear();
+        agentMap.clear();
 
-        const { useGlow = false, highlightDanger = true } = currentRenderCache.options;
+        const { useGlow = false, highlightDanger = true, lockedIds = new Set() } = currentRenderCache.options;
         const texture = useGlow
             ? createGlowDotTexture(pixiApp.value)
             : createCrispDotTexture(pixiApp.value);
 
         agents.forEach((agent) => {
             const isDanger = dangerIds && dangerIds.has(agent.id);
+            const isLocked = lockedIds instanceof Set
+                ? lockedIds.has(agent.layerId || 'layer_main')
+                : Array.isArray(lockedIds) && lockedIds.includes(agent.layerId || 'layer_main');
             const sprite = new Sprite(texture);
             sprite.anchor.set(0.5);
             sprite.x = agent.x;
             sprite.y = -agent.y; // 坐标系反转：数学坐标向上为正，Canvas 默认向下为正
             sprite.customIsDanger = isDanger;
+            sprite.customLocked = isLocked;
+            sprite.customAgentId = agent.id;
 
             // 危险点位若开启警报高亮则使用红光 (0xff2255)，否则保持点位原汁原味的 LED 颜色
             if (isDanger && highlightDanger) {
@@ -283,16 +451,15 @@ export function usePixiEditor(containerRef, options = {}) {
 
             // 启用高灵敏度指针事件
             sprite.eventMode = 'static';
-            sprite.cursor = 'pointer';
-
-            sprite.on('pointerdown', (e) => {
-                e.stopPropagation();
-                selectedDroneId.value = agent.id;
-                if (onPointSelect) onPointSelect(agent);
-            });
+            sprite.cursor = isLocked ? 'not-allowed' : toolMode.value === 'pan' ? 'grab' : 'pointer';
 
             layer.addChild(sprite);
+            spriteMap.set(agent.id, sprite);
+            agentMap.set(agent.id, agent);
         });
+
+        const validIds = new Set(agents.map((agent) => agent.id));
+        selectedIds.value = new Set([...selectedIds.value].filter((id) => validIds.has(id)));
 
         // 立即根据当前视口 zoom 更新真实屏幕像素尺寸
         updateSpritesScale();
@@ -319,6 +486,8 @@ export function usePixiEditor(containerRef, options = {}) {
 
         container.appendChild(app.canvas);
         pixiApp.value = app;
+        app.stage.eventMode = 'static';
+        app.stage.hitArea = app.screen;
 
         // 初始视口居中
         viewport.value.panX = app.screen.width / 2;
@@ -342,66 +511,93 @@ export function usePixiEditor(containerRef, options = {}) {
         world.addChild(drones);
         droneLayer.value = drones;
 
+        // 4. 选中描边层（世界坐标，随视口缩放）
+        const selection = new Graphics();
+        world.addChild(selection);
+        selectionGraphics.value = selection;
+
+        // 5. 框选矩形层（屏幕坐标）
+        const marquee = new Graphics();
+        app.stage.addChild(marquee);
+        marqueeGraphics.value = marquee;
+
         renderCadGrid();
 
         // 绑定视口平移与滚轮缩放事件
-        bindViewportEvents(container);
+        unbindViewportEvents = bindViewportEvents(container);
+        app.stage.on('pointerdown', handleStagePointerDown);
+        app.stage.on('pointerup', handleStagePointerUp);
+        app.stage.on('pointerupoutside', handleStagePointerUp);
+
+        // 同步初始化期间发生的主题切换与首帧点阵（修复首屏画布空白 / 底色不一致）
+        const activeBg = parseInt(String(currentBgColor.value).replace('#', ''), 16);
+        if (!isNaN(activeBg)) {
+            app.renderer.background.color = activeBg;
+        }
+        renderCadGrid();
+        if (currentRenderCache.agents.length) {
+            renderDroneAgents(currentRenderCache.agents, currentRenderCache.dangerIds, currentRenderCache.options);
+        }
+        isReady.value = true;
     }
 
     /**
-     * 绑定视口相机漫游交互 (平移、滚轮缩放)
+     * 绑定视口相机漫游与 2D 编辑交互。
+     * 选择工具：左键框选/拖点；平移工具或空格/中键：拖动画布。
      */
     function bindViewportEvents(container) {
-        // 鼠标按下：开始拖拽视口 (支持中键拖拽或左键拖拽)
-        const onMouseDown = (e) => {
-            if (e.button === 0 || e.button === 1) { // 左键或滚轮中键
-                viewport.value.isDragging = true;
-                viewport.value.dragStartX = e.clientX - viewport.value.panX;
-                viewport.value.dragStartY = e.clientY - viewport.value.panY;
-            }
-        };
-
         const onMouseMove = (e) => {
-            // 更新世界光标坐标
-            const rect = container.getBoundingClientRect();
-            const mouseScreenX = e.clientX - rect.left;
-            const mouseScreenY = e.clientY - rect.top;
-
-            const worldX = (mouseScreenX - viewport.value.panX) / viewport.value.zoom;
-            const worldY = -(mouseScreenY - viewport.value.panY) / viewport.value.zoom;
+            const point = getScreenPoint(e.clientX, e.clientY);
+            const worldX = (point.x - viewport.value.panX) / viewport.value.zoom;
+            const worldY = -(point.y - viewport.value.panY) / viewport.value.zoom;
             cursorWorldPos.value = {
-                x: Math.round(worldX * 10) / 10,
-                y: Math.round(worldY * 10) / 10,
+                x: Math.round(worldX * 100) / 100,
+                y: Math.round(worldY * 100) / 100,
             };
 
-            if (viewport.value.isDragging) {
-                viewport.value.panX = e.clientX - viewport.value.dragStartX;
-                viewport.value.panY = e.clientY - viewport.value.dragStartY;
+            if (gesture.mode === 'pan') {
+                viewport.value.panX = gesture.startPanX + (point.x - gesture.startScreenX);
+                viewport.value.panY = gesture.startPanY + (point.y - gesture.startScreenY);
                 if (worldContainer.value) {
                     worldContainer.value.x = viewport.value.panX;
                     worldContainer.value.y = viewport.value.panY;
                 }
                 renderCadGrid();
+                drawSelectionRings();
+                return;
+            }
+
+            if (gesture.mode === 'marquee') {
+                drawMarquee(gesture.startScreenX, gesture.startScreenY, point.x, point.y);
+                return;
+            }
+
+            if (gesture.mode === 'move') {
+                const dx = (point.x - gesture.startScreenX) / viewport.value.zoom;
+                const dy = (point.y - gesture.startScreenY) / viewport.value.zoom;
+                if (Math.abs(point.x - gesture.startScreenX) > 2 || Math.abs(point.y - gesture.startScreenY) > 2) {
+                    gesture.moved = true;
+                }
+                for (const [id, start] of gesture.startPositions) {
+                    const sprite = spriteMap.get(id);
+                    if (!sprite) continue;
+                    sprite.x = start.x + dx;
+                    sprite.y = start.y + dy;
+                }
+                drawSelectionRings();
             }
         };
 
-        const onMouseUp = () => {
-            viewport.value.isDragging = false;
-        };
+        const onMouseUp = (e) => finishGesture(e.clientX, e.clientY, e.shiftKey);
 
-        // 鼠标滚轮缩放 (以鼠标指针所在位置为中心缩放)
         const onWheel = (e) => {
             e.preventDefault();
             const zoomFactor = e.deltaY < 0 ? 1.12 : 0.89;
             const newZoom = Math.min(5.0, Math.max(0.15, viewport.value.zoom * zoomFactor));
+            const point = getScreenPoint(e.clientX, e.clientY);
 
-            const rect = container.getBoundingClientRect();
-            const mouseX = e.clientX - rect.left;
-            const mouseY = e.clientY - rect.top;
-
-            // 保持鼠标指向的世界坐标不动
-            viewport.value.panX = mouseX - (mouseX - viewport.value.panX) * (newZoom / viewport.value.zoom);
-            viewport.value.panY = mouseY - (mouseY - viewport.value.panY) * (newZoom / viewport.value.zoom);
+            viewport.value.panX = point.x - (point.x - viewport.value.panX) * (newZoom / viewport.value.zoom);
+            viewport.value.panY = point.y - (point.y - viewport.value.panY) * (newZoom / viewport.value.zoom);
             viewport.value.zoom = newZoom;
 
             if (worldContainer.value) {
@@ -410,25 +606,146 @@ export function usePixiEditor(containerRef, options = {}) {
                 worldContainer.value.y = viewport.value.panY;
             }
             renderCadGrid();
-            updateSpritesScale(); // 滚轮缩放时动态维持高锐度针尖粒子，杜绝模糊
+            updateSpritesScale();
         };
 
-        container.addEventListener('mousedown', onMouseDown);
+        const isTypingTarget = (target) => {
+            if (!target) return false;
+            const tag = target.tagName;
+            return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || target.isContentEditable;
+        };
+
+        const onKeyDown = (e) => {
+            if (isTypingTarget(e.target)) return;
+            if (e.code === 'Space') {
+                isSpacePressed = true;
+                updateCursorStyle();
+                e.preventDefault();
+            }
+        };
+
+        const onKeyUp = (e) => {
+            if (e.code === 'Space') {
+                isSpacePressed = false;
+                updateCursorStyle();
+            }
+        };
+
+        const onResize = () => {
+            if (pixiApp.value) pixiApp.value.stage.hitArea = pixiApp.value.screen;
+            renderCadGrid();
+            drawSelectionRings();
+        };
+
         window.addEventListener('mousemove', onMouseMove);
         window.addEventListener('mouseup', onMouseUp);
+        window.addEventListener('keydown', onKeyDown);
+        window.addEventListener('keyup', onKeyUp);
         container.addEventListener('wheel', onWheel, { passive: false });
+        window.addEventListener('resize', onResize);
 
-        // 自动随窗口调整大小
-        window.addEventListener('resize', renderCadGrid);
-
-        // 卸载监听
         return () => {
-            container.removeEventListener('mousedown', onMouseDown);
             window.removeEventListener('mousemove', onMouseMove);
             window.removeEventListener('mouseup', onMouseUp);
+            window.removeEventListener('keydown', onKeyDown);
+            window.removeEventListener('keyup', onKeyUp);
             container.removeEventListener('wheel', onWheel);
-            window.removeEventListener('resize', renderCadGrid);
+            window.removeEventListener('resize', onResize);
         };
+    }
+
+    function handleStagePointerDown(e) {
+        const button = e.button ?? 0;
+        if (button === 2) return;
+
+        const clientX = e.clientX ?? e.nativeEvent?.clientX ?? 0;
+        const clientY = e.clientY ?? e.nativeEvent?.clientY ?? 0;
+        const point = getScreenPoint(clientX, clientY);
+        const wantsPan = button === 1 || toolMode.value === 'pan' || isSpacePressed;
+
+        if (wantsPan) {
+            gesture.mode = 'pan';
+            gesture.startScreenX = point.x;
+            gesture.startScreenY = point.y;
+            gesture.startPanX = viewport.value.panX;
+            gesture.startPanY = viewport.value.panY;
+            if (containerRef.value) containerRef.value.style.cursor = 'grabbing';
+            return;
+        }
+
+        if (button === 0 && toolMode.value === 'select') {
+            const shiftKey = Boolean(e.shiftKey ?? e.nativeEvent?.shiftKey);
+            const hit = hitTestAgent(point.x, point.y, 10);
+            if (hit) {
+                selectAgentAtPoint(hit.id, shiftKey, point.x, point.y);
+                return;
+            }
+
+            gesture.mode = 'marquee';
+            gesture.startScreenX = point.x;
+            gesture.startScreenY = point.y;
+            if (!shiftKey) {
+                selectedIds.value = new Set();
+                emitSelectionChange();
+            }
+            drawMarquee(point.x, point.y, point.x, point.y);
+        }
+    }
+
+    function handleStagePointerUp(e) {
+        const clientX = e.clientX ?? e.nativeEvent?.clientX ?? 0;
+        const clientY = e.clientY ?? e.nativeEvent?.clientY ?? 0;
+        finishGesture(clientX, clientY, Boolean(e.shiftKey));
+    }
+
+    function finishGesture(clientX, clientY, shiftKey = false) {
+        if (!gesture.mode) return;
+        const mode = gesture.mode;
+        gesture.mode = null;
+
+        if (mode === 'move') {
+            if (gesture.moved && onMoveCommit) {
+                const updates = [];
+                for (const id of gesture.startPositions.keys()) {
+                    const sprite = spriteMap.get(id);
+                    if (!sprite) continue;
+                    updates.push({
+                        id,
+                        x: Math.round(sprite.x * 100) / 100,
+                        y: Math.round(-sprite.y * 100) / 100,
+                    });
+                }
+                if (updates.length > 0) onMoveCommit(updates);
+            }
+        } else if (mode === 'marquee') {
+            const point = getScreenPoint(clientX, clientY);
+            const left = Math.min(gesture.startScreenX, point.x);
+            const right = Math.max(gesture.startScreenX, point.x);
+            const top = Math.min(gesture.startScreenY, point.y);
+            const bottom = Math.max(gesture.startScreenY, point.y);
+
+            const worldLeft = (left - viewport.value.panX) / viewport.value.zoom;
+            const worldRight = (right - viewport.value.panX) / viewport.value.zoom;
+            const worldTop = (top - viewport.value.panY) / viewport.value.zoom;
+            const worldBottom = (bottom - viewport.value.panY) / viewport.value.zoom;
+
+            const next = shiftKey ? new Set(selectedIds.value) : new Set();
+            if (right - left > 2 && bottom - top > 2) {
+                for (const [id, sprite] of spriteMap) {
+                    if (sprite.customLocked) continue;
+                    if (sprite.x >= worldLeft && sprite.x <= worldRight && sprite.y >= worldTop && sprite.y <= worldBottom) {
+                        next.add(id);
+                    }
+                }
+            }
+            selectedIds.value = next;
+            emitSelectionChange();
+            if (marqueeGraphics.value) marqueeGraphics.value.clear();
+        }
+
+        gesture.startPositions.clear();
+        gesture.moved = false;
+        updateCursorStyle();
     }
 
     /**
@@ -445,6 +762,7 @@ export function usePixiEditor(containerRef, options = {}) {
         worldContainer.value.y = viewport.value.panY;
         renderCadGrid();
         updateSpritesScale();
+        drawSelectionRings();
     }
 
     // 挂载与卸载生命周期管控
@@ -453,8 +771,15 @@ export function usePixiEditor(containerRef, options = {}) {
     });
 
     onBeforeUnmount(() => {
+        if (unbindViewportEvents) {
+            unbindViewportEvents();
+            unbindViewportEvents = null;
+        }
         if (pixiApp.value) {
             try {
+                pixiApp.value.stage.off('pointerdown', handleStagePointerDown);
+                pixiApp.value.stage.off('pointerup', handleStagePointerUp);
+                pixiApp.value.stage.off('pointerupoutside', handleStagePointerUp);
                 pixiApp.value.destroy(true, { children: true, texture: true });
             } catch (err) {
                 console.warn('[PixiEditor] App destroy warning:', err);
@@ -473,6 +798,13 @@ export function usePixiEditor(containerRef, options = {}) {
 
     return {
         pixiApp,
+        isReady,
+        toolMode,
+        selectedIds,
+        setToolMode,
+        setSelection,
+        clearSelection,
+        selectAll,
         viewport,
         cursorWorldPos,
         currentBgColor,

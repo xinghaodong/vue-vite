@@ -9,7 +9,7 @@
  *   - Cue: 时间轴关键帧提示点（动作触发、变轨时间戳、过渡曲线）
  *   - Scene: 表演分镜剧本（单场景全量无人机状态与灯光矩阵）
  *   - Show: 完整编队飞行表演工程（多分镜集合、全局安全步长、总时长）
- *   - SDF: Swarm Data Format 工业级数据交换协议规范
+ *   - Project JSON: 当前工程交换格式（不是工业 SDF 协议，也不含飞控指令）
  * ========================================================================
  */
 
@@ -28,6 +28,7 @@ export function createAgent(data = {}) {
         size: data.size ?? 4,   // 光点直径 (像素/标定单位)
         alpha: data.alpha ?? 1.0, // 亮度透明度 (0~1)
         group: data.group ?? 'default', // 构型所属分组
+        layerId: data.layerId ?? 'layer_main', // 所属构型图层
         selected: false,
     };
 }
@@ -71,9 +72,9 @@ export function createCue(data = {}) {
 export function createShow(data = {}) {
     return {
         title: data.title || '无人机夜空编队创意工程',
-        version: '1.0.0 (SDF v1)',
+        version: '1.0.0 (project-json)',
         droneCount: data.droneCount ?? 800, // 标定总架数 (如 800 / 1600 架)
-        safetyDistance: data.safetyDistance ?? 1.5, // 物理安全防撞间距 (米)
+        safetyDistance: data.safetyDistance ?? 1.5, // 设计态最小间距 (米，非飞行安全认证)
         scenes: data.scenes || [],
         cues: data.cues || [],
     };

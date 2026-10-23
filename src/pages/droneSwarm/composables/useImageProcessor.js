@@ -16,6 +16,8 @@
  * ========================================================================
  */
 
+import { resampleChainsExact, selectEvenly, traceContours } from './swarmGeometry.js';
+
 export function useImageProcessor() {
     /**
      * 步骤一：图像预处理渲染
@@ -300,59 +302,45 @@ export function useImageProcessor() {
     }
 
     /**
-     * 拓扑连续路径追踪 (Topological Path Tracing)
-     * 将散碎的前景像素连接成有序的折线链 (Polyline Chains)
+     * 正交网格 / 六边形密排：按目标架数反推步长，必要时细步重试。
      */
-    function traceChainsFromBinary(binaryGrid, width, height) {
-        const visited = new Uint8Array(width * height);
-        const chains = [];
+    function generateGridPoints(binaryGrid, width, height, targetCount, hexagonal = false) {
+        const target = Math.max(1, Math.floor(targetCount));
+        let foregroundCount = 0;
+        for (let i = 0; i < binaryGrid.length; i++) {
+            if (binaryGrid[i] === 1) foregroundCount++;
+        }
+        if (foregroundCount === 0) return [];
 
-        for (let y = 0; y < height; y++) {
-            for (let x = 0; x < width; x++) {
-                const startIdx = y * width + x;
-                if (binaryGrid[startIdx] !== 1 || visited[startIdx] === 1) continue;
-
-                // 找到新连通链的起点
-                const currentChain = [];
-                let currX = x;
-                let currY = y;
-
-                while (currX !== null) {
-                    const idx = currY * width + currX;
-                    visited[idx] = 1;
-                    currentChain.push({ x: currX, y: currY });
-
-                    // 检索 8-邻域中未访问的前景像素
-                    let nextX = null;
-                    let nextY = null;
-                    for (let dy = -1; dy <= 1; dy++) {
-                        for (let dx = -1; dx <= 1; dx++) {
-                            if (dx === 0 && dy === 0) continue;
-                            const nx = currX + dx;
-                            const ny = currY + dy;
-                            if (nx >= 0 && nx < width && ny >= 0 && ny < height) {
-                                const nIdx = ny * width + nx;
-                                if (binaryGrid[nIdx] === 1 && visited[nIdx] === 0) {
-                                    nextX = nx;
-                                    nextY = ny;
-                                    break;
-                                }
-                            }
-                        }
-                        if (nextX !== null) break;
+        const generate = (step) => {
+            const points = [];
+            const rowHeight = hexagonal ? step * (Math.sqrt(3) / 2) : step;
+            let rowIndex = 0;
+            for (let y = 0; y < height; y += rowHeight, rowIndex++) {
+                const xOffset = hexagonal && rowIndex % 2 === 1 ? step * 0.5 : 0;
+                for (let x = xOffset; x < width; x += step) {
+                    const px = Math.round(x);
+                    const py = Math.round(y);
+                    if (px < width && py < height && binaryGrid[py * width + px] === 1) {
+                        points.push({ x: px, y: py });
                     }
-
-                    currX = nextX;
-                    currY = nextY;
-                }
-
-                if (currentChain.length > 2) {
-                    chains.push(currentChain);
                 }
             }
+            points.sort((a, b) => a.y - b.y || a.x - b.x);
+            return points;
+        };
+
+        let step = Math.max(1, Math.sqrt(foregroundCount / target));
+        let points = [];
+
+        for (let attempt = 0; attempt < 14; attempt++) {
+            points = generate(step);
+            if (points.length >= target) return selectEvenly(points, target);
+            if (step <= 1) break;
+            step = Math.max(1, step * 0.88);
         }
 
-        return chains;
+        return points;
     }
 
     /**
@@ -373,119 +361,24 @@ export function useImageProcessor() {
         let selectedPoints = [];
 
         if (strategy === 'contour') {
-            // 🌟 核心突破：拓扑曲线追踪 + 累积弧长参数化等距重采样 (Arc-length Equidistant Sampling)
-            const chains = traceChainsFromBinary(binaryGrid, width, height);
-
-            // 统计所有链的总弧长
-            let totalLength = 0;
-            const chainInfos = chains.map((chain) => {
-                let len = 0;
-                const cumLengths = [0];
-                for (let i = 1; i < chain.length; i++) {
-                    const dx = chain[i].x - chain[i - 1].x;
-                    const dy = chain[i].y - chain[i - 1].y;
-                    len += Math.sqrt(dx * dx + dy * dy);
-                    cumLengths.push(len);
-                }
-                totalLength += len;
-                return { chain, len, cumLengths };
-            });
-
-            if (totalLength > 0) {
-                // 计算全局等步长 stepDist
-                const stepDist = totalLength / targetCount;
-
-                chainInfos.forEach((info) => {
-                    const { chain, len, cumLengths } = info;
-                    if (len === 0) return;
-
-                    const numPointsOnChain = Math.max(1, Math.round(len / stepDist));
-                    const chainStep = len / numPointsOnChain;
-
-                    for (let p = 0; p < numPointsOnChain; p++) {
-                        const targetDist = p * chainStep;
-                        // 二分查找或线性插值定位具体线段
-                        let segIdx = 0;
-                        while (segIdx < cumLengths.length - 1 && cumLengths[segIdx + 1] < targetDist) {
-                            segIdx++;
-                        }
-                        const segStartDist = cumLengths[segIdx];
-                        const segEndDist = cumLengths[segIdx + 1] || segStartDist + 1;
-                        const t = (targetDist - segStartDist) / (segEndDist - segStartDist || 1);
-
-                        const p1 = chain[segIdx];
-                        const p2 = chain[Math.min(segIdx + 1, chain.length - 1)];
-
-                        selectedPoints.push({
-                            x: p1.x + (p2.x - p1.x) * t,
-                            y: p1.y + (p2.y - p1.y) * t,
-                        });
-                    }
-                });
-            } else {
-                // 回退保底
-                for (let y = 0; y < height; y++) {
-                    for (let x = 0; x < width; x++) {
-                        if (binaryGrid[y * width + x] === 1) {
-                            selectedPoints.push({ x, y });
-                        }
-                    }
-                }
-            }
-        } else if (strategy === 'hexagonal') {
-            // 六边形蜂窝密排
-            const candidatePixels = [];
-            for (let y = 0; y < height; y++) {
-                for (let x = 0; x < width; x++) {
-                    if (binaryGrid[y * width + x] === 1) {
-                        candidatePixels.push({ x, y });
-                    }
-                }
-            }
-            const step = Math.max(2.5, Math.sqrt((candidatePixels.length * 1.5) / targetCount));
-            const rowHeight = step * (Math.sqrt(3) / 2);
-
-            for (let y = 0; y < height; y += rowHeight) {
-                const isOddRow = Math.floor(y / rowHeight) % 2 === 1;
-                const xOffset = isOddRow ? step * 0.5 : 0;
-                for (let x = xOffset; x < width; x += step) {
-                    const px = Math.round(x);
-                    const py = Math.round(y);
-                    if (px < width && py < height && binaryGrid[py * width + px] === 1) {
-                        selectedPoints.push({ x: px, y: py });
-                    }
-                }
-            }
+            // Moore 邻域有序轮廓 + 全局弧长配额，严格生成 targetCount 个点。
+            const chains = traceContours(binaryGrid, width, height, { minLength: 3, maxChains: 512 });
+            selectedPoints = resampleChainsExact(chains, targetCount);
         } else {
-            // 正交方格
-            const candidatePixels = [];
-            for (let y = 0; y < height; y++) {
-                for (let x = 0; x < width; x++) {
-                    if (binaryGrid[y * width + x] === 1) {
-                        candidatePixels.push({ x, y });
-                    }
-                }
-            }
-            const step = Math.max(2.5, Math.sqrt(candidatePixels.length / targetCount));
-            for (let y = 0; y < height; y += step) {
-                for (let x = 0; x < width; x += step) {
-                    const px = Math.round(x);
-                    const py = Math.round(y);
-                    if (px < width && py < height && binaryGrid[py * width + px] === 1) {
-                        selectedPoints.push({ x: px, y: py });
-                    }
-                }
+            selectedPoints = generateGridPoints(binaryGrid, width, height, targetCount, strategy === 'hexagonal');
+        }
+
+        // 保底：网格模式在极细图形上可能取不满，回退到有序轮廓采样。
+        if (selectedPoints.length < targetCount) {
+            const chains = traceContours(binaryGrid, width, height, { minLength: 3, maxChains: 512 });
+            const contourFallback = resampleChainsExact(chains, targetCount);
+            if (contourFallback.length >= selectedPoints.length) {
+                selectedPoints = contourFallback;
             }
         }
 
-        // 架数配额微调 (保证点数尽可能贴近 targetCount)
         if (selectedPoints.length > targetCount) {
-            const step = selectedPoints.length / targetCount;
-            const subsampled = [];
-            for (let i = 0; i < targetCount; i++) {
-                subsampled.push(selectedPoints[Math.floor(i * step)]);
-            }
-            selectedPoints = subsampled;
+            selectedPoints = selectEvenly(selectedPoints, targetCount);
         }
 
         // 2. 准备原始采样图像与全图像素缓冲区 (内存高速寻址，杜绝循环单点 getImageData 性能卡顿)

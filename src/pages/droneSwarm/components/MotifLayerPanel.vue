@@ -44,11 +44,11 @@
                         <!-- 颜色徽标 -->
                         <div class="layer-color-indicator" :style="{ backgroundColor: layer.color || '#00f2fe' }"></div>
 
-                        <!-- 图层名称 -->
-                        <span class="layer-name" :title="layer.name">{{ layer.name }}</span>
-
-                        <!-- 点数徽章 -->
-                        <span class="layer-count-badge">{{ layer.agentCount }} 架</span>
+                        <!-- 图层名称与占用点数 -->
+                        <div class="layer-title-box">
+                            <span class="layer-name" :title="layer.name">{{ layer.name }}</span>
+                            <span class="layer-count-badge">{{ layer.agentCount }} 架</span>
+                        </div>
 
                         <!-- 快捷操作：可见性与锁定 -->
                         <div class="layer-quick-actions" @click.stop>
@@ -77,9 +77,16 @@
                                 v-model="layer.color"
                                 size="small"
                                 :show-alpha="false"
+                                :disabled="layer.locked"
                                 @change="handleLayerColorChange(layer)"
                             />
-                            <el-button size="small" type="danger" text @click="emit('delete-layer', layer.id)">
+                            <el-button
+                                size="small"
+                                type="danger"
+                                text
+                                :disabled="layer.locked"
+                                @click="emit('delete-layer', layer.id)"
+                            >
                                 删除
                             </el-button>
                         </div>
@@ -156,29 +163,36 @@ function handleLayerColorChange(layer) {
 
 <style scoped>
 .motif-layer-panel {
-    width: 260px;
+    width: 240px;
+    flex: 0 0 240px;
     height: 100%;
     background: var(--el-bg-color);
-    border-right: 1px solid var(--el-border-color-lighter);
+    border: 1px solid var(--el-border-color-lighter);
+    border-radius: 12px;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 16px 32px -24px rgba(15, 23, 42, 0.5);
+    overflow: hidden;
     display: flex;
     flex-direction: column;
-    transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.3s ease, border-color 0.3s ease;
+    transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1), flex-basis 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+        background-color 0.3s ease, border-color 0.3s ease;
     z-index: 10;
     user-select: none;
 }
 
 .motif-layer-panel.collapsed {
     width: 52px;
+    flex-basis: 52px;
 }
 
 .panel-header {
     height: 44px;
-    padding: 0 12px;
+    flex-shrink: 0;
+    padding: 0 10px 0 12px;
     display: flex;
     align-items: center;
     justify-content: space-between;
     border-bottom: 1px solid var(--el-border-color-lighter);
-    background: var(--el-fill-color-light);
+    background: var(--el-fill-color-lighter);
 }
 
 .header-left {
@@ -192,6 +206,7 @@ function handleLayerColorChange(layer) {
 
 .panel-content {
     flex: 1;
+    min-height: 0;
     display: flex;
     flex-direction: column;
     overflow: hidden;
@@ -199,10 +214,10 @@ function handleLayerColorChange(layer) {
 }
 
 .quota-box {
-    background: var(--el-fill-color-lighter);
+    background: linear-gradient(180deg, var(--el-fill-color-lighter), var(--el-fill-color-blank));
     border: 1px solid var(--el-border-color-lighter);
-    border-radius: 6px;
-    padding: 10px;
+    border-radius: 8px;
+    padding: 10px 12px;
     margin-bottom: 12px;
 }
 
@@ -225,19 +240,32 @@ function handleLayerColorChange(layer) {
 
 .layer-list-container {
     flex: 1;
+    min-height: 0;
     overflow-y: auto;
     display: flex;
     flex-direction: column;
     gap: 8px;
+    padding-right: 2px;
+    scrollbar-width: thin;
+    scrollbar-color: var(--el-border-color) transparent;
+}
+
+.layer-list-container::-webkit-scrollbar {
+    width: 4px;
+}
+
+.layer-list-container::-webkit-scrollbar-thumb {
+    border-radius: 999px;
+    background: var(--el-border-color);
 }
 
 .layer-item-card {
-    background: var(--el-fill-color-light);
+    background: var(--el-fill-color-lighter);
     border: 1px solid var(--el-border-color-lighter);
-    border-radius: 6px;
-    padding: 8px 10px;
+    border-radius: 8px;
+    padding: 9px 10px;
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: border-color 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .layer-item-card:hover {
@@ -247,8 +275,8 @@ function handleLayerColorChange(layer) {
 
 .layer-item-card.active {
     border-color: var(--el-color-primary);
-    background: var(--el-color-primary-light-9);
-    box-shadow: 0 0 10px rgba(0, 0, 0, 0.08);
+    background: linear-gradient(180deg, var(--el-color-primary-light-9), var(--el-fill-color-blank));
+    box-shadow: inset 3px 0 0 var(--el-color-primary), 0 0 12px -6px var(--el-color-primary);
 }
 
 .layer-main-row {
@@ -266,7 +294,7 @@ function handleLayerColorChange(layer) {
 }
 
 .layer-name {
-    flex: 1;
+    width: 100%;
     font-size: 12px;
     color: var(--el-text-color-primary);
     font-weight: 500;
@@ -275,18 +303,33 @@ function handleLayerColorChange(layer) {
     text-overflow: ellipsis;
 }
 
+.layer-title-box {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
 .layer-count-badge {
+    align-self: flex-start;
+    padding: 0;
     font-size: 10px;
     font-family: var(--app-font-family-mono, monospace);
-    background: var(--el-color-primary-light-9);
-    color: var(--el-color-primary);
-    padding: 1px 6px;
-    border-radius: 4px;
+    color: var(--el-text-color-secondary);
+    background: transparent;
 }
 
 .layer-quick-actions {
     display: flex;
     gap: 2px;
+    flex-shrink: 0;
+}
+
+.layer-quick-actions :deep(.el-button) {
+    width: 22px;
+    height: 22px;
+    padding: 0;
 }
 
 .is-muted {
@@ -320,5 +363,8 @@ function handleLayerColorChange(layer) {
 
 .add-layer-btn {
     width: 100%;
+    height: 30px;
+    border-radius: 7px;
+    font-size: 12px;
 }
 </style>
