@@ -56,6 +56,14 @@
                     />
                 </div>
 
+                <el-button
+                    size="small"
+                    :type="rightRailOpen ? 'primary' : 'default'"
+                    @click="rightRailOpen = !rightRailOpen"
+                >
+                    📐 分布 · 上色
+                </el-button>
+
                 <div class="view-switch">
                     <el-segmented
                         v-model="viewMode"
@@ -156,6 +164,7 @@
             <!-- 2D PixiJS 点阵图形编辑器 (支持违规点位标红) -->
             <div class="viewport-wrapper">
                 <Editor2D
+                    ref="editor2dStage"
                     v-show="viewMode === '2d'"
                     :agents="visibleAgents"
                     :danger-ids="safetyReport.dangerIds"
@@ -170,6 +179,9 @@
                     @assign-layer="handleAssignSelectionToLayer"
                     @undo="handleUndo"
                     @redo="handleRedo"
+                    @lasso-complete="handleLassoComplete"
+                    @gradient-axis-change="handleGradientAxisChange"
+                    @gradient-axis-commit="handleGradientAxisCommit"
                 />
 
                 <!-- 3D Three.js 夜空发光无人机全景播放器 -->
@@ -179,6 +191,41 @@
                     :drone-count="droneCount"
                 />
             </div>
+
+            <!-- 右侧统一属性工具栏 (分布 / 上色) -->
+            <RightToolRail
+                v-if="rightRailOpen && viewMode === '2d'"
+                v-model="rightRailTab"
+                @close="rightRailOpen = false"
+            >
+                <template #distribution>
+                    <DistributionPanel
+                        :target-label="distributionTargetInfo.label"
+                        :target-count="distributionTargetInfo.count"
+                        :lasso-count="lassoPathIds.length"
+                        :lasso-recording="isLassoRecording"
+                        @activate-lasso="handleActivateLasso"
+                        @execute-curve-resample="handleCurveResample"
+                        @apply-geometry="handleApplyGeometry"
+                        @apply-fill="handleApplyFill"
+                    />
+                </template>
+                <template #color>
+                    <ColorPanel
+                        :target-label="distributionTargetInfo.label"
+                        :selection-count="distributionTargetInfo.count"
+                        :axis-angle="liveAxisAngle"
+                        :canvas-axis-active="canvasAxisActive"
+                        @apply-single="handleApplySingleColor"
+                        @apply-gradient="handleApplyGradientStatic"
+                        @apply-random="handleApplyRandomColor"
+                        @toggle-canvas-axis="handleToggleCanvasAxis"
+                        @angle-sync="handleAngleSync"
+                        @stops-change="handleStopsChange"
+                        @toggle-hide-selection="handleToggleHideSelection"
+                    />
+                </template>
+            </RightToolRail>
         </main>
 
         <!-- 3. 底部分镜时间轴控制栏 -->
@@ -217,9 +264,22 @@ import Player3D from './components/Player3D.vue';
 import TimelineBar from './components/TimelineBar.vue';
 import MotifLayerPanel from './components/MotifLayerPanel.vue';
 import ImageProcessingModal from './components/ImageProcessingModal.vue';
+import RightToolRail from './components/RightToolRail.vue';
+import DistributionPanel from './components/DistributionPanel.vue';
+import ColorPanel from './components/ColorPanel.vue';
 
-// 🌟 Vue 3.5 原生专属 Hook: useTemplateRef 绑定弹窗实例
+import {
+    catmullRomEquidistantResample,
+    generateGeometryCurves,
+    sampleCurvesExact,
+    generateFillPoints,
+    calculatePrincipalAxis,
+} from './composables/useDistributionEngine';
+import { computeGradientColors, defaultGradientStops } from './composables/useLedSafety';
+
+// 🌟 Vue 3.5 原生专属 Hook: useTemplateRef 绑定组件实例
 const imageWizardRef = useTemplateRef('imageWizardModal');
+const editor2DRef = useTemplateRef('editor2dStage');
 
 // 核心算法 Hooks
 const { generatePresetPattern, resampleToTargetCount } = useContourAlgorithm();
@@ -232,6 +292,15 @@ const currentMotif = ref('heart');
 const currentLedColor = ref('#00f2fe');
 const activeSceneIndex = ref(0);
 const selectedLayerId = ref('layer_main');
+
+// 右侧属性工具栏 (分布 / 上色) 状态
+const rightRailOpen = ref(false);
+const rightRailTab = ref('distribution');
+const lassoPathIds = ref([]);
+const isLassoRecording = ref(false);
+const canvasAxisActive = ref(false);
+const liveAxisAngle = ref(90);
+const currentGradientStops = ref(defaultGradientStops);
 
 // 整场表演工程模型 (Show)
 const showProject = reactive(
@@ -742,6 +811,308 @@ function handleAssignSelectionToLayer(ids) {
     const updates = ids.map((id) => ({ id, layerId: layer.id }));
     const changed = applyAgentUpdates(updates, { label: `移入图层 ${layer.name}` });
     ElMessage.success(`已将 ${changed} 个点位移入「${layer.name}」`);
+}
+
+// ========================================================================
+// 右侧工具栏：分布与等距重排 (Ordered Lasso & Geometries)
+// ========================================================================
+function getDistributionTargets() {
+    const selected = editor2DRef.value?.selectedIds || new Set();
+    const hasSelection = selected.size > 0;
+    const currentList = currentScene.value.agents || [];
+    const pool = hasSelection
+        ? currentList.filter((a) => selected.has(a.id))
+        : currentList.filter((a) => (a.layerId || 'layer_main') === selectedLayerId.value);
+    const unlocked = pool.filter((a) => !isAgentInLockedLayer(a));
+    const currentLayerName = currentLayers.find((l) => l.id === selectedLayerId.value)?.name || '主图形层';
+    return {
+        agents: unlocked,
+        label: hasSelection ? `已选点位 (${unlocked.length}架)` : `${currentLayerName} (${unlocked.length}架)`,
+        hasSelection,
+    };
+}
+
+const distributionTargetInfo = computed(() => {
+    const targets = getDistributionTargets();
+    return {
+        label: targets.label,
+        count: targets.agents.length,
+    };
+});
+
+function handleActivateLasso() {
+    isLassoRecording.value = true;
+    editor2DRef.value?.setToolMode('lasso');
+    ElMessage.info('已开启圈选：请按连线走向划过点位');
+}
+
+function handleLassoComplete(ids) {
+    lassoPathIds.value = ids;
+    isLassoRecording.value = false;
+    editor2DRef.value?.setToolMode('select');
+    ElMessage.success(`圈选完成：按顺序捕获 ${ids.length} 架点位`);
+}
+
+function handleCurveResample({ smoothness = 0.5 }) {
+    if (lassoPathIds.value.length < 2) {
+        ElMessage.warning('请先点击「按顺序圈选」并划过至少 2 个点位');
+        return;
+    }
+    const agentMap = new Map((currentScene.value.agents || []).map((a) => [a.id, a]));
+    const ordered = lassoPathIds.value.map((id) => agentMap.get(id)).filter(Boolean);
+
+    const resampled = catmullRomEquidistantResample(ordered, ordered.length, smoothness);
+    const updates = ordered.map((agent, i) => ({
+        id: agent.id,
+        x: resampled[i].x,
+        y: resampled[i].y,
+    }));
+    applyAgentUpdates(updates, { label: `曲线等距重排 ${updates.length} 点` });
+    lassoPathIds.value = [];
+    ElMessage.success(`等距重排完成：${updates.length} 架点位已沿向心样条均匀排布`);
+}
+
+function handleApplyGeometry({ type, params = {} }) {
+    const { agents } = getDistributionTargets();
+    if (agents.length < 2) {
+        ElMessage.warning('目标点位不足 2 架，请先框选或选择有点位的图层');
+        return;
+    }
+
+    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+    for (const a of agents) {
+        if (a.x < minX) minX = a.x;
+        if (a.x > maxX) maxX = a.x;
+        if (a.y < minY) minY = a.y;
+        if (a.y > maxY) maxY = a.y;
+    }
+    const cx = (minX + maxX) / 2;
+    const cy = (minY + maxY) / 2;
+    const spanX = Math.max(maxX - minX, 10);
+    const spanY = Math.max(maxY - minY, 10);
+    const axis = calculatePrincipalAxis(agents);
+
+    let curves = [];
+    if (type === 'line') {
+        const half = (Math.abs(spanX * axis.ux) + Math.abs(spanY * axis.uy) || 20) * 1.1 / 2;
+        curves = generateGeometryCurves('line', {
+            x1: cx - axis.ux * half,
+            y1: cy - axis.uy * half,
+            x2: cx + axis.ux * half,
+            y2: cy + axis.uy * half,
+        });
+    } else if (type === 'polyline') {
+        curves = generateGeometryCurves('polyline', {
+            points: agents.map((a) => ({ x: a.x, y: a.y })),
+        });
+    } else if (type === 'rect') {
+        curves = generateGeometryCurves('rect', {
+            cx,
+            cy,
+            width: spanX * 1.1,
+            height: spanY * 1.1,
+            angleDeg: (axis.theta * 180) / Math.PI,
+        });
+    } else if (type === 'circle') {
+        curves = generateGeometryCurves('circle', {
+            cx,
+            cy,
+            radius: Math.max(Math.min(spanX, spanY) / 2, 10) * 1.1,
+        });
+    } else if (type === 'arc') {
+        curves = generateGeometryCurves('arc', {
+            cx,
+            cy,
+            radius: Math.max(Math.min(spanX, spanY) / 2, 10) * 1.1,
+            startDeg: params.startDeg ?? 0,
+            sweepDeg: params.sweepDeg ?? 180,
+        });
+    } else if (type === 'cross') {
+        curves = generateGeometryCurves('cross', {
+            cx,
+            cy,
+            size: Math.max(spanX, spanY) * 1.1,
+            angleDeg: (axis.theta * 180) / Math.PI,
+        });
+    } else if (type === 'polygon') {
+        curves = generateGeometryCurves('polygon', {
+            cx,
+            cy,
+            radius: Math.max(Math.min(spanX, spanY) / 2, 10) * 1.1,
+            sides: params.sides || 6,
+            angleDeg: (axis.theta * 180) / Math.PI,
+        });
+    } else if (type === 'star') {
+        curves = generateGeometryCurves('star', {
+            cx,
+            cy,
+            outerRadius: Math.max(Math.min(spanX, spanY) / 2, 10) * 1.15,
+            innerRatio: params.innerRatio || 0.5,
+            pointsCount: params.pointsCount || 5,
+        });
+    }
+
+    const sampled = sampleCurvesExact(curves, agents.length);
+    const updates = agents.map((a, i) => ({
+        id: a.id,
+        x: sampled[i].x,
+        y: sampled[i].y,
+    }));
+    applyAgentUpdates(updates, { label: `几何排布「${type}」` });
+    ElMessage.success(`基础几何「${type}」重排完成 (${updates.length} 架)`);
+}
+
+function handleApplyFill(mode) {
+    const { agents } = getDistributionTargets();
+    if (agents.length < 3) {
+        ElMessage.warning('目标点位不足 3 架');
+        return;
+    }
+    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+    for (const a of agents) {
+        if (a.x < minX) minX = a.x;
+        if (a.x > maxX) maxX = a.x;
+        if (a.y < minY) minY = a.y;
+        if (a.y > maxY) maxY = a.y;
+    }
+    const fillPoints = generateFillPoints({
+        minX,
+        maxX,
+        minY,
+        maxY,
+        count: agents.length,
+        mode,
+    });
+    const updates = agents.map((a, i) => ({
+        id: a.id,
+        x: fillPoints[i].x,
+        y: fillPoints[i].y,
+    }));
+    applyAgentUpdates(updates, { label: `区域填充「${mode}」` });
+    ElMessage.success(`区域${mode === 'hexagonal' ? '六边形蜂窝' : '网格'}充填完成 (${updates.length} 架)`);
+}
+
+// ========================================================================
+// 右侧工具栏：LED 灯光调色与防呆 (Color & LED Safety)
+// ========================================================================
+function handleApplySingleColor(colorHex) {
+    const { agents } = getDistributionTargets();
+    if (agents.length === 0) return;
+    const updates = agents.map((a) => ({ id: a.id, color: colorHex }));
+    applyAgentUpdates(updates, { label: `单色上色 ${colorHex}` });
+    ElMessage.success(`已为 ${updates.length} 架点位应用单色 ${colorHex.toUpperCase()}`);
+}
+
+function handleApplyGradientStatic({ stops, angleDeg = 90, repeat = false }) {
+    const { agents } = getDistributionTargets();
+    if (agents.length === 0) return;
+
+    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+    for (const a of agents) {
+        if (a.x < minX) minX = a.x;
+        if (a.x > maxX) maxX = a.x;
+        if (a.y < minY) minY = a.y;
+        if (a.y > maxY) maxY = a.y;
+    }
+    const cx = (minX + maxX) / 2;
+    const cy = (minY + maxY) / 2;
+    const rad = (angleDeg * Math.PI) / 180;
+    const half = (Math.max(maxX - minX, maxY - minY, 40) * 1.1) / 2;
+
+    const axis = {
+        startX: cx - Math.cos(rad) * half,
+        startY: cy - Math.sin(rad) * half,
+        endX: cx + Math.cos(rad) * half,
+        endY: cy + Math.sin(rad) * half,
+    };
+
+    const colorMap = computeGradientColors(agents, axis, stops, repeat);
+    const updates = agents.map((a) => ({
+        id: a.id,
+        color: colorMap.get(a.id) || a.color,
+    }));
+    applyAgentUpdates(updates, { label: `正交渐变上色 (${angleDeg}°)` });
+    ElMessage.success(`物理空间正交渐变上色已应用 (${updates.length} 架)`);
+}
+
+function handleApplyRandomColor() {
+    const { agents } = getDistributionTargets();
+    if (agents.length === 0) return;
+    const palette = ['#ffffff', '#00f2fe', '#2dff6a', '#2454ff', '#ff007f', '#ffe600', '#ff5500'];
+    const updates = agents.map((a) => {
+        const c = palette[Math.floor(Math.random() * palette.length)];
+        return { id: a.id, color: c };
+    });
+    applyAgentUpdates(updates, { label: '离散随机打散上色' });
+    ElMessage.success(`已完成 ${updates.length} 架点位高频随机上色`);
+}
+
+function handleToggleCanvasAxis(active) {
+    canvasAxisActive.value = active;
+    if (active) {
+        const { agents } = getDistributionTargets();
+        let minX = -40, maxX = 40, minY = -40, maxY = 40;
+        if (agents.length > 0) {
+            minX = Infinity; maxX = -Infinity; minY = Infinity; maxY = -Infinity;
+            for (const a of agents) {
+                if (a.x < minX) minX = a.x;
+                if (a.x > maxX) maxX = a.x;
+                if (a.y < minY) minY = a.y;
+                if (a.y > maxY) maxY = a.y;
+            }
+        }
+        const cx = (minX + maxX) / 2;
+        const cy = (minY + maxY) / 2;
+        const rad = (liveAxisAngle.value * Math.PI) / 180;
+        const half = (Math.max(maxX - minX, maxY - minY, 50) * 1.1) / 2;
+
+        editor2DRef.value?.setGradientAxis({
+            startX: cx - Math.cos(rad) * half,
+            startY: cy - Math.sin(rad) * half,
+            endX: cx + Math.cos(rad) * half,
+            endY: cy + Math.sin(rad) * half,
+        });
+        ElMessage.info('已在画布开启交互渐变轴：可直接拖拽手柄旋转或移动');
+    } else {
+        editor2DRef.value?.clearGradientAxis();
+    }
+}
+
+function handleGradientAxisChange(axis) {
+    liveAxisAngle.value = axis.angleDeg;
+    const { agents } = getDistributionTargets();
+    if (agents.length === 0) return;
+    const colorMap = computeGradientColors(agents, axis, currentGradientStops.value, false);
+    for (const a of agents) {
+        const c = colorMap.get(a.id);
+        if (c) a.color = c;
+    }
+}
+
+function handleGradientAxisCommit(axis) {
+    const { agents } = getDistributionTargets();
+    if (agents.length === 0) return;
+    const colorMap = computeGradientColors(agents, axis, currentGradientStops.value, false);
+    const updates = agents.map((a) => ({
+        id: a.id,
+        color: colorMap.get(a.id) || a.color,
+    }));
+    applyAgentUpdates(updates, { label: `渐变轴上色 (${axis.angleDeg}°)` });
+}
+
+function handleAngleSync(deg) {
+    liveAxisAngle.value = deg;
+    if (canvasAxisActive.value) {
+        handleToggleCanvasAxis(true);
+    }
+}
+
+function handleStopsChange(stops) {
+    currentGradientStops.value = stops;
+}
+
+function handleToggleHideSelection(hide) {
+    editor2DRef.value?.setHideSelectionVisual(hide);
 }
 
 // 导出工程 JSON（当前格式，不是工业 SDF / 飞控协议）

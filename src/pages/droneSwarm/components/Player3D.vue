@@ -10,7 +10,25 @@
                 <span>3D · THREE.JS</span>
             </div>
             <div class="hud-sub">
-                实例化渲染 · BLOOM 辉光
+                GPU 实例化 · 紧凑 BLOOM 泛光
+            </div>
+        </div>
+
+        <!-- 快捷机位切换控制栏 -->
+        <div class="hud-top-right">
+            <div class="camera-presets-bar">
+                <button class="cam-btn" title="顶部俯视" @click="setCameraPreset('top')">
+                    俯视
+                </button>
+                <button class="cam-btn" title="正立面视角" @click="setCameraPreset('front')">
+                    正视
+                </button>
+                <button class="cam-btn" title="45° 斜角视角" @click="setCameraPreset('iso')">
+                    45°
+                </button>
+                <button class="cam-btn" title="复位观众席机位" @click="setCameraPreset('reset')">
+                    复位
+                </button>
             </div>
         </div>
 
@@ -19,6 +37,11 @@
             <span class="hint-item"><kbd>滚轮</kbd>缩放</span>
             <span class="hint-item"><kbd>右键</kbd>平移</span>
         </div>
+
+        <!-- 起飞预演：从地面停机坪方阵垂直爬升入场（带黄色抗气流扰动引导线） -->
+        <button class="takeoff-btn" @click="triggerTakeoff">
+            🚀 地面起飞预演 (Takeoff Cue)
+        </button>
     </div>
 </template>
 
@@ -40,12 +63,16 @@ const props = defineProps({
     },
 });
 
-// 🌟 Vue 3.5 原生专属 Hook: useTemplateRef
 const containerRef = useTemplateRef('threeContainer');
 
-const { morphToPattern, createInstancedDrones } = useThreeStage(containerRef);
+const { morphToPattern, takeoffToPattern, setCameraPreset, createInstancedDrones } = useThreeStage(containerRef);
 
-// 组件首次挂载就绪后，立即调度变轨飞入当前构型 (彻底解决切入 3D 构型丢失的 Bug)
+function triggerTakeoff() {
+    if (props.agents && props.agents.length) {
+        takeoffToPattern(props.agents, 4.0);
+    }
+}
+
 onMounted(() => {
     nextTick(() => {
         if (props.agents && props.agents.length) {
@@ -54,15 +81,14 @@ onMounted(() => {
     });
 });
 
-// 监听点阵或构型变化，触发平滑飞行动画过渡
+// 移除昂贵的 deep: true，通过引用/浅层变化触发变轨，杜绝千架点位下的响应式 GC 停顿
 watch(
     () => props.agents,
     (newAgents) => {
         if (newAgents && newAgents.length) {
             morphToPattern(newAgents, 2.0);
         }
-    },
-    { deep: true }
+    }
 );
 
 watch(
@@ -77,6 +103,8 @@ watch(
 
 defineExpose({
     morphToPattern,
+    takeoffToPattern,
+    setCameraPreset,
 });
 </script>
 
@@ -103,84 +131,137 @@ defineExpose({
     height: 100%;
 }
 
+.three-canvas-container :deep(canvas) {
+    display: block;
+    outline: none;
+}
+
 .hud-top-left {
     position: absolute;
-    top: 12px;
-    left: 12px;
+    top: 14px;
+    left: 14px;
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: 4px;
     pointer-events: none;
-    z-index: 2;
+    z-index: 10;
 }
 
 .hud-badge {
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    height: 26px;
-    padding: 0 9px;
-    border-radius: 7px;
-    border: 1px solid rgba(148, 163, 184, 0.26);
-    background: rgba(15, 23, 42, 0.72);
-    color: #67e8f9;
-    font-size: 10px;
-    font-family: var(--app-font-family-mono, monospace);
+    padding: 3px 8px;
+    border-radius: 4px;
+    background: rgba(14, 21, 37, 0.85);
+    border: 1px solid rgba(0, 242, 254, 0.3);
+    font-size: 11px;
     font-weight: 700;
-    letter-spacing: 0.55px;
-    backdrop-filter: blur(12px);
-    box-shadow: 0 10px 24px -18px #000000;
+    letter-spacing: 0.5px;
+    color: #00f2fe;
+    backdrop-filter: blur(8px);
+    width: fit-content;
 }
 
 .status-dot {
     width: 6px;
     height: 6px;
     border-radius: 50%;
-    background: var(--el-color-primary);
-    box-shadow: 0 0 8px var(--el-color-primary);
+    background: #00f2fe;
+    box-shadow: 0 0 6px #00f2fe;
 }
 
 .hud-sub {
-    padding-left: 2px;
-    color: #94a3b8;
     font-size: 10px;
-    font-family: var(--app-font-family-mono, monospace);
+    color: #64748b;
+    letter-spacing: 0.3px;
+}
+
+.hud-top-right {
+    position: absolute;
+    top: 14px;
+    right: 14px;
+    z-index: 10;
+}
+
+.camera-presets-bar {
+    display: flex;
+    gap: 4px;
+    background: rgba(14, 21, 37, 0.85);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 6px;
+    padding: 3px;
+    backdrop-filter: blur(8px);
+}
+
+.cam-btn {
+    border: none;
+    background: transparent;
+    color: #94a3b8;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 4px 9px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.cam-btn:hover {
+    color: #00f2fe;
+    background: rgba(0, 242, 254, 0.12);
 }
 
 .hud-center-hint {
     position: absolute;
-    bottom: 12px;
+    bottom: 16px;
     left: 50%;
     transform: translateX(-50%);
-    z-index: 2;
     display: flex;
-    align-items: center;
-    gap: 12px;
-    height: 28px;
-    padding: 0 12px;
-    border-radius: 8px;
-    border: 1px solid rgba(148, 163, 184, 0.18);
-    background: rgba(15, 23, 42, 0.62);
-    color: #94a3b8;
-    font-size: 10px;
+    gap: 14px;
     pointer-events: none;
-    white-space: nowrap;
-    backdrop-filter: blur(10px);
+    z-index: 10;
 }
 
 .hint-item {
+    font-size: 11px;
+    color: #64748b;
     display: inline-flex;
     align-items: center;
-    gap: 5px;
+    gap: 4px;
 }
 
-.hud-center-hint kbd {
+.hint-item kbd {
+    background: rgba(15, 23, 42, 0.85);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 3px;
     padding: 1px 5px;
-    border-radius: 4px;
-    border: 1px solid rgba(148, 163, 184, 0.25);
-    background: rgba(148, 163, 184, 0.18);
     color: #cbd5e1;
-    font-family: var(--app-font-family-mono, monospace);
-    font-size: 9px;
+    font-size: 10px;
+}
+
+.takeoff-btn {
+    position: absolute;
+    bottom: 16px;
+    right: 16px;
+    z-index: 10;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 14px;
+    border-radius: 6px;
+    border: 1px solid rgba(0, 242, 254, 0.4);
+    background: rgba(0, 242, 254, 0.12);
+    color: #00f2fe;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    backdrop-filter: blur(8px);
+    transition: all 0.2s ease;
+}
+
+.takeoff-btn:hover {
+    background: rgba(0, 242, 254, 0.25);
+    box-shadow: 0 0 14px rgba(0, 242, 254, 0.4);
+    transform: translateY(-1px);
 }
 </style>

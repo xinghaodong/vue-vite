@@ -5,10 +5,10 @@
  * 功能说明:
  *   基于 Web 3D 工业标准打造：
  *   1. THREE.InstancedMesh (GPU 实例化网格)：1600~10000 架无人机仅 1 个 DrawCall；
- *   2. EffectComposer + UnrealBloomPass：真实暗黑夜空下的 LED 绚丽辉光与泛光；
- *   3. OrbitControls：鼠标 360° 空间视线漫游；
- *   4. GSAP 驱动时序与多场景插值平滑变轨；
- *   5. 显式生命周期治理：组件销毁时 100% 释放 GPU Buffer、Mesh 与纹理资源。
+ *   2. EffectComposer + UnrealBloomPass：真实暗黑夜空下的 LED 紧致光晕（收紧 Bloom，避免糊成肉团）；
+ *   3. 地面停机坪起飞阵列 (Takeoff Cue)：地面方阵 + 垂直爬升抗风阻引导线 + 4s 平滑入列；
+ *   4. OrbitControls + 快捷机位切换 (俯视/正视/45°/复位)；
+ *   5. 显式生命周期治理：组件销毁时 100% 释放 GPU Buffer、Mesh、引导线与纹理资源。
  * ========================================================================
  */
 
@@ -20,10 +20,6 @@ import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
 import gsap from 'gsap';
 
-/**
- * 3D 夜空辉光舞台 Hook
- * @param {import('vue').ShallowRef<HTMLDivElement | null>} containerRef 舞台 DOM 容器
- */
 export function useThreeStage(containerRef) {
     let scene = null;
     let camera = null;
@@ -31,19 +27,17 @@ export function useThreeStage(containerRef) {
     let controls = null;
     let composer = null;
     let instancedMesh = null;
+    let guideLines = null;
     let animationFrameId = null;
+    let activeTween = null;
 
-    // 虚拟变换矩阵与颜色辅助对象 (避免在渲染帧循环中反复 GC 分配)
     const dummyMatrix = new THREE.Matrix4();
     const dummyColor = new THREE.Color();
     const dummyPosition = new THREE.Vector3();
 
-    // 当前无人机总架数
     let currentCapacity = 1600;
+    const GROUND_Y = -118;
 
-    /**
-     * 初始化 Three.js 场景管线
-     */
     function initThree() {
         const container = containerRef.value;
         if (!container) return;
@@ -51,16 +45,13 @@ export function useThreeStage(containerRef) {
         const width = container.clientWidth || 800;
         const height = container.clientHeight || 600;
 
-        // 1. 场景与星空迷雾
         scene = new THREE.Scene();
-        scene.background = new THREE.Color(0x06080e); // 极深邃夜空
+        scene.background = new THREE.Color(0x06080e);
         scene.fog = new THREE.FogExp2(0x06080e, 0.0008);
 
-        // 2. 透视摄像机
         camera = new THREE.PerspectiveCamera(55, width / height, 1, 3000);
-        camera.position.set(0, 180, 500);
+        camera.position.set(85, 105, 420);
 
-        // 3. 渲染器 (高抗锯齿、物理正确灯光)
         renderer = new THREE.WebGLRenderer({
             antialias: true,
             powerPreference: 'high-performance',
@@ -68,56 +59,45 @@ export function useThreeStage(containerRef) {
         renderer.setSize(width, height);
         renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
         renderer.toneMapping = THREE.ACESFilmicToneMapping;
-        renderer.toneMappingExposure = 1.2;
+        renderer.toneMappingExposure = 1.15;
         container.appendChild(renderer.domElement);
 
-        // 4. 轨道控制器
         controls = new OrbitControls(camera, renderer.domElement);
         controls.enableDamping = true;
         controls.dampingFactor = 0.05;
-        controls.maxDistance = 1500;
-        controls.minDistance = 30;
+        controls.target.set(0, 40, 0);
+        controls.maxDistance = 1600;
+        controls.minDistance = 40;
+        controls.maxPolarAngle = Math.PI / 2 + 0.08; // 限制不能过度钻到地面下
 
-        // 5. 后期处理辉光管线 (UnrealBloomPass)
+        // 后期处理：收紧 Bloom 参数，保证高锐度离散光点，绝不糊成大肉球
         const renderScene = new RenderPass(scene, camera);
         const bloomPass = new UnrealBloomPass(
             new THREE.Vector2(width, height),
-            1.6, // 辉光强度 (Bloom Strength)
-            0.5, // 泛光半径 (Radius)
-            0.15 // 阈值 (Threshold)
+            0.95, // 紧凑辉光强度
+            0.35, // 泛光半径收窄
+            0.45  // 阈值提高，地面网格等暗部不发光
         );
 
         composer = new EffectComposer(renderer);
         composer.addPass(renderScene);
         composer.addPass(bloomPass);
 
-        // 6. 添加夜空环境底座发光网格
         createGroundGrid();
-
-        // 7. 创建 GPU 实例化网格 (InstancedMesh)
         createInstancedDrones(currentCapacity);
 
-        // 8. 启动渲染循环
         animate();
-
-        // 监听视口尺寸重置
         window.addEventListener('resize', onWindowResize);
     }
 
-    /**
-     * 创建夜空地表发光网格基准标尺
-     */
     function createGroundGrid() {
         const gridHelper = new THREE.GridHelper(800, 40, 0x00f2fe, 0x162135);
-        gridHelper.position.y = -120;
-        gridHelper.material.opacity = 0.4;
+        gridHelper.position.y = GROUND_Y;
+        gridHelper.material.opacity = 0.35;
         gridHelper.material.transparent = true;
         scene.add(gridHelper);
     }
 
-    /**
-     * 构建单 DrawCall 的 GPU 实例化无人机球体粒子
-     */
     function createInstancedDrones(count) {
         if (instancedMesh) {
             scene.remove(instancedMesh);
@@ -126,26 +106,27 @@ export function useThreeStage(containerRef) {
         }
 
         currentCapacity = count;
-        // 无人机发光球体几何微元 (8 面细分球，保持轻量)
-        const sphereGeo = new THREE.SphereGeometry(2.4, 8, 8);
-        const sphereMat = new THREE.MeshBasicMaterial({
-            color: 0xffffff,
-        });
+        // 细腻发光球体
+        const sphereGeo = new THREE.SphereGeometry(2.0, 8, 8);
+        const sphereMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
 
         instancedMesh = new THREE.InstancedMesh(sphereGeo, sphereMat, count);
         instancedMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
 
-        // 初始随机分布或着陆状态
+        // 默认整齐停放在地面停机坪网格中
+        const cols = Math.ceil(Math.sqrt(count));
+        const spacing = 8.0;
+        const offsetX = ((cols - 1) * spacing) / 2;
+        const offsetZ = offsetX;
+
         for (let i = 0; i < count; i++) {
-            dummyPosition.set(
-                (Math.random() - 0.5) * 400,
-                -118 + Math.random() * 5,
-                (Math.random() - 0.5) * 400
-            );
+            const r = Math.floor(i / cols);
+            const c = i % cols;
+            dummyPosition.set(c * spacing - offsetX, GROUND_Y, r * spacing - offsetZ);
             dummyMatrix.setPosition(dummyPosition);
             instancedMesh.setMatrixAt(i, dummyMatrix);
 
-            dummyColor.setHex(0x00ffff);
+            dummyColor.setHex(0x00f2fe);
             instancedMesh.setColorAt(i, dummyColor);
         }
 
@@ -156,69 +137,61 @@ export function useThreeStage(containerRef) {
     }
 
     /**
-     * 将 2D 或 3D 点位平滑飞入舞台（GSAP 驱动插值变轨）
-     * @param {Array<{x: number, y: number, z?: number, color?: string}>} targetPoints
-     * @param {number} duration 过渡飞行时间 (秒)
-     */
-    /**
-     * 将 2D 或 3D 点位平滑飞入舞台（GSAP 驱动插值变轨）
-     * @param {Array<{x: number, y: number, z?: number, color?: string}>} targetPoints
-     * @param {number} duration 过渡飞行时间 (秒)
+     * 平滑变轨飞入当前构型 (GSAP)
      */
     function morphToPattern(targetPoints, duration = 2.0) {
         if (!instancedMesh || !targetPoints || !targetPoints.length) return;
 
-        // 若目标点位超出当前 GPU 实例容量，自动扩容
+        if (activeTween) {
+            activeTween.kill();
+            activeTween = null;
+        }
+
         if (targetPoints.length > currentCapacity) {
             createInstancedDrones(Math.max(targetPoints.length, 1600));
         }
 
         const count = targetPoints.length;
-        const totalMeshCount = currentCapacity;
+        const total = currentCapacity;
 
-        // 提取当前各个实例的初始位置与目标状态
         const startPositions = [];
         const targetPositions = [];
         const targetColors = [];
 
-        for (let i = 0; i < totalMeshCount; i++) {
+        for (let i = 0; i < total; i++) {
             instancedMesh.getMatrixAt(i, dummyMatrix);
             dummyPosition.setFromMatrixPosition(dummyMatrix);
             startPositions.push({ x: dummyPosition.x, y: dummyPosition.y, z: dummyPosition.z });
 
             if (i < count) {
                 const target = targetPoints[i];
-                // 🌟 3D 夜空视觉黄金高程：将图形优雅悬浮于夜空高度 Y=60m 处 (地表网格位于 Y=-120m，居中悬空)
                 targetPositions.push({
                     x: target.x || 0,
                     y: 60 + (target.y || 0) * 0.8,
-                    z: target.z || (Math.random() - 0.5) * 12,
+                    z: target.z || (Math.random() - 0.5) * 8,
                 });
                 targetColors.push(new THREE.Color(target.color || '#00f2fe'));
             } else {
-                // 多余无人机实例优雅停降回停机坪地面 (Y=-118) 并熄灯 (纯黑)，绝不散落空中干扰主表演！
                 targetPositions.push({
                     x: (Math.random() - 0.5) * 360,
-                    y: -118,
+                    y: GROUND_Y,
                     z: (Math.random() - 0.5) * 360,
                 });
                 targetColors.push(new THREE.Color(0x000000));
             }
         }
 
-        // 动画过渡进度对象
         const animState = { progress: 0 };
-        gsap.to(animState, {
+        activeTween = gsap.to(animState, {
             progress: 1,
-            duration: duration,
+            duration,
             ease: 'power3.inOut',
             onUpdate: () => {
                 const p = animState.progress;
-                for (let i = 0; i < totalMeshCount; i++) {
+                for (let i = 0; i < total; i++) {
                     const s = startPositions[i];
                     const t = targetPositions[i];
 
-                    // 空间插值 (带平滑缓动)
                     const curX = THREE.MathUtils.lerp(s.x, t.x, p);
                     const curY = THREE.MathUtils.lerp(s.y, t.y, p);
                     const curZ = THREE.MathUtils.lerp(s.z, t.z, p);
@@ -227,18 +200,168 @@ export function useThreeStage(containerRef) {
                     dummyMatrix.setPosition(dummyPosition);
                     instancedMesh.setMatrixAt(i, dummyMatrix);
 
-                    // 颜色平滑过渡
                     instancedMesh.setColorAt(i, targetColors[i]);
                 }
                 instancedMesh.instanceMatrix.needsUpdate = true;
                 if (instancedMesh.instanceColor) instancedMesh.instanceColor.needsUpdate = true;
             },
+            onComplete: () => {
+                activeTween = null;
+            },
         });
     }
 
     /**
-     * 逐帧渲染循环
+     * 🚀 商业级 Takeoff Cue 地面起飞预演（对标 SwarmStudio 视频 A）
+     * 阶段一：从停机坪垂直爬升（黄色引导线指示防气流干扰）
+     * 阶段二：平滑编队散开并入列构型
      */
+    function takeoffToPattern(targetPoints, duration = 4.0) {
+        if (!instancedMesh || !targetPoints || !targetPoints.length) return;
+
+        if (activeTween) {
+            activeTween.kill();
+            activeTween = null;
+        }
+
+        const count = targetPoints.length;
+        const cols = Math.ceil(Math.sqrt(count));
+        const spacing = 8.0;
+        const offsetX = ((cols - 1) * spacing) / 2;
+        const offsetZ = offsetX;
+
+        // 重新排布到地面方阵停机坪
+        const groundPositions = [];
+        const climbPositions = [];
+        const finalPositions = [];
+        const finalColors = [];
+
+        // 构建垂直爬升黄色引导线
+        if (guideLines) {
+            scene.remove(guideLines);
+            guideLines.geometry.dispose();
+            guideLines.material.dispose();
+        }
+
+        const linePositions = [];
+        const climbHeight = 25; // 垂直离地高度
+
+        for (let i = 0; i < currentCapacity; i++) {
+            if (i < count) {
+                const r = Math.floor(i / cols);
+                const c = i % cols;
+                const gx = c * spacing - offsetX;
+                const gz = r * spacing - offsetZ;
+
+                groundPositions.push({ x: gx, y: GROUND_Y, z: gz });
+                climbPositions.push({ x: gx, y: GROUND_Y + climbHeight, z: gz });
+
+                linePositions.push(gx, GROUND_Y, gz);
+                linePositions.push(gx, GROUND_Y + climbHeight, gz);
+
+                const target = targetPoints[i];
+                finalPositions.push({
+                    x: target.x || 0,
+                    y: 60 + (target.y || 0) * 0.8,
+                    z: target.z || (Math.random() - 0.5) * 8,
+                });
+                finalColors.push(new THREE.Color(target.color || '#00f2fe'));
+            } else {
+                groundPositions.push({ x: 0, y: GROUND_Y, z: 0 });
+                climbPositions.push({ x: 0, y: GROUND_Y, z: 0 });
+                finalPositions.push({ x: 0, y: GROUND_Y, z: 0 });
+                finalColors.push(new THREE.Color(0x000000));
+            }
+        }
+
+        const lineGeo = new THREE.BufferGeometry();
+        lineGeo.setAttribute('position', new THREE.Float32BufferAttribute(linePositions, 3));
+        const lineMat = new THREE.LineBasicMaterial({
+            color: 0xffe600,
+            opacity: 0.75,
+            transparent: true,
+        });
+        guideLines = new THREE.LineSegments(lineGeo, lineMat);
+        scene.add(guideLines);
+
+        const animState = { progress: 0 };
+        activeTween = gsap.to(animState, {
+            progress: 1,
+            duration,
+            ease: 'power2.inOut',
+            onUpdate: () => {
+                const p = animState.progress;
+
+                // 前 40% 时间垂直爬升，后 60% 飞往目标构型
+                for (let i = 0; i < currentCapacity; i++) {
+                    let curX, curY, curZ;
+                    if (p < 0.4) {
+                        const localP = p / 0.4;
+                        curX = groundPositions[i].x;
+                        curY = THREE.MathUtils.lerp(groundPositions[i].y, climbPositions[i].y, localP);
+                        curZ = groundPositions[i].z;
+                    } else {
+                        const localP = (p - 0.4) / 0.6;
+                        curX = THREE.MathUtils.lerp(climbPositions[i].x, finalPositions[i].x, localP);
+                        curY = THREE.MathUtils.lerp(climbPositions[i].y, finalPositions[i].y, localP);
+                        curZ = THREE.MathUtils.lerp(climbPositions[i].z, finalPositions[i].z, localP);
+                    }
+
+                    dummyPosition.set(curX, curY, curZ);
+                    dummyMatrix.setPosition(dummyPosition);
+                    instancedMesh.setMatrixAt(i, dummyMatrix);
+
+                    instancedMesh.setColorAt(i, finalColors[i]);
+                }
+                instancedMesh.instanceMatrix.needsUpdate = true;
+                if (instancedMesh.instanceColor) instancedMesh.instanceColor.needsUpdate = true;
+
+                // 引导线淡出
+                if (guideLines && p > 0.4) {
+                    guideLines.material.opacity = Math.max(0, 1 - (p - 0.4) / 0.3);
+                }
+            },
+            onComplete: () => {
+                if (guideLines) {
+                    scene.remove(guideLines);
+                    guideLines.geometry.dispose();
+                    guideLines.material.dispose();
+                    guideLines = null;
+                }
+                activeTween = null;
+            },
+        });
+    }
+
+    /**
+     * 快捷机位切换
+     */
+    function setCameraPreset(preset = 'reset') {
+        if (!camera || !controls) return;
+        const targets = {
+            top: { x: 0, y: 650, z: 0.1, tx: 0, ty: 40, tz: 0 },
+            front: { x: 0, y: 60, z: 520, tx: 0, ty: 60, tz: 0 },
+            iso: { x: 280, y: 220, z: 360, tx: 0, ty: 40, tz: 0 },
+            reset: { x: 85, y: 105, z: 420, tx: 0, ty: 40, tz: 0 },
+        };
+        const dest = targets[preset] || targets.reset;
+
+        gsap.to(camera.position, {
+            x: dest.x,
+            y: dest.y,
+            z: dest.z,
+            duration: 1.2,
+            ease: 'power2.out',
+        });
+        gsap.to(controls.target, {
+            x: dest.tx,
+            y: dest.ty,
+            z: dest.tz,
+            duration: 1.2,
+            ease: 'power2.out',
+        });
+    }
+
     function animate() {
         animationFrameId = requestAnimationFrame(animate);
         if (controls) controls.update();
@@ -268,6 +391,18 @@ export function useThreeStage(containerRef) {
         if (animationFrameId) cancelAnimationFrame(animationFrameId);
         window.removeEventListener('resize', onWindowResize);
 
+        if (activeTween) {
+            activeTween.kill();
+            activeTween = null;
+        }
+
+        if (guideLines) {
+            scene.remove(guideLines);
+            guideLines.geometry.dispose();
+            guideLines.material.dispose();
+            guideLines = null;
+        }
+
         if (instancedMesh) {
             scene.remove(instancedMesh);
             instancedMesh.geometry.dispose();
@@ -290,21 +425,10 @@ export function useThreeStage(containerRef) {
         composer = null;
     });
 
-    /**
-     * 动态设置 3D 舞台背景与雾气颜色
-     */
-    function setStageBackgroundColor(hex) {
-        if (!scene) return;
-        const color = new THREE.Color(hex);
-        scene.background = color;
-        if (scene.fog) {
-            scene.fog.color = color;
-        }
-    }
-
     return {
         morphToPattern,
+        takeoffToPattern,
+        setCameraPreset,
         createInstancedDrones,
-        setStageBackgroundColor,
     };
 }

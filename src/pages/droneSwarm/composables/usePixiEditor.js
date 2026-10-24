@@ -8,12 +8,40 @@
  *   2. 基于 Pixi.js v8 构建极致流畅的 2D 暗黑 CAD 画布；
  *   3. 标配矩阵视口漫游系统 (Pan 平移 / Zoom 滚轮缩放 / 坐标逆变换)；
  *   4. 单批次渲染数千架无人机发光粒子（Sprite 批处理）；
- *   5. 遵循严格的生命周期治理规范，组件卸载时 100% 释放显存，零内存泄漏。
+ *   5. 遵循严格的生命周期治理规范，组件卸载时 100% 释放显存，零内存泄漏；
+ *   6. 支持 Ordered Lasso 按时序圈选拓扑追踪与青色引导线；
+ *   7. 支持画布直接操纵式渐变控制轴 (Direct Manipulation Vector)；
+ *   8. 支持上色时视觉防干扰机制 (hideSelectionVisual)。
  * ========================================================================
  */
 
-import { shallowRef, ref, onMounted, onBeforeUnmount, watch } from 'vue';
-import { Application, Container, Graphics, Sprite, Texture, FederatedPointerEvent } from 'pixi.js';
+import { shallowRef, ref, onMounted, onBeforeUnmount } from 'vue';
+import { Application, Container, Graphics, Sprite, Texture } from 'pixi.js';
+
+let sharedCrispTexture = null;
+let sharedGlowTexture = null;
+
+function createCrispDotTexture(app) {
+    if (sharedCrispTexture) return sharedCrispTexture;
+    const g = new Graphics();
+    g.circle(16, 16, 14);
+    g.fill({ color: 0xffffff, alpha: 1.0 });
+    sharedCrispTexture = app.renderer.generateTexture(g);
+    return sharedCrispTexture;
+}
+
+function createGlowDotTexture(app) {
+    if (sharedGlowTexture) return sharedGlowTexture;
+    const g = new Graphics();
+    g.circle(24, 24, 22);
+    g.fill({ color: 0xffffff, alpha: 0.18 });
+    g.circle(24, 24, 14);
+    g.fill({ color: 0xffffff, alpha: 0.45 });
+    g.circle(24, 24, 8);
+    g.fill({ color: 0xffffff, alpha: 1.0 });
+    sharedGlowTexture = app.renderer.generateTexture(g);
+    return sharedGlowTexture;
+}
 
 /**
  * 2D 创意点阵编辑器 Hook
@@ -25,16 +53,21 @@ export function usePixiEditor(containerRef, options = {}) {
         onPointSelect = null,
         onSelectionChange = null,
         onMoveCommit = null,
+        onLassoComplete = null,
+        onGradientAxisChange = null,
+        onGradientAxisCommit = null,
     } = options;
 
     /** @type {import('vue').ShallowRef<Application | null>} */
     const pixiApp = shallowRef(null);
     const isReady = ref(false);
-    const toolMode = ref(options.initialToolMode || 'select');
+    const toolMode = ref(options.initialToolMode || 'select'); // 'select' | 'pan' | 'lasso'
     /** @type {import('vue').Ref<Set<string|number>>} */
     const selectedIds = ref(new Set());
+    const selectedDroneId = ref(null);
+
     /** @type {import('vue').ShallowRef<Container | null>} */
-    const worldContainer = shallowRef(null); // 可自由缩放与平移的无限世界层
+    const worldContainer = shallowRef(null);
     /** @type {import('vue').ShallowRef<Graphics | null>} */
     const gridGraphics = shallowRef(null);
     /** @type {import('vue').ShallowRef<Container | null>} */
@@ -43,13 +76,25 @@ export function usePixiEditor(containerRef, options = {}) {
     const selectionGraphics = shallowRef(null);
     /** @type {import('vue').ShallowRef<Graphics | null>} */
     const marqueeGraphics = shallowRef(null);
+    /** @type {import('vue').ShallowRef<Graphics | null>} */
+    const gradientGraphics = shallowRef(null);
+
+    /** @type {import('vue').Ref<{startX:number,startY:number,endX:number,endY:number} | null>} */
+    const gradientAxis = ref(null);
+    const hideSelectionVisual = ref(false);
+
+    /** @type {import('vue').Ref<Array<string|number>>} Ordered Lasso 按时序记录的点位 ID */
+    const lassoPath = ref([]);
+    const lassoRecorded = new Set();
+    let lassoTrail = []; // 屏幕像素点列轨迹
 
     /** @type {Map<string|number, Sprite>} */
     const spriteMap = new Map();
     /** @type {Map<string|number, Object>} */
     const agentMap = new Map();
+
     const gesture = {
-        mode: null,
+        mode: null, // 'pan' | 'move' | 'marquee' | 'lasso' | 'drag_grad_start' | 'drag_grad_end' | 'drag_grad_mid'
         startScreenX: 0,
         startScreenY: 0,
         startPanX: 0,
@@ -57,28 +102,32 @@ export function usePixiEditor(containerRef, options = {}) {
         startPositions: new Map(),
         moved: false,
     };
+
     let isSpacePressed = false;
     let unbindViewportEvents = null;
 
-    // 视口变换状态 (Camera State)
+    // 视口相机变换状态
     const viewport = ref({
         zoom: 1.0,
         panX: 0,
         panY: 0,
-        isDragging: false,
-        dragStartX: 0,
-        dragStartY: 0,
     });
 
-    // 鼠标在 CAD 物理世界的实时坐标 (米/像素)
     const cursorWorldPos = ref({ x: 0, y: 0 });
-
-    // 当前画布背景底色 (支持用户任意自定义及跟随主题)
     const currentBgColor = ref(options.initialBgColor || '#0a0c14');
 
-    /**
-     * 判断颜色是否为暗色 (标准感知亮度公式)
-     */
+    const currentRenderCache = {
+        agents: [],
+        dangerIds: new Set(),
+        options: {
+            constantScreen: true,
+            dotScale: 0.8,
+            useGlow: false,
+            highlightDanger: true,
+            lockedIds: new Set(),
+        },
+    };
+
     function isColorDark(hex) {
         if (!hex) return true;
         const clean = hex.replace('#', '');
@@ -89,126 +138,43 @@ export function usePixiEditor(containerRef, options = {}) {
         return luminance < 0.5;
     }
 
-    /**
-     * 动态设置视口画布背景色并触发网格与对比度重算
-     */
     function setCanvasBackgroundColor(colorHex) {
         if (!colorHex) return;
         currentBgColor.value = colorHex;
         if (!pixiApp.value) return;
-
         const cleanHex = colorHex.replace('#', '');
         const num = parseInt(cleanHex, 16);
         if (!isNaN(num)) {
             pixiApp.value.renderer.background.color = num;
             renderCadGrid();
-            // 刷新粒子抗对比度纹理
-            if (sharedCrispTexture) {
-                try { sharedCrispTexture.destroy(true); } catch (_) {}
-                sharedCrispTexture = null;
-            }
-            if (currentRenderCache.agents && currentRenderCache.agents.length) {
-                renderDroneAgents(currentRenderCache.agents, currentRenderCache.dangerIds, currentRenderCache.options);
-            }
+            drawSelectionRings();
+            drawGradientAxis();
         }
     }
 
-    // 当前选中的无人机 ID
-    const selectedDroneId = ref(null);
-
-    // 缓存离屏粒子纹理与当前渲染上下文
-    let sharedCrispTexture = null;
-    let sharedGlowTexture = null;
-    let currentRenderCache = {
-        agents: [],
-        dangerIds: new Set(),
-        options: { constantScreen: true, dotScale: 0.8, useGlow: false },
-    };
-
-    /**
-     * 生成 64x64 超采样 CAD 级高锐度矢量微圆点纹理 (边缘绝对光滑锐利，明暗背景高对比)
-     */
-    function createCrispDotTexture(app) {
-        const isDark = isColorDark(currentBgColor.value);
-        const cacheKey = isDark ? 'dark' : 'light';
-        if (sharedCrispTexture && sharedCrispTexture.__themeMode === cacheKey) {
-            return sharedCrispTexture;
-        }
-        if (sharedCrispTexture) {
-            try { sharedCrispTexture.destroy(true); } catch (_) {}
-            sharedCrispTexture = null;
-        }
-
-        const size = 64;
-        const g = new Graphics();
-
-        // 浅色背景模式下：增加细腻微对比暗圈，防止浅色/白芯 LED 点位在白底上发虚
-        if (!isDark) {
-            g.circle(size / 2, size / 2, 22);
-            g.fill({ color: 0x0f172a, alpha: 0.22 });
-        }
-
-        // 核心实心高亮圆点 (半径 18px，超清抗锯齿采样)
-        g.circle(size / 2, size / 2, 18);
-        g.fill({ color: 0xffffff, alpha: 1.0 });
-
-        // 极细腻微亚像素抗锯齿边缘
-        g.circle(size / 2, size / 2, 21);
-        g.fill({ color: 0xffffff, alpha: isDark ? 0.35 : 0.6 });
-
-        sharedCrispTexture = app.renderer.generateTexture(g);
-        sharedCrispTexture.__themeMode = cacheKey;
-        return sharedCrispTexture;
-    }
-
-    /**
-     * 生成柔和霓虹夜空发光微晕纹理
-     */
-    function createGlowDotTexture(app) {
-        if (sharedGlowTexture) return sharedGlowTexture;
-        const size = 64;
-        const g = new Graphics();
-        // 外围柔和微晕
-        g.circle(size / 2, size / 2, 28);
-        g.fill({ color: 0xffffff, alpha: 0.25 });
-
-        // 核心白芯
-        g.circle(size / 2, size / 2, 12);
-        g.fill({ color: 0xffffff, alpha: 1.0 });
-
-        sharedGlowTexture = app.renderer.generateTexture(g);
-        return sharedGlowTexture;
-    }
-
-    /**
-     * 动态补偿无人机粒子在屏幕空间的渲染尺寸 (实现 CAD 级放大无模糊、恒定针尖点)
-     */
     function updateSpritesScale() {
-        if (!droneLayer.value) return;
-        const zoom = viewport.value.zoom;
         const { constantScreen = true, dotScale = 0.8 } = currentRenderCache.options;
-        const layer = droneLayer.value;
+        const basePx = 5.0 * dotScale;
+        const zoom = Math.max(0.05, viewport.value.zoom);
+        const effectiveSize = constantScreen ? basePx / zoom : basePx;
 
-        // CAD 专业视口规范：点位屏幕像素尺寸恒定 (默认 ~5.5px)，
-        // 用户放大视口时拉大的是物理空间间距，而点本身永远锐利纤细，绝不糊化变成大圆盘！
-        const basePixelSize = 6.0 * dotScale;
-        const effectiveSize = constantScreen ? (basePixelSize / zoom) : (basePixelSize * 0.8);
-
-        for (let i = 0; i < layer.children.length; i++) {
-            const sprite = layer.children[i];
-            const isDanger = sprite.customIsDanger;
+        for (const [id, sprite] of spriteMap) {
+            const isDanger = currentRenderCache.dangerIds && currentRenderCache.dangerIds.has(id);
             const size = isDanger ? effectiveSize * 1.5 : effectiveSize;
             sprite.width = size;
             sprite.height = size;
         }
         drawSelectionRings();
+        drawGradientAxis();
     }
 
     function drawSelectionRings() {
         const g = selectionGraphics.value;
         if (!g) return;
-
         g.clear();
+
+        // 视觉防干扰机制：上色时隐藏高亮外圈
+        if (hideSelectionVisual.value) return;
         if (selectedIds.value.size === 0) return;
 
         const zoom = Math.max(0.05, viewport.value.zoom);
@@ -217,7 +183,9 @@ export function usePixiEditor(containerRef, options = {}) {
 
         for (const id of selectedIds.value) {
             const sprite = spriteMap.get(id);
-            if (sprite) g.circle(sprite.x, sprite.y, radius);
+            if (sprite) {
+                g.circle(sprite.x, sprite.y, radius);
+            }
         }
         g.stroke({ width: lineWidth, color: 0x67e8f9, alpha: 0.95 });
     }
@@ -246,14 +214,25 @@ export function usePixiEditor(containerRef, options = {}) {
     }
 
     function setToolMode(mode) {
-        toolMode.value = mode === 'pan' ? 'pan' : 'select';
+        toolMode.value = mode === 'pan' ? 'pan' : mode === 'lasso' ? 'lasso' : 'select';
         updateCursorStyle();
+    }
+
+    function setHideSelectionVisual(val) {
+        hideSelectionVisual.value = Boolean(val);
+        drawSelectionRings();
     }
 
     function updateCursorStyle() {
         const container = containerRef.value;
         if (!container) return;
-        container.style.cursor = toolMode.value === 'pan' || isSpacePressed ? 'grab' : 'crosshair';
+        if (toolMode.value === 'pan' || isSpacePressed) {
+            container.style.cursor = 'grab';
+        } else if (toolMode.value === 'lasso') {
+            container.style.cursor = 'crosshair';
+        } else {
+            container.style.cursor = 'default';
+        }
     }
 
     function getScreenPoint(clientX, clientY) {
@@ -264,11 +243,9 @@ export function usePixiEditor(containerRef, options = {}) {
     }
 
     /**
-     * 以屏幕像素为单位做最近点命中。
-     * Pixi Sprite 在“恒定针尖”模式下只有约 5px，直接依赖 Sprite hitArea 很难点中；
-     * 这里给选择工具一个 10px 的容差，同时保持缩放后点选手感一致。
+     * 以屏幕像素容差 hitTest 最近无人机点位
      */
-    function hitTestAgent(screenX, screenY, threshold = 10) {
+    function hitTestAgent(screenX, screenY, threshold = 12) {
         const zoom = viewport.value.zoom;
         const panX = viewport.value.panX;
         const panY = viewport.value.panY;
@@ -284,6 +261,96 @@ export function usePixiEditor(containerRef, options = {}) {
             }
         }
         return nearest;
+    }
+
+    /**
+     * 渐变轴控制手柄命中检测
+     */
+    function hitTestGradientHandles(worldX, worldY) {
+        if (!gradientAxis.value) return null;
+        const zoom = viewport.value.zoom;
+        const handleRadius = 14 / zoom;
+        const { startX, startY, endX, endY } = gradientAxis.value;
+
+        // 起点手柄
+        const dStart = Math.hypot(worldX - startX, worldY - (-startY));
+        if (dStart <= handleRadius) return 'drag_grad_start';
+
+        // 终点手柄
+        const dEnd = Math.hypot(worldX - endX, worldY - (-endY));
+        if (dEnd <= handleRadius) return 'drag_grad_end';
+
+        // 中心轴线
+        const midX = (startX + endX) / 2;
+        const midY = (startY + endY) / 2;
+        const dMid = Math.hypot(worldX - midX, worldY - (-midY));
+        if (dMid <= handleRadius) return 'drag_grad_mid';
+
+        return null;
+    }
+
+    /**
+     * 绘制 2D 画布渐变直接操纵控制轴
+     */
+    function drawGradientAxis() {
+        const g = gradientGraphics.value;
+        if (!g) return;
+        g.clear();
+        if (!gradientAxis.value) return;
+
+        const { startX, startY, endX, endY } = gradientAxis.value;
+        const zoom = Math.max(0.05, viewport.value.zoom);
+        const lineWidth = 2 / zoom;
+        const handleR = 6 / zoom;
+        const ringR = 10 / zoom;
+
+        // 注意世界坐标系 Y 轴翻转
+        const pyStart = -startY;
+        const pyEnd = -endY;
+
+        // 1. 轴线基线
+        g.moveTo(startX, pyStart);
+        g.lineTo(endX, pyEnd);
+        g.stroke({ width: lineWidth, color: 0x00f2fe, alpha: 0.9 });
+
+        // 2. 起始手柄 (绿色点 + 光环)
+        g.circle(startX, pyStart, ringR);
+        g.stroke({ width: 1.5 / zoom, color: 0x2dff6a, alpha: 0.8 });
+        g.circle(startX, pyStart, handleR);
+        g.fill({ color: 0x2dff6a, alpha: 1.0 });
+
+        // 3. 终点手柄 (蓝色点 + 光环)
+        g.circle(endX, pyEnd, ringR);
+        g.stroke({ width: 1.5 / zoom, color: 0x2454ff, alpha: 0.8 });
+        g.circle(endX, pyEnd, handleR);
+        g.fill({ color: 0x2454ff, alpha: 1.0 });
+
+        // 4. 中点角度旋转手柄 (青金准星)
+        const midX = (startX + endX) / 2;
+        const midY = (pyStart + pyEnd) / 2;
+        g.circle(midX, midY, handleR * 0.9);
+        g.fill({ color: 0x00f2fe, alpha: 0.95 });
+        g.circle(midX, midY, ringR * 0.8);
+        g.stroke({ width: 1 / zoom, color: 0xffffff, alpha: 0.7 });
+    }
+
+    function setGradientAxis(axis) {
+        if (!axis) {
+            gradientAxis.value = null;
+        } else {
+            gradientAxis.value = {
+                startX: axis.startX ?? -40,
+                startY: axis.startY ?? 0,
+                endX: axis.endX ?? 40,
+                endY: axis.endY ?? 0,
+            };
+        }
+        drawGradientAxis();
+    }
+
+    function clearGradientAxis() {
+        gradientAxis.value = null;
+        drawGradientAxis();
     }
 
     function beginMoveGesture(startScreenX, startScreenY) {
@@ -315,7 +382,6 @@ export function usePixiEditor(containerRef, options = {}) {
         if (agent && onPointSelect) onPointSelect(agent);
         emitSelectionChange();
 
-        // 点中已选点再拖动时保持整组选择；Shift 取消选中则不进入拖拽。
         if (next.has(agentId)) beginMoveGesture(screenX, screenY);
     }
 
@@ -333,8 +399,21 @@ export function usePixiEditor(containerRef, options = {}) {
         g.stroke({ width: 1, color: 0x67e8f9, alpha: 0.9 });
     }
 
+    function drawLassoTrail(trail) {
+        const g = marqueeGraphics.value;
+        if (!g) return;
+        g.clear();
+        if (!trail || trail.length < 2) return;
+
+        g.moveTo(trail[0].x, trail[0].y);
+        for (let i = 1; i < trail.length; i++) {
+            g.lineTo(trail[i].x, trail[i].y);
+        }
+        g.stroke({ width: 2, color: 0x00f2fe, alpha: 0.95 });
+    }
+
     /**
-     * 绘制 CAD 风格暗黑网格标尺与中心十字准星
+     * 绘制 CAD 风格暗黑网格标尺、200m 物理边界与中心十字准星
      */
     function renderCadGrid() {
         if (!gridGraphics.value || !pixiApp.value) return;
@@ -345,12 +424,10 @@ export function usePixiEditor(containerRef, options = {}) {
         g.clear();
 
         const isDark = isColorDark(currentBgColor.value);
-
-        // 计算当前视口覆盖的世界坐标边界
         const step = 40 * zoom;
         const majorStep = step * 5;
 
-        // 次级微网格点阵/细线 (暗黑科技蓝 / 浅色高对比优雅灰)
+        // 次级微网格细线
         const subGridColor = isDark ? 0x243149 : 0xe2e8f0;
         const subGridAlpha = isDark ? 0.72 : 0.85;
         g.setStrokeStyle({ width: 1, color: subGridColor, alpha: subGridAlpha });
@@ -366,7 +443,7 @@ export function usePixiEditor(containerRef, options = {}) {
         }
         g.stroke();
 
-        // 主标尺网格粗线 (暗黑灰蓝 / 浅色标尺深灰)
+        // 主标尺粗线
         const majorGridColor = isDark ? 0x33445f : 0x94a3b8;
         const majorGridAlpha = isDark ? 0.9 : 0.75;
         g.setStrokeStyle({ width: 1, color: majorGridColor, alpha: majorGridAlpha });
@@ -382,7 +459,15 @@ export function usePixiEditor(containerRef, options = {}) {
         }
         g.stroke();
 
-        // 世界坐标中心原点十字准星 (0, 0)
+        // 🌟 200m × 200m 工业级实机物理安全包络框 (坐标 [-100, 100])
+        const halfBox = 100;
+        const screenX1 = (-halfBox) * zoom + panX;
+        const screenY1 = (-halfBox) * zoom + panY;
+        const screenBoxSize = (halfBox * 2) * zoom;
+        g.rect(screenX1, screenY1, screenBoxSize, screenBoxSize);
+        g.stroke({ width: 1.5, color: 0x00f2fe, alpha: 0.35 });
+
+        // 原点十字准星 (0, 0)
         const crossColor = isDark ? 0x00f2fe : 0x2563eb;
         g.setStrokeStyle({ width: 1.5, color: crossColor, alpha: 0.9 });
         g.moveTo(panX - 20, panY);
@@ -395,26 +480,23 @@ export function usePixiEditor(containerRef, options = {}) {
     }
 
     /**
-     * 批量向画布渲染成百上千个无人机发光点位
-     * @param {Array<import('../types/swarm').Agent>} agents
-     * @param {Set<string|number>} dangerIds 碰撞危险点位 ID 集合
-     * @param {Object} renderOptions 渲染配置 (启用高锐度、点径大小、恒定屏幕尺寸等)
+     * 批量向画布渲染无人机发光点位
      */
     function renderDroneAgents(agents, dangerIds = new Set(), renderOptions = {}) {
-        // 先更新渲染上下文缓存：初始化完成前到达的首帧数据也不会丢失
         currentRenderCache.agents = agents;
         currentRenderCache.dangerIds = dangerIds;
         currentRenderCache.options = {
             constantScreen: true,
             dotScale: 0.8,
             useGlow: false,
+            highlightDanger: true,
+            lockedIds: new Set(),
             ...renderOptions,
         };
 
         if (!droneLayer.value || !pixiApp.value) return;
         const layer = droneLayer.value;
 
-        // 彻底清空上一帧旧点位，防止对象驻留
         layer.removeChildren();
         spriteMap.clear();
         agentMap.clear();
@@ -429,15 +511,15 @@ export function usePixiEditor(containerRef, options = {}) {
             const isLocked = lockedIds instanceof Set
                 ? lockedIds.has(agent.layerId || 'layer_main')
                 : Array.isArray(lockedIds) && lockedIds.includes(agent.layerId || 'layer_main');
+
             const sprite = new Sprite(texture);
             sprite.anchor.set(0.5);
             sprite.x = agent.x;
-            sprite.y = -agent.y; // 坐标系反转：数学坐标向上为正，Canvas 默认向下为正
+            sprite.y = -agent.y; // 数学世界向上为正，Canvas 默认向下为正
             sprite.customIsDanger = isDanger;
             sprite.customLocked = isLocked;
             sprite.customAgentId = agent.id;
 
-            // 危险点位若开启警报高亮则使用红光 (0xff2255)，否则保持点位原汁原味的 LED 颜色
             if (isDanger && highlightDanger) {
                 sprite.tint = 0xff2255;
             } else if (agent.color) {
@@ -448,8 +530,6 @@ export function usePixiEditor(containerRef, options = {}) {
             }
 
             sprite.alpha = isDanger ? 1.0 : (agent.alpha ?? 1.0);
-
-            // 启用高灵敏度指针事件
             sprite.eventMode = 'static';
             sprite.cursor = isLocked ? 'not-allowed' : toolMode.value === 'pan' ? 'grab' : 'pointer';
 
@@ -461,13 +541,9 @@ export function usePixiEditor(containerRef, options = {}) {
         const validIds = new Set(agents.map((agent) => agent.id));
         selectedIds.value = new Set([...selectedIds.value].filter((id) => validIds.has(id)));
 
-        // 立即根据当前视口 zoom 更新真实屏幕像素尺寸
         updateSpritesScale();
     }
 
-    /**
-     * 初始化 PixiJS v8 实例
-     */
     async function initPixi() {
         const container = containerRef.value;
         if (!container) return;
@@ -489,7 +565,6 @@ export function usePixiEditor(containerRef, options = {}) {
         app.stage.eventMode = 'static';
         app.stage.hitArea = app.screen;
 
-        // 初始视口居中
         viewport.value.panX = app.screen.width / 2;
         viewport.value.panY = app.screen.height / 2;
 
@@ -506,45 +581,39 @@ export function usePixiEditor(containerRef, options = {}) {
         app.stage.addChild(world);
         worldContainer.value = world;
 
-        // 3. 点阵层挂载在世界容器中
+        // 3. 点阵层
         const drones = new Container();
         world.addChild(drones);
         droneLayer.value = drones;
 
-        // 4. 选中描边层（世界坐标，随视口缩放）
+        // 4. 选中圈层
         const selection = new Graphics();
         world.addChild(selection);
         selectionGraphics.value = selection;
 
-        // 5. 框选矩形层（屏幕坐标）
+        // 5. 渐变直接操纵控制轴
+        const gradG = new Graphics();
+        world.addChild(gradG);
+        gradientGraphics.value = gradG;
+
+        // 6. 顶层框选 / Lasso 轨迹层 (屏幕坐标)
         const marquee = new Graphics();
         app.stage.addChild(marquee);
         marqueeGraphics.value = marquee;
 
         renderCadGrid();
 
-        // 绑定视口平移与滚轮缩放事件
         unbindViewportEvents = bindViewportEvents(container);
         app.stage.on('pointerdown', handleStagePointerDown);
         app.stage.on('pointerup', handleStagePointerUp);
         app.stage.on('pointerupoutside', handleStagePointerUp);
 
-        // 同步初始化期间发生的主题切换与首帧点阵（修复首屏画布空白 / 底色不一致）
-        const activeBg = parseInt(String(currentBgColor.value).replace('#', ''), 16);
-        if (!isNaN(activeBg)) {
-            app.renderer.background.color = activeBg;
-        }
-        renderCadGrid();
         if (currentRenderCache.agents.length) {
             renderDroneAgents(currentRenderCache.agents, currentRenderCache.dangerIds, currentRenderCache.options);
         }
         isReady.value = true;
     }
 
-    /**
-     * 绑定视口相机漫游与 2D 编辑交互。
-     * 选择工具：左键框选/拖点；平移工具或空格/中键：拖动画布。
-     */
     function bindViewportEvents(container) {
         const onMouseMove = (e) => {
             const point = getScreenPoint(e.clientX, e.clientY);
@@ -564,6 +633,47 @@ export function usePixiEditor(containerRef, options = {}) {
                 }
                 renderCadGrid();
                 drawSelectionRings();
+                drawGradientAxis();
+                return;
+            }
+
+            if (gesture.mode === 'lasso') {
+                lassoTrail.push(point);
+                drawLassoTrail(lassoTrail);
+
+                // 实时捕捉光标扫过的无人机点位并按序入列
+                const hit = hitTestAgent(point.x, point.y, 16);
+                if (hit && !lassoRecorded.has(hit.id)) {
+                    lassoRecorded.add(hit.id);
+                    lassoPath.value.push(hit.id);
+                    selectedIds.value.add(hit.id);
+                    drawSelectionRings();
+                }
+                return;
+            }
+
+            if (gesture.mode === 'drag_grad_start' || gesture.mode === 'drag_grad_end' || gesture.mode === 'drag_grad_mid') {
+                if (gradientAxis.value) {
+                    if (gesture.mode === 'drag_grad_start') {
+                        gradientAxis.value.startX = Math.round(worldX * 10) / 10;
+                        gradientAxis.value.startY = Math.round(worldY * 10) / 10;
+                    } else if (gesture.mode === 'drag_grad_end') {
+                        gradientAxis.value.endX = Math.round(worldX * 10) / 10;
+                        gradientAxis.value.endY = Math.round(worldY * 10) / 10;
+                    } else if (gesture.mode === 'drag_grad_mid') {
+                        const dx = worldX - (gradientAxis.value.startX + gradientAxis.value.endX) / 2;
+                        const dy = worldY - (gradientAxis.value.startY + gradientAxis.value.endY) / 2;
+                        gradientAxis.value.startX = Math.round((gradientAxis.value.startX + dx) * 10) / 10;
+                        gradientAxis.value.startY = Math.round((gradientAxis.value.startY + dy) * 10) / 10;
+                        gradientAxis.value.endX = Math.round((gradientAxis.value.endX + dx) * 10) / 10;
+                        gradientAxis.value.endY = Math.round((gradientAxis.value.endY + dy) * 10) / 10;
+                    }
+                    drawGradientAxis();
+                    if (onGradientAxisChange) {
+                        const deg = Math.round((Math.atan2(gradientAxis.value.endY - gradientAxis.value.startY, gradientAxis.value.endX - gradientAxis.value.startX) * 180 / Math.PI + 360) % 360);
+                        onGradientAxisChange({ ...gradientAxis.value, angleDeg: deg });
+                    }
+                }
                 return;
             }
 
@@ -607,6 +717,7 @@ export function usePixiEditor(containerRef, options = {}) {
             }
             renderCadGrid();
             updateSpritesScale();
+            drawGradientAxis();
         };
 
         const isTypingTarget = (target) => {
@@ -635,6 +746,7 @@ export function usePixiEditor(containerRef, options = {}) {
             if (pixiApp.value) pixiApp.value.stage.hitArea = pixiApp.value.screen;
             renderCadGrid();
             drawSelectionRings();
+            drawGradientAxis();
         };
 
         window.addEventListener('mousemove', onMouseMove);
@@ -673,9 +785,38 @@ export function usePixiEditor(containerRef, options = {}) {
             return;
         }
 
+        const worldX = (point.x - viewport.value.panX) / viewport.value.zoom;
+        const worldY = -(point.y - viewport.value.panY) / viewport.value.zoom;
+
+        // 检查渐变轴手柄命中
+        const gradHandle = hitTestGradientHandles(worldX, worldY);
+        if (gradHandle) {
+            gesture.mode = gradHandle;
+            gesture.startScreenX = point.x;
+            gesture.startScreenY = point.y;
+            return;
+        }
+
+        // Ordered Lasso 工具模式
+        if (toolMode.value === 'lasso') {
+            gesture.mode = 'lasso';
+            lassoTrail = [point];
+            lassoPath.value = [];
+            lassoRecorded.clear();
+            const hit = hitTestAgent(point.x, point.y, 16);
+            if (hit) {
+                lassoRecorded.add(hit.id);
+                lassoPath.value.push(hit.id);
+                selectedIds.value = new Set([hit.id]);
+                drawSelectionRings();
+            }
+            return;
+        }
+
+        // 默认选择工具模式
         if (button === 0 && toolMode.value === 'select') {
             const shiftKey = Boolean(e.shiftKey ?? e.nativeEvent?.shiftKey);
-            const hit = hitTestAgent(point.x, point.y, 10);
+            const hit = hitTestAgent(point.x, point.y, 12);
             if (hit) {
                 selectAgentAtPoint(hit.id, shiftKey, point.x, point.y);
                 return;
@@ -703,7 +844,17 @@ export function usePixiEditor(containerRef, options = {}) {
         const mode = gesture.mode;
         gesture.mode = null;
 
-        if (mode === 'move') {
+        if (mode === 'lasso') {
+            if (marqueeGraphics.value) marqueeGraphics.value.clear();
+            lassoTrail = [];
+            emitSelectionChange();
+            if (onLassoComplete) onLassoComplete([...lassoPath.value]);
+        } else if (mode === 'drag_grad_start' || mode === 'drag_grad_end' || mode === 'drag_grad_mid') {
+            if (gradientAxis.value && onGradientAxisCommit) {
+                const deg = Math.round((Math.atan2(gradientAxis.value.endY - gradientAxis.value.startY, gradientAxis.value.endX - gradientAxis.value.startX) * 180 / Math.PI + 360) % 360);
+                onGradientAxisCommit({ ...gradientAxis.value, angleDeg: deg });
+            }
+        } else if (mode === 'move') {
             if (gesture.moved && onMoveCommit) {
                 const updates = [];
                 for (const id of gesture.startPositions.keys()) {
@@ -748,9 +899,6 @@ export function usePixiEditor(containerRef, options = {}) {
         updateCursorStyle();
     }
 
-    /**
-     * 视口复位重置 (居中对齐原点)
-     */
     function resetCamera() {
         if (!pixiApp.value || !worldContainer.value) return;
         viewport.value.zoom = 1.0;
@@ -763,9 +911,9 @@ export function usePixiEditor(containerRef, options = {}) {
         renderCadGrid();
         updateSpritesScale();
         drawSelectionRings();
+        drawGradientAxis();
     }
 
-    // 挂载与卸载生命周期管控
     onMounted(() => {
         initPixi();
     });
@@ -801,16 +949,21 @@ export function usePixiEditor(containerRef, options = {}) {
         isReady,
         toolMode,
         selectedIds,
+        selectedDroneId,
+        lassoPath,
+        gradientAxis,
+        viewport,
+        cursorWorldPos,
+        currentBgColor,
         setToolMode,
         setSelection,
         clearSelection,
         selectAll,
-        viewport,
-        cursorWorldPos,
-        currentBgColor,
         setCanvasBackgroundColor,
         isColorDark,
-        selectedDroneId,
+        setHideSelectionVisual,
+        setGradientAxis,
+        clearGradientAxis,
         renderDroneAgents,
         resetCamera,
     };

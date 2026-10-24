@@ -26,7 +26,7 @@
             </div>
         </div>
 
-        <!-- 2D 编辑工具带：选择 / 平移 / 撤销 / 图层归属 -->
+        <!-- 2D 编辑工具带：选择 / 平移 / 圈选 / 撤销 / 图层归属 -->
         <div class="hud-edit-toolbar">
             <el-radio-group
                 :model-value="toolMode"
@@ -36,6 +36,7 @@
             >
                 <el-radio-button value="select">选择</el-radio-button>
                 <el-radio-button value="pan">平移</el-radio-button>
+                <el-radio-button value="lasso">圈选</el-radio-button>
             </el-radio-group>
 
             <span class="edit-divider"></span>
@@ -203,6 +204,9 @@ const emit = defineEmits([
     'assign-layer',
     'undo',
     'redo',
+    'lasso-complete',
+    'gradient-axis-change',
+    'gradient-axis-commit',
 ]);
 
 // 获取全局系统黑白/暗黑主题状态
@@ -261,8 +265,13 @@ const {
     setToolMode,
     clearSelection,
     selectAll,
+    setSelection,
+    setGradientAxis,
+    clearGradientAxis,
+    setHideSelectionVisual,
     cursorWorldPos,
     selectedDroneId,
+    lassoPath,
     setCanvasBackgroundColor,
     renderDroneAgents,
     resetCamera,
@@ -270,6 +279,9 @@ const {
     initialBgColor: effectiveBgColor.value,
     onPointSelect: (agent) => emit('select-agent', agent),
     onMoveCommit: (updates) => emit('move-agents', updates),
+    onLassoComplete: (ids) => emit('lasso-complete', ids),
+    onGradientAxisChange: (axis) => emit('gradient-axis-change', axis),
+    onGradientAxisCommit: (axis) => emit('gradient-axis-commit', axis),
 });
 
 const selectedCount = computed(() => selectedIds.value.size);
@@ -374,6 +386,13 @@ defineExpose({
     resetCamera,
     clearSelection,
     selectAll,
+    setSelection,
+    setToolMode,
+    setGradientAxis,
+    clearGradientAxis,
+    setHideSelectionVisual,
+    selectedIds,
+    lassoPath,
 });
 </script>
 
