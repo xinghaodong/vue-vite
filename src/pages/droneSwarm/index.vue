@@ -150,15 +150,23 @@
 
         <!-- 2. 中央视口核心主舞台 (含左侧构型图层面板) -->
         <main class="swarm-main-stage">
-            <!-- SwarmStudio 风格左侧构型图层管理器 -->
+            <!-- SwarmStudio 风格左侧构型与素材底图管理器 -->
             <MotifLayerPanel
                 :layers="currentLayers"
                 :selected-layer-id="selectedLayerId"
                 :max-drones="droneCount"
+                :materials="materials"
+                :active-material-id="activeMaterialId"
                 @select-layer="handleSelectLayer"
                 @update-layer="handleUpdateLayer"
                 @add-layer="handleAddLayer"
                 @delete-layer="handleDeleteLayer"
+                @select-material="handleSelectMaterial"
+                @toggle-material-visible="handleToggleMaterialVisible"
+                @toggle-material-lock="handleToggleMaterialLock"
+                @update-material-opacity="handleUpdateMaterialOpacity"
+                @delete-material="handleDeleteMaterial"
+                @reopen-wizard="handleReopenWizard"
             />
 
             <!-- 2D PixiJS 点阵图形编辑器 (支持违规点位标红) -->
@@ -182,20 +190,26 @@
                     @lasso-complete="handleLassoComplete"
                     @gradient-axis-change="handleGradientAxisChange"
                     @gradient-axis-commit="handleGradientAxisCommit"
+                    @material-change="handleCanvasMaterialChange"
+                    @material-select="handleCanvasMaterialSelect"
                 />
 
-                <!-- 3D Three.js 夜空发光无人机全景播放器 -->
+                <!-- 3D Three.js 夜空发光无人机全景播放器 (支持动力学时间轴直驱与防撞态势感知) -->
                 <Player3D
                     v-if="viewMode === '3d'"
-                    :agents="currentScene.agents"
+                    :agents="liveTimelineState?.agents || currentScene.agents"
+                    :danger-ids="liveTimelineState?.dangerIds"
                     :drone-count="droneCount"
+                    :is-live-timeline="Boolean(liveTimelineState)"
                 />
             </div>
 
-            <!-- 右侧统一属性工具栏 (分布 / 上色) -->
+            <!-- 右侧统一属性工具栏 (专有属性 / 通用属性 / 分布 / 上色) -->
             <RightToolRail
                 v-if="rightRailOpen && viewMode === '2d'"
                 v-model="rightRailTab"
+                :active-material="activeMaterialObj"
+                @update-material-transform="handleUpdateMaterialTransform"
                 @close="rightRailOpen = false"
             >
                 <template #distribution>
@@ -228,12 +242,13 @@
             </RightToolRail>
         </main>
 
-        <!-- 3. 底部分镜时间轴控制栏 -->
+        <!-- 3. 底部分镜时间轴控制栏 (支持连续时间指针与航迹最优变轨) -->
         <TimelineBar
             :scenes="showProject.scenes"
             :active-scene-index="activeSceneIndex"
             @select-scene="handleSelectScene"
             @add-scene="handleAddScene"
+            @time-update="handleTimelineTimeUpdate"
             @export-sdf="handleExportProject"
         />
 
@@ -241,6 +256,9 @@
         <ImageProcessingModal
             ref="imageWizardModal"
             @apply-agents="handleApplyWizardAgents"
+            @update-canvas-material="handleUpdateCanvasMaterial"
+            @hide-canvas-material="handleHideCanvasMaterial"
+            @update-canvas-agents="handleUpdateCanvasAgents"
         />
     </div>
 </template>
@@ -258,6 +276,7 @@ import { Compass, Download, Upload } from '@element-plus/icons-vue';
 import { createShow, createScene, createAgent } from './types/swarm';
 import { useContourAlgorithm } from './composables/useContourAlgorithm';
 import { useSpatialGrid } from './composables/useSpatialGrid';
+import { useTrajectoryPlanner } from './composables/useTrajectoryPlanner';
 
 import Editor2D from './components/Editor2D.vue';
 import Player3D from './components/Player3D.vue';
@@ -284,18 +303,23 @@ const editor2DRef = useTemplateRef('editor2dStage');
 // 核心算法 Hooks
 const { generatePresetPattern, resampleToTargetCount } = useContourAlgorithm();
 const { checkSafety, relaxCollisions } = useSpatialGrid();
+const { computeOptimalAssignment, interpolatePose } = useTrajectoryPlanner();
+
+// 动力学多幕时序与瞬时航迹状态
+const liveTimelineState = ref(null);
+const trajectoryCache = new Map();
 
 // 视口与项目状态
 const viewMode = ref('2d');
-const droneCount = ref(800);
-const currentMotif = ref('heart');
+const droneCount = ref(0);
+const currentMotif = ref('custom');
 const currentLedColor = ref('#00f2fe');
 const activeSceneIndex = ref(0);
 const selectedLayerId = ref('layer_main');
 
-// 右侧属性工具栏 (分布 / 上色) 状态
-const rightRailOpen = ref(false);
-const rightRailTab = ref('distribution');
+// 右侧属性工具栏 (专有/通用属性、分布、上色) 状态 - 默认常驻展开
+const rightRailOpen = ref(true);
+const rightRailTab = ref('property');
 const lassoPathIds = ref([]);
 const isLassoRecording = ref(false);
 const canvasAxisActive = ref(false);
@@ -327,6 +351,15 @@ const currentLayers = reactive([
         locked: false,
     },
 ]);
+
+// SwarmStudio 风格底图素材管理列表与当前激活素材
+const materials = ref([]);
+const activeMaterialId = ref('');
+
+// 当前选中的素材响应式对象（供右侧属性面板实时绑定）
+const activeMaterialObj = computed(() => {
+    return materials.value.find((m) => m.id === activeMaterialId.value) || null;
+});
 
 // 实时 1.5m 设计态间距校验（含隐藏图层，校验对象始终是完整分镜）
 const safetyReport = computed(() => {
@@ -525,11 +558,11 @@ function handleAutoRelax() {
 // 初始化默认演示分镜剧本 (爱心 -> 五角星 -> 祥龙)
 function initDefaultScenes() {
     const scene1 = createScene({
-        name: '分镜 1: 浪漫爱心',
-        duration: 6,
+        name: '未命名分镜 1',
+        duration: 10,
         transitionTime: 3,
-        motifType: 'heart',
-        agents: generatePresetPattern('heart', droneCount.value),
+        motifType: 'custom',
+        agents: [],
     });
 
     const scene2 = createScene({
@@ -622,7 +655,52 @@ function handleLedColorChange(newColor) {
 }
 
 // 切换当前激活分镜
+
+// 动力学时间轴多幕变轨与瞬时姿态解算
+function handleTimelineTimeUpdate(payload) {
+    const { activeSceneIndex: fromIdx, nextSceneIndex: toIdx, isTransitioning, transitionRatio } = payload;
+    const scenes = showProject.scenes;
+    if (!scenes || !scenes.length) return;
+
+    const fromScene = scenes[fromIdx];
+    const toScene = scenes[toIdx];
+
+    // 若处于构型驻留态或两幕相同
+    if (!isTransitioning || fromIdx === toIdx || !toScene || !toScene.agents?.length) {
+        liveTimelineState.value = {
+            agents: fromScene?.agents || [],
+            dangerIds: new Set(),
+            isTransitioning: false,
+        };
+        return;
+    }
+
+    // 处于两幕变轨航行态: 检索或执行匈牙利/2-Opt 最优航迹指派
+    const cacheKey = `${fromScene.id}->${toScene.id}_${fromScene.agents.length}_${toScene.agents.length}`;
+    let assignment = trajectoryCache.get(cacheKey);
+    if (!assignment) {
+        assignment = computeOptimalAssignment(fromScene.agents, toScene.agents, { maxIterations: 8 });
+        trajectoryCache.set(cacheKey, assignment);
+    }
+
+    // S 曲线动力学瞬时插值 (带 Z 轴空间错层拱弧与 1.5m 动态碰撞体检)
+    const pose = interpolatePose(
+        fromScene.agents,
+        toScene.agents,
+        assignment.mapping,
+        transitionRatio,
+        { enableZArc: true, arcHeight: 4.0, safetyDistance: 1.5 }
+    );
+
+    liveTimelineState.value = {
+        agents: pose.agents,
+        dangerIds: pose.dangerIds,
+        isTransitioning: true,
+    };
+}
+
 function handleSelectScene(index) {
+    liveTimelineState.value = null;
     activeSceneIndex.value = index;
     currentMotif.value = currentScene.value.motifType || 'custom';
     const layer = currentLayers.find((item) => item.id === selectedLayerId.value) || currentLayers[0];
@@ -661,14 +739,191 @@ function handleImageUpload(uploadFile) {
     reader.onload = (e) => {
         const img = new Image();
         img.onload = () => {
+            const fileName = file.name || '线稿素材';
+            const w = 200; // 官方 200m 默认自适应舞台宽
+            const ratio = img.width > 0 ? img.height / img.width : 0.6488;
+            const h = Math.round(w * ratio * 100) / 100; // 精确比例高，如 129.87m
+
+            const originalMat = {
+                id: 'mat_source',
+                name: '原图',
+                groupName: fileName,
+                type: 'source',
+                source: img,
+                visible: true,
+                locked: false,
+                opacity: 1.0,
+                x: 0,
+                y: 0,
+                widthM: w,
+                heightM: h,
+                originalW: img.naturalWidth || img.width || 2464,
+                originalH: img.naturalHeight || img.height || 1600,
+            };
+
+            materials.value = [originalMat];
+            activeMaterialId.value = 'mat_source';
+            rightRailOpen.value = true;
+            rightRailTab.value = 'property';
+
+            // 🌟 立即在 2D CAD 视口投射完整白底黑线原图 (对标真机截图 2)
+            if (editor2DRef.value) {
+                editor2DRef.value.setMaterialImage(img, {
+                    x: 0,
+                    y: 0,
+                    width: w,
+                    height: h,
+                    opacity: 1.0,
+                    showBox: true,
+                });
+                editor2DRef.value.setMaterialVisible(true);
+            }
+
             // 打开三步骤向导弹窗
             if (imageWizardRef.value) {
-                imageWizardRef.value.openWizard(img, droneCount.value);
+                imageWizardRef.value.openWizard(img, w);
             }
         };
         img.src = e.target.result;
     };
     reader.readAsDataURL(file);
+}
+
+// 接收向导底图贴图投射到 2D CAD
+function handleUpdateCanvasMaterial(canvasOrImg, opts = {}) {
+    const width = opts.width || 155;
+    const height = opts.height || 124.5;
+    const type = opts.type || 'source';
+    const name = opts.name || (type === 'intermediate' ? '单线优化中间图' : '参考底图');
+
+    if (editor2DRef.value) {
+        editor2DRef.value.setMaterialImage(canvasOrImg, {
+            width,
+            height,
+            opacity: 0.65,
+            showBox: true,
+        });
+        editor2DRef.value.setMaterialVisible(true);
+    }
+
+    let mat = materials.value.find((m) => m.type === type);
+    if (!mat) {
+        mat = {
+            id: `mat_${type}`,
+            name,
+            type,
+            source: canvasOrImg,
+            visible: true,
+            locked: false,
+            opacity: 0.65,
+            widthM: width,
+            heightM: height,
+        };
+        materials.value.push(mat);
+    } else {
+        mat.source = canvasOrImg;
+        mat.widthM = width;
+        mat.heightM = height;
+    }
+    activeMaterialId.value = mat.id;
+}
+
+function handleHideCanvasMaterial() {
+    if (editor2DRef.value) {
+        editor2DRef.value.setMaterialVisible(false);
+    }
+}
+
+function handleUpdateCanvasAgents(agents) {
+    // 预留实时步长调整预览联动
+}
+
+// 2D CAD 画布底图与右侧属性栏双向联动
+function handleCanvasMaterialChange(trans) {
+    if (!trans) return;
+    const mat = materials.value.find((m) => m.id === activeMaterialId.value);
+    if (mat) {
+        if (trans.x !== undefined) mat.x = Math.round(trans.x * 10) / 10;
+        if (trans.y !== undefined) mat.y = Math.round(trans.y * 10) / 10;
+        if (trans.width !== undefined) mat.widthM = Math.round(trans.width * 10) / 10;
+        if (trans.height !== undefined) mat.heightM = Math.round(trans.height * 100) / 100;
+        if (trans.opacity !== undefined) mat.opacity = trans.opacity;
+    }
+}
+
+function handleCanvasMaterialSelect() {
+    rightRailOpen.value = true;
+    rightRailTab.value = 'property';
+}
+
+function handleUpdateMaterialTransform(trans) {
+    if (!trans) return;
+    const mat = materials.value.find((m) => m.id === activeMaterialId.value);
+    if (mat) {
+        if (trans.x !== undefined) mat.x = trans.x;
+        if (trans.y !== undefined) mat.y = trans.y;
+        if (trans.width !== undefined) mat.widthM = trans.width;
+        if (trans.height !== undefined) mat.heightM = trans.height;
+        if (trans.opacity !== undefined) mat.opacity = trans.opacity;
+    }
+    if (editor2DRef.value) {
+        editor2DRef.value.setMaterialTransform(trans);
+    }
+}
+
+// 素材树交互
+function handleSelectMaterial(matId) {
+    activeMaterialId.value = matId;
+    const mat = materials.value.find((m) => m.id === matId);
+    if (mat && mat.source && editor2DRef.value) {
+        editor2DRef.value.setMaterialImage(mat.source, {
+            x: mat.x || 0,
+            y: mat.y || 0,
+            width: mat.widthM || 200,
+            height: mat.heightM || 129.87,
+            opacity: mat.opacity ?? 1.0,
+            showBox: true,
+        });
+        editor2DRef.value.setMaterialVisible(mat.visible);
+    }
+    rightRailOpen.value = true;
+    rightRailTab.value = 'property';
+}
+
+function handleToggleMaterialVisible(mat) {
+    mat.visible = !mat.visible;
+    if (activeMaterialId.value === mat.id && editor2DRef.value) {
+        editor2DRef.value.setMaterialVisible(mat.visible);
+    }
+}
+
+function handleToggleMaterialLock(mat) {
+    mat.locked = !mat.locked;
+}
+
+function handleUpdateMaterialOpacity(mat, opacity) {
+    mat.opacity = opacity;
+    if (activeMaterialId.value === mat.id && editor2DRef.value) {
+        editor2DRef.value.setMaterialOpacity(opacity);
+    }
+}
+
+function handleDeleteMaterial(matId) {
+    materials.value = materials.value.filter((m) => m.id !== matId);
+    if (activeMaterialId.value === matId) {
+        activeMaterialId.value = materials.value[0]?.id || '';
+        if (activeMaterialId.value) {
+            handleSelectMaterial(activeMaterialId.value);
+        } else if (editor2DRef.value) {
+            editor2DRef.value.clearMaterial();
+        }
+    }
+}
+
+function handleReopenWizard(mat) {
+    if (mat && mat.source && imageWizardRef.value) {
+        imageWizardRef.value.openWizard(mat.source, droneCount.value);
+    }
 }
 
 // 向导完成后应用点位
@@ -680,6 +935,20 @@ function handleApplyWizardAgents(result) {
     currentScene.value.agents = agents.map((agent) =>
         createAgent({ ...agent, layerId, group: strategy || 'default' })
     );
+
+    // 🌟 多幕联动: 同步为后续分镜生成同等架数的预设几何点阵，确保整场剧本变轨成立
+    if (showProject.scenes.length > 1) {
+        const count = currentScene.value.agents.length;
+        for (let s = 1; s < showProject.scenes.length; s++) {
+            const sc = showProject.scenes[s];
+            if (sc.motifType && sc.motifType !== 'custom') {
+                sc.agents = generatePresetPattern(sc.motifType, count).map((pt) =>
+                    createAgent({ ...pt, layerId: 'layer_main' })
+                );
+            }
+        }
+    }
+    trajectoryCache.clear(); // 清空旧航迹缓存
     currentScene.value.name = `自定义构型 (${strategy} / ${mode})`;
     currentScene.value.motifType = 'custom';
     currentMotif.value = 'custom';

@@ -326,7 +326,7 @@ export function relaxClosePoints(points, minDistance = 1.5, iterations = 24) {
 }
 
 /**
- * Moore-Neighbor 有序轮廓追踪。
+ * Moore-Neighbor 有序轮廓追踪 (专用于实心色块/几何面外边界提取)。
  * @param {Uint8Array} grid 0/1 二值网格
  * @returns {Array<{points: Array<{x:number,y:number}>, closed: boolean}>} 有序折线链
  */
@@ -335,8 +335,6 @@ export function traceContours(grid, width, height, options = {}) {
     if (!grid || width <= 0 || height <= 0) return [];
 
     const visited = new Uint8Array(width * height);
-    const componentStamp = new Uint32Array(width * height);
-    let currentStamp = 0;
     const chains = [];
     const directions = [
         [1, 0],
@@ -411,27 +409,183 @@ export function traceContours(grid, width, height, options = {}) {
             if (chain.length >= minLength) {
                 chains.push({ points: chain, closed });
             }
+        }
+    }
 
-            // 同一连通域只保留一条轮廓，避免厚线条被重复追踪成多条重叠链。
-            currentStamp++;
-            const stack = [[x, y]];
-            while (stack.length > 0) {
-                const [currentX, currentY] = stack.pop();
-                const currentIndex = currentY * width + currentX;
-                if (componentStamp[currentIndex] === currentStamp || !isForeground(currentX, currentY)) continue;
-                componentStamp[currentIndex] = currentStamp;
-                visited[currentIndex] = 1;
-                for (const [dx, dy] of directions) {
-                    const nextX = currentX + dx;
-                    const nextY = currentY + dy;
-                    if (!isForeground(nextX, nextY)) continue;
-                    const nextIndex = nextY * width + nextX;
-                    if (visited[nextIndex] === 0) stack.push([nextX, nextY]);
+    chains.sort((a, b) => getPolylineLength(b.points, b.closed) - getPolylineLength(a.points, a.closed));
+    return chains.slice(0, Math.max(1, maxChains));
+}
+
+/**
+ * 🌟 商业级骨架拓扑图 DFS 追踪器 (Skeleton Graph DFS Tracing)
+ * 工业标准：专门处理 1 像素单链骨架图，彻底替代区域轮廓算法。
+ * 1. 统计每个前景像素的 8-邻域度数 (degree)，标记 端点(1)、中继点(2)、分叉交叉点(>=3)；
+ * 2. 8 位无向边掩码，严格 O(E) 保证每条骨架边仅被遍历一次，杜绝内外双轨；
+ * 3. 端点优先追踪 -> 分叉点追踪 -> 孤立闭合环 (如眼睛/圆环) 追踪；
+ * 4. 拓扑剪枝 (Spur Pruning)：修剪细小毛刺，并过滤长度小于 minLength 的孤立噪点，彻底消除右上角浮空噪点！
+ * 
+ * @param {Uint8Array} grid 0/1 二值单像素骨架网格
+ * @param {number} width 图像宽度
+ * @param {number} height 图像高度
+ * @param {Object} options 配置项 { minLength: 6, spurThreshold: 3, maxChains: 2048 }
+ * @returns {Array<{points: Array<{x:number, y:number}>, closed: boolean}>}
+ */
+export function traceSkeletonGraph(grid, width, height, options = {}) {
+    const { minLength = 6, spurThreshold = 3, maxChains = 2048 } = options;
+    if (!grid || width <= 0 || height <= 0) return [];
+
+    const size = width * height;
+    const directions = [
+        [1, 0],   // 0: 东
+        [1, 1],   // 1: 东南
+        [0, 1],   // 2: 南
+        [-1, 1],  // 3: 西南
+        [-1, 0],  // 4: 西
+        [-1, -1], // 5: 西北
+        [0, -1],  // 6: 北
+        [1, -1],  // 7: 东北
+    ];
+    const oppositeDir = [4, 5, 6, 7, 0, 1, 2, 3];
+
+    // 1. 统计每个前景像素的度数与 8-邻域有效掩码
+    const degrees = new Uint8Array(size);
+    const neighborMask = new Uint8Array(size);
+    const edgeVisited = new Uint8Array(size);
+
+    for (let y = 0; y < height; y++) {
+        for (let x = 0; x < width; x++) {
+            const idx = y * width + x;
+            if (grid[idx] !== 1) continue;
+
+            let deg = 0;
+            let mask = 0;
+            for (let k = 0; k < 8; k++) {
+                const nx = x + directions[k][0];
+                const ny = y + directions[k][1];
+                if (nx >= 0 && nx < width && ny >= 0 && ny < height) {
+                    const nIdx = ny * width + nx;
+                    if (grid[nIdx] === 1) {
+                        deg++;
+                        mask |= (1 << k);
+                    }
+                }
+            }
+            degrees[idx] = deg;
+            neighborMask[idx] = mask;
+        }
+    }
+
+    const chains = [];
+
+    function traceSegment(startX, startY, initialDir) {
+        const points = [{ x: startX, y: startY }];
+        let curX = startX;
+        let curY = startY;
+        let curIdx = curY * width + curX;
+
+        let nextDir = initialDir;
+        let closed = false;
+
+        while (true) {
+            const nx = curX + directions[nextDir][0];
+            const ny = curY + directions[nextDir][1];
+            const nextIdx = ny * width + nx;
+            const oppDir = oppositeDir[nextDir];
+
+            // 双向标记该边已访问
+            edgeVisited[curIdx] |= (1 << nextDir);
+            edgeVisited[nextIdx] |= (1 << oppDir);
+
+            curX = nx;
+            curY = ny;
+            curIdx = nextIdx;
+            points.push({ x: curX, y: curY });
+
+            // 回到起点，形成封闭环
+            if (curX === startX && curY === startY) {
+                closed = true;
+                break;
+            }
+
+            // 遇到分叉交叉点 (degree >= 3) 或端点 (degree <= 1)，终止当前折线
+            if (degrees[curIdx] !== 2) {
+                break;
+            }
+
+            // 寻找下一个未访问的边
+            let foundNext = false;
+            for (let k = 0; k < 8; k++) {
+                if ((neighborMask[curIdx] & (1 << k)) && !(edgeVisited[curIdx] & (1 << k))) {
+                    nextDir = k;
+                    foundNext = true;
+                    break;
+                }
+            }
+
+            if (!foundNext) {
+                break;
+            }
+        }
+
+        return { points, closed };
+    }
+
+    // 阶段 1：从所有端点 (degree === 1) 出发追踪骨架主干
+    for (let y = 0; y < height; y++) {
+        for (let x = 0; x < width; x++) {
+            const idx = y * width + x;
+            if (grid[idx] !== 1 || degrees[idx] !== 1) continue;
+
+            for (let k = 0; k < 8; k++) {
+                if ((neighborMask[idx] & (1 << k)) && !(edgeVisited[idx] & (1 << k))) {
+                    const seg = traceSegment(x, y, k);
+                    const len = getPolylineLength(seg.points, seg.closed);
+                    // 过滤细小毛刺或孤立小噪点
+                    if (len >= spurThreshold) {
+                        chains.push(seg);
+                    }
                 }
             }
         }
     }
 
+    // 阶段 2：从所有分叉交叉点 (degree >= 3) 出发追踪内部网状连接边
+    for (let y = 0; y < height; y++) {
+        for (let x = 0; x < width; x++) {
+            const idx = y * width + x;
+            if (grid[idx] !== 1 || degrees[idx] < 3) continue;
+
+            for (let k = 0; k < 8; k++) {
+                if ((neighborMask[idx] & (1 << k)) && !(edgeVisited[idx] & (1 << k))) {
+                    const seg = traceSegment(x, y, k);
+                    const len = getPolylineLength(seg.points, seg.closed);
+                    if (len >= minLength) {
+                        chains.push(seg);
+                    }
+                }
+            }
+        }
+    }
+
+    // 阶段 3：追踪孤立闭合环 (如眼睛/圆圈，环上所有点度均为 2)
+    for (let y = 0; y < height; y++) {
+        for (let x = 0; x < width; x++) {
+            const idx = y * width + x;
+            if (grid[idx] !== 1 || degrees[idx] !== 2) continue;
+
+            for (let k = 0; k < 8; k++) {
+                if ((neighborMask[idx] & (1 << k)) && !(edgeVisited[idx] & (1 << k))) {
+                    const seg = traceSegment(x, y, k);
+                    const len = getPolylineLength(seg.points, seg.closed);
+                    if (len >= minLength) {
+                        chains.push(seg);
+                    }
+                }
+            }
+        }
+    }
+
+    // 按弧长从大到小排序
     chains.sort((a, b) => getPolylineLength(b.points, b.closed) - getPolylineLength(a.points, a.closed));
     return chains.slice(0, Math.max(1, maxChains));
 }

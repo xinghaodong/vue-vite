@@ -425,7 +425,57 @@ export function useThreeStage(containerRef) {
         composer = null;
     });
 
+    /**
+     * 逐帧毫秒级注入瞬时无人机姿态与防撞体检红光 (支持时间轴 Scrubber 60FPS 直驱)
+     */
+    function setInstantDrones(agents, dangerIds = new Set()) {
+        if (!instancedMesh || !agents || !agents.length) return;
+
+        if (activeTween) {
+            activeTween.kill();
+            activeTween = null;
+        }
+
+        if (agents.length > currentCapacity) {
+            createInstancedDrones(Math.max(agents.length, 1600));
+        }
+
+        const count = agents.length;
+        const total = currentCapacity;
+
+        for (let i = 0; i < total; i++) {
+            if (i < count) {
+                const ag = agents[i];
+                const isDanger = dangerIds.has ? dangerIds.has(ag.id) : false;
+                dummyPosition.set(
+                    ag.x || 0,
+                    60 + (ag.y || 0) * 0.8,
+                    ag.z || 0
+                );
+                dummyMatrix.setPosition(dummyPosition);
+                instancedMesh.setMatrixAt(i, dummyMatrix);
+
+                if (isDanger) {
+                    dummyColor.setHex(0xff1744); // 违规碰撞标红高亮
+                } else {
+                    dummyColor.setStyle(ag.color || '#00f2fe');
+                }
+                instancedMesh.setColorAt(i, dummyColor);
+            } else {
+                dummyPosition.set(0, GROUND_Y - 200, 0);
+                dummyMatrix.setPosition(dummyPosition);
+                instancedMesh.setMatrixAt(i, dummyMatrix);
+                dummyColor.setHex(0x000000);
+                instancedMesh.setColorAt(i, dummyColor);
+            }
+        }
+
+        instancedMesh.instanceMatrix.needsUpdate = true;
+        if (instancedMesh.instanceColor) instancedMesh.instanceColor.needsUpdate = true;
+    }
+
     return {
+        setInstantDrones,
         morphToPattern,
         takeoffToPattern,
         setCameraPreset,

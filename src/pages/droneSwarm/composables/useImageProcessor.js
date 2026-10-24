@@ -16,7 +16,7 @@
  * ========================================================================
  */
 
-import { resampleChainsExact, selectEvenly, traceContours } from './swarmGeometry.js';
+import { resampleChainsExact, selectEvenly, traceContours, traceSkeletonGraph } from './swarmGeometry.js';
 
 export function useImageProcessor() {
     /**
@@ -95,9 +95,9 @@ export function useImageProcessor() {
     }
 
     /**
-     * 步骤二：提取中间图 (支持极细单像素边缘与骨架化)
+     * 步骤二：提取中间图 (支持智能线稿中轴骨架、极细单像素边缘与二值填充)
      */
-    function generateIntermediateImage(preprocessedCanvas, mode = 'contour', options = {}) {
+    function generateIntermediateImage(preprocessedCanvas, mode = 'lineart', options = {}) {
         const width = preprocessedCanvas.width;
         const height = preprocessedCanvas.height;
         const ctx = preprocessedCanvas.getContext('2d', { willReadFrequently: true });
@@ -112,6 +112,33 @@ export function useImageProcessor() {
 
         const binary = new Uint8Array(width * height);
         const threshold = options.threshold ?? 128;
+        const polarity = options.polarity || 'auto'; // 'auto' | 'dark-line' | 'light-line'
+
+        // 🌟 自动判定明暗底色极性 (采样四周边缘像素)，自适应兼容黑底白线与白底黑线
+        let isDarkBg = false;
+        if (polarity === 'auto') {
+            let edgeSum = 0;
+            let edgeCount = 0;
+            const step = Math.max(1, Math.floor(Math.min(width, height) / 30));
+            for (let x = 0; x < width; x += step) {
+                const topIdx = x * 4;
+                const btmIdx = ((height - 1) * width + x) * 4;
+                edgeSum += 0.299 * srcData[topIdx] + 0.587 * srcData[topIdx + 1] + 0.114 * srcData[topIdx + 2];
+                edgeSum += 0.299 * srcData[btmIdx] + 0.587 * srcData[btmIdx + 1] + 0.114 * srcData[btmIdx + 2];
+                edgeCount += 2;
+            }
+            for (let y = 0; y < height; y += step) {
+                const leftIdx = (y * width) * 4;
+                const rightIdx = (y * width + (width - 1)) * 4;
+                edgeSum += 0.299 * srcData[leftIdx] + 0.587 * srcData[leftIdx + 1] + 0.114 * srcData[leftIdx + 2];
+                edgeSum += 0.299 * srcData[rightIdx] + 0.587 * srcData[rightIdx + 1] + 0.114 * srcData[rightIdx + 2];
+                edgeCount += 2;
+            }
+            const avgEdgeLum = edgeCount > 0 ? (edgeSum / edgeCount) : 255;
+            isDarkBg = avgEdgeLum < 95;
+        } else if (polarity === 'light-line') {
+            isDarkBg = true;
+        }
 
         for (let y = 0; y < height; y++) {
             for (let x = 0; x < width; x++) {
@@ -122,19 +149,27 @@ export function useImageProcessor() {
                     continue;
                 }
                 const gray = 0.299 * srcData[idx] + 0.587 * srcData[idx + 1] + 0.114 * srcData[idx + 2];
-                binary[y * width + x] = gray < threshold ? 1 : 0;
+                const isLine = isDarkBg ? (gray >= threshold) : (gray < threshold);
+                binary[y * width + x] = isLine ? 1 : 0;
             }
         }
 
         let processedGrid = new Uint8Array(width * height);
+        let isSkeleton = false;
+        const singleLineOpt = options.singleLineOptimization ?? true;
 
-        if (mode === 'contour') {
-            // 提取外边缘并进行单像素骨架细化，防止带状变粗！
+        if (mode === 'white' || mode === 'lineart' || mode === 'skeleton') {
+            // 🌟 商业级 SwarmStudio: 单线优化 (合并邻近双线，再提取一条中线)
+            if (singleLineOpt) {
+                processedGrid = optimizeSingleLine(binary, width, height, 2);
+            } else {
+                processedGrid = zhangSuenThinning(binary, width, height);
+            }
+            isSkeleton = true;
+        } else if (mode === 'contour') {
             const rawContour = extractSobelContour(binary, width, height);
             processedGrid = zhangSuenThinning(rawContour, width, height);
-        } else if (mode === 'skeleton') {
-            // 全局 Zhang-Suen 细化中心线
-            processedGrid = zhangSuenThinning(binary, width, height);
+            isSkeleton = true;
         } else if (mode === 'dot') {
             processedGrid = extractDotMatrix(binary, width, height, options.dotSpacing || 5);
         } else {
@@ -164,7 +199,33 @@ export function useImageProcessor() {
             binaryGrid: processedGrid,
             width,
             height,
+            isSkeleton,
+            isDarkBg,
         };
+    }
+
+    /**
+     * 🌟 单线优化算子 (Single Line Optimization)
+     * 工业标准 (对标 SwarmStudio): "合并邻近双线，再提取一条中线"
+     * 针对手绘线稿中的近距平行轮廓或粗笔触边缘，进行形态学自适应核膨胀闭合 (Dilation Closing)，
+     * 将两根相邻距离小于 radius 像素的双轨粘合，再通过张-苏恩形态学细化为唯一严格中轴线！
+     */
+    function optimizeSingleLine(binary, width, height, radius = 2) {
+        const closed = new Uint8Array(width * height);
+        // 形态学膨胀 (Dilation)
+        for (let y = radius; y < height - radius; y++) {
+            for (let x = radius; x < width - radius; x++) {
+                if (binary[y * width + x] === 1) {
+                    for (let dy = -radius; dy <= radius; dy++) {
+                        for (let dx = -radius; dx <= radius; dx++) {
+                            closed[(y + dy) * width + (x + dx)] = 1;
+                        }
+                    }
+                }
+            }
+        }
+        // 张-苏恩骨架中轴抽取
+        return zhangSuenThinning(closed, width, height);
     }
 
     /**
@@ -348,37 +409,81 @@ export function useImageProcessor() {
      */
     function generateMotifFromIntermediate(intermediate, originalImage, options = {}) {
         const {
-            strategy = 'contour',
-            targetCount = 800,
-            canvasScale = 300,
+            generationMode = 'spacing', // 'spacing' (按间距) | 'count' (按点数) | 'direct' (识别点直布)
+            strategy = 'align',        // 'align' (交叉对齐) | 'uniform' (间距均匀) | 'follow' (像素跟随)
+            spacing = 1.6,             // 点间距 (米)
+            targetCount = 800,         // 目标架数
+            canvasScale = 155,         // 物理宽度 (米，默认对标官方 155m)
             applyOriginalColor = true,
-            colorPalette = 'original', // 'original' | 'neon' | 'gradient'
-            fallbackColor = '#00f2fe',
+            colorPalette = 'original', // 'original' | 'neon' | 'gradient' | 'mono'
+            fallbackColor = '#00ff88', // 默认翠绿高光 LED
         } = options;
 
         const { binaryGrid, width, height } = intermediate;
 
         let selectedPoints = [];
+        let chains = [];
 
-        if (strategy === 'contour') {
-            // Moore 邻域有序轮廓 + 全局弧长配额，严格生成 targetCount 个点。
-            const chains = traceContours(binaryGrid, width, height, { minLength: 3, maxChains: 512 });
-            selectedPoints = resampleChainsExact(chains, targetCount);
-        } else {
-            selectedPoints = generateGridPoints(binaryGrid, width, height, targetCount, strategy === 'hexagonal');
+        // 提取骨架折线链
+        const minLength = options.minLength ?? 6;
+        const spurThreshold = options.spurThreshold ?? 3;
+        chains = traceSkeletonGraph(binaryGrid, width, height, {
+            minLength,
+            spurThreshold,
+            maxChains: 2048,
+        });
+        if (chains.length === 0) {
+            chains = traceContours(binaryGrid, width, height, { minLength: 3, maxChains: 512 });
         }
 
-        // 保底：网格模式在极细图形上可能取不满，回退到有序轮廓采样。
-        if (selectedPoints.length < targetCount) {
-            const chains = traceContours(binaryGrid, width, height, { minLength: 3, maxChains: 512 });
-            const contourFallback = resampleChainsExact(chains, targetCount);
+        // 1. 计算图案真实宽高比
+        let rawMinX = Infinity, rawMaxX = -Infinity, rawMinY = Infinity, rawMaxY = -Infinity;
+        for (const c of chains) {
+            for (const p of c.points) {
+                if (p.x < rawMinX) rawMinX = p.x;
+                if (p.x > rawMaxX) rawMaxX = p.x;
+                if (p.y < rawMinY) rawMinY = p.y;
+                if (p.y > rawMaxY) rawMaxY = p.y;
+            }
+        }
+        const patternW = Math.max(1, rawMaxX - rawMinX);
+        const patternH = Math.max(1, rawMaxY - rawMinY);
+        const scaleFactor = canvasScale / patternW; // 物理米 / 像素
+        const worldWidthM = Math.round(canvasScale * 10) / 10;
+        const worldHeightM = Math.round(patternH * scaleFactor * 10) / 10;
+
+        // 2. 动态计算无人机架数
+        let effectiveTargetCount = targetCount;
+        if (generationMode === 'spacing') {
+            // 计算所有折线在世界米制下的总弧长
+            let totalLengthPixels = 0;
+            for (const c of chains) {
+                for (let i = 1; i < c.points.length; i++) {
+                    const dx = c.points[i].x - c.points[i - 1].x;
+                    const dy = c.points[i].y - c.points[i - 1].y;
+                    totalLengthPixels += Math.sqrt(dx * dx + dy * dy);
+                }
+            }
+            const totalLengthMeters = totalLengthPixels * scaleFactor;
+            // 无人机数 = 总弧长 / 点间距 (如截图中的 473 架、576 架)
+            effectiveTargetCount = Math.max(1, Math.round(totalLengthMeters / Math.max(0.2, spacing)));
+        }
+
+        if (strategy === 'hexagonal' || strategy === 'grid') {
+            selectedPoints = generateGridPoints(binaryGrid, width, height, effectiveTargetCount, strategy === 'hexagonal');
+        } else {
+            selectedPoints = resampleChainsExact(chains, effectiveTargetCount);
+        }
+
+        if (selectedPoints.length < effectiveTargetCount) {
+            const contourFallback = resampleChainsExact(chains, effectiveTargetCount);
             if (contourFallback.length >= selectedPoints.length) {
                 selectedPoints = contourFallback;
             }
         }
 
-        if (selectedPoints.length > targetCount) {
-            selectedPoints = selectEvenly(selectedPoints, targetCount);
+        if (selectedPoints.length > effectiveTargetCount) {
+            selectedPoints = selectEvenly(selectedPoints, effectiveTargetCount);
         }
 
         // 2. 准备原始采样图像与全图像素缓冲区 (内存高速寻址，杜绝循环单点 getImageData 性能卡顿)
@@ -406,9 +511,6 @@ export function useImageProcessor() {
             if (p.y > maxY) maxY = p.y;
         });
 
-        const patternW = Math.max(1, maxX - minX);
-        const patternH = Math.max(1, maxY - minY);
-        const scaleFactor = canvasScale / Math.max(patternW, patternH);
         const centerX = (minX + maxX) / 2;
         const centerY = (minY + maxY) / 2;
 

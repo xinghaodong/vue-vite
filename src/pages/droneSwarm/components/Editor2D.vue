@@ -75,21 +75,21 @@
         <div class="hud-top-right">
             <div class="hud-toolbar">
                 <div class="hud-group">
-                    <span class="ctrl-label">点径</span>
+                    <span class="ctrl-label">机身直径</span>
                     <el-radio-group v-model="dotScale" size="small" class="dot-size-group">
-                        <el-radio-button :value="0.5">细</el-radio-button>
-                        <el-radio-button :value="0.8">标准</el-radio-button>
-                        <el-radio-button :value="1.2">粗</el-radio-button>
+                        <el-radio-button :value="0.6">0.6m</el-radio-button>
+                        <el-radio-button :value="0.9">0.9m (标)</el-radio-button>
+                        <el-radio-button :value="1.2">1.2m</el-radio-button>
                     </el-radio-group>
                 </div>
 
                 <span class="hud-divider"></span>
 
                 <div class="hud-group hud-toggles">
-                    <el-tooltip content="点径不随画布缩放变化，保持屏幕针尖尺寸" placement="bottom" :show-after="300">
+                    <el-tooltip content="点径随视距动态自适应：远景发丝纤细透气，近景饱满圆润" placement="bottom" :show-after="300">
                         <label class="toggle-chip" :class="{ 'is-off': !constantScreen }">
                             <el-switch v-model="constantScreen" size="small" />
-                            <span>针尖</span>
+                            <span>自适应</span>
                         </label>
                     </el-tooltip>
                     <el-tooltip content="为点位叠加柔和的霓虹微光" placement="bottom" :show-after="300">
@@ -207,13 +207,15 @@ const emit = defineEmits([
     'lasso-complete',
     'gradient-axis-change',
     'gradient-axis-commit',
+    'material-change',
+    'material-select',
 ]);
 
 // 获取全局系统黑白/暗黑主题状态
 const { isDark } = useTheme();
 
-// 粒径缩放比例、恒定屏幕尺寸、夜空微光与碰撞标红开关
-const dotScale = ref(0.8);
+// 粒径缩放比例 (基于 0.9m 工业标准直径)、夜空微光与碰撞标红开关
+const dotScale = ref(0.9);
 const useGlow = ref(false);
 const constantScreen = ref(true);
 const highlightDanger = ref(true);
@@ -275,6 +277,12 @@ const {
     setCanvasBackgroundColor,
     renderDroneAgents,
     resetCamera,
+    setMaterialImage,
+    setMaterialTransform,
+    updateMaterialTexture,
+    setMaterialVisible,
+    setMaterialOpacity,
+    clearMaterial,
 } = usePixiEditor(containerRef, {
     initialBgColor: effectiveBgColor.value,
     onPointSelect: (agent) => emit('select-agent', agent),
@@ -282,6 +290,8 @@ const {
     onLassoComplete: (ids) => emit('lasso-complete', ids),
     onGradientAxisChange: (axis) => emit('gradient-axis-change', axis),
     onGradientAxisCommit: (axis) => emit('gradient-axis-commit', axis),
+    onMaterialChange: (trans) => emit('material-change', trans),
+    onMaterialSelect: () => emit('material-select'),
 });
 
 const selectedCount = computed(() => selectedIds.value.size);
@@ -393,6 +403,12 @@ defineExpose({
     setHideSelectionVisual,
     selectedIds,
     lassoPath,
+    setMaterialImage,
+    setMaterialTransform,
+    updateMaterialTexture,
+    setMaterialVisible,
+    setMaterialOpacity,
+    clearMaterial,
 });
 </script>
 

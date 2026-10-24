@@ -16,10 +16,28 @@
  */
 
 import { shallowRef, ref, onMounted, onBeforeUnmount } from 'vue';
-import { Application, Container, Graphics, Sprite, Texture } from 'pixi.js';
+import { Application, Container, Graphics, Sprite, Texture, Text } from 'pixi.js';
 
 let sharedCrispTexture = null;
 let sharedGlowTexture = null;
+let stageTopLabel = null;
+let stageRightLabel = null;
+
+function drawDashedSegment(g, x1, y1, x2, y2, dash = 7, gap = 4) {
+    const dx = x2 - x1;
+    const dy = y2 - y1;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    if (dist <= 0) return;
+    const ux = dx / dist;
+    const uy = dy / dist;
+    let curr = 0;
+    while (curr < dist) {
+        const next = Math.min(curr + dash, dist);
+        g.moveTo(x1 + ux * curr, y1 + uy * curr);
+        g.lineTo(x1 + ux * next, y1 + uy * next);
+        curr += dash + gap;
+    }
+}
 
 function createCrispDotTexture(app) {
     if (sharedCrispTexture) return sharedCrispTexture;
@@ -56,7 +74,18 @@ export function usePixiEditor(containerRef, options = {}) {
         onLassoComplete = null,
         onGradientAxisChange = null,
         onGradientAxisCommit = null,
+        onMaterialChange = null,
+        onMaterialSelect = null,
     } = options;
+
+    let currentMaterialTransform = {
+        x: 0,
+        y: 0,
+        width: 200,
+        height: 129.87,
+        opacity: 1.0,
+        showBox: true,
+    };
 
     /** @type {import('vue').ShallowRef<Application | null>} */
     const pixiApp = shallowRef(null);
@@ -72,6 +101,11 @@ export function usePixiEditor(containerRef, options = {}) {
     const gridGraphics = shallowRef(null);
     /** @type {import('vue').ShallowRef<Container | null>} */
     const droneLayer = shallowRef(null);
+    /** @type {import('vue').ShallowRef<Container | null>} */
+    const materialLayer = shallowRef(null);
+    let currentMaterialSprite = null;
+    let currentMaterialBox = null;
+    let currentMaterialTexture = null;
     /** @type {import('vue').ShallowRef<Graphics | null>} */
     const selectionGraphics = shallowRef(null);
     /** @type {import('vue').ShallowRef<Graphics | null>} */
@@ -152,23 +186,54 @@ export function usePixiEditor(containerRef, options = {}) {
         }
     }
 
+    /**
+     * 🌟 商业级自适应点径渲染算法 (Adaptive Physical-to-Screen Particle Scaling)
+     * 对标 SwarmStudio 工业标准 (0.9m 物理直径 + 动态视距自适应平滑箝位)
+     * 1. 物理真实比例：基于无人机标准物理直径 D_drone = 0.9 米；
+     * 2. 远景微缩透气：缩小时等比缩细，点距永不粘连，最小保持 1.2px 发丝级微光针孔点，绝不糊成一坨；
+     * 3. 近景饱满特写：放大时平滑放大到饱满圆球 (上限 16px)，点与点之间留有清晰物理安全空隙。
+     */
     function updateSpritesScale() {
-        const { constantScreen = true, dotScale = 0.8 } = currentRenderCache.options;
-        const basePx = 5.0 * dotScale;
-        const zoom = Math.max(0.05, viewport.value.zoom);
-        const effectiveSize = constantScreen ? basePx / zoom : basePx;
+        const { dotScale = 1.0 } = currentRenderCache.options;
+        const zoom = Math.max(0.01, viewport.value.zoom);
+
+        // 工业标准物理直径 (米)
+        const dronePhysicalDiameter = 0.9;
+        // 在当前缩放比下的屏幕投影理论像素大小
+        const rawScreenPx = dronePhysicalDiameter * zoom * dotScale;
+
+        // 动态自适应屏幕像素：
+        // 远景下限 1.2px (针尖微光防消失)，特写上限 16px (饱满圆点防过度膨胀)
+        const minScreenPx = 1.2;
+        const maxScreenPx = 16.0;
+        const clampedScreenPx = Math.min(maxScreenPx, Math.max(minScreenPx, rawScreenPx));
+
+        // 换算回世界坐标 Sprite 尺寸 (因为世界容器整体缩放为 zoom)
+        const effectiveWorldSize = clampedScreenPx / zoom;
+
+        // 动态计算高亮选中外圈的自适应半径与线宽 (紧密贴合粒子边缘)
+        const ringScreenRadius = Math.max(3.0, clampedScreenPx * 0.75 + 2.0);
+        const ringWorldRadius = ringScreenRadius / zoom;
+        const ringLineWidth = Math.max(1.0, 1.2 / Math.sqrt(zoom)) / zoom;
 
         for (const [id, sprite] of spriteMap) {
             const isDanger = currentRenderCache.dangerIds && currentRenderCache.dangerIds.has(id);
-            const size = isDanger ? effectiveSize * 1.5 : effectiveSize;
+            const size = isDanger ? effectiveWorldSize * 1.4 : effectiveWorldSize;
             sprite.width = size;
             sprite.height = size;
+            // 远景微光透明度补偿：当点接近 1.2px 时，适度柔化透明度，呈现极具高级感的夜空微星点
+            if (rawScreenPx < 2.0) {
+                sprite.alpha = Math.max(0.75, (rawScreenPx / 2.0) * 0.25 + 0.75);
+            } else {
+                sprite.alpha = sprite.customIsDanger ? 1.0 : (agentMap.get(id)?.alpha ?? 1.0);
+            }
         }
-        drawSelectionRings();
+
+        drawSelectionRings(ringWorldRadius, ringLineWidth);
         drawGradientAxis();
     }
 
-    function drawSelectionRings() {
+    function drawSelectionRings(customRadius, customLineWidth) {
         const g = selectionGraphics.value;
         if (!g) return;
         g.clear();
@@ -177,9 +242,9 @@ export function usePixiEditor(containerRef, options = {}) {
         if (hideSelectionVisual.value) return;
         if (selectedIds.value.size === 0) return;
 
-        const zoom = Math.max(0.05, viewport.value.zoom);
-        const radius = 7.5 / zoom;
-        const lineWidth = 1.5 / zoom;
+        const zoom = Math.max(0.01, viewport.value.zoom);
+        const radius = customRadius ?? (Math.max(3.0, 0.9 * zoom * 0.75 + 2.0) / zoom);
+        const lineWidth = customLineWidth ?? (Math.max(1.0, 1.2 / Math.sqrt(zoom)) / zoom);
 
         for (const id of selectedIds.value) {
             const sprite = spriteMap.get(id);
@@ -266,6 +331,128 @@ export function usePixiEditor(containerRef, options = {}) {
     /**
      * 渐变轴控制手柄命中检测
      */
+    function hitTestMaterialAnchor(worldX, worldY) {
+        if (!currentMaterialSprite || !materialLayer.value?.visible) return null;
+        const { x, y, width, height } = currentMaterialTransform;
+        const halfW = width / 2;
+        const halfH = height / 2;
+        const py = -y;
+        const tol = 8 / Math.max(0.05, viewport.value.zoom);
+
+        const anchors = [
+            { id: 'tl', x: x - halfW, y: py - halfH, cursor: 'nwse-resize' },
+            { id: 'tm', x: x, y: py - halfH, cursor: 'ns-resize' },
+            { id: 'tr', x: x + halfW, y: py - halfH, cursor: 'nesw-resize' },
+            { id: 'ml', x: x - halfW, y: py, cursor: 'ew-resize' },
+            { id: 'mr', x: x + halfW, y: py, cursor: 'ew-resize' },
+            { id: 'bl', x: x - halfW, y: py + halfH, cursor: 'nesw-resize' },
+            { id: 'bm', x: x, y: py + halfH, cursor: 'ns-resize' },
+            { id: 'br', x: x + halfW, y: py + halfH, cursor: 'nwse-resize' },
+        ];
+
+        for (const a of anchors) {
+            if (Math.abs(worldX - a.x) <= tol && Math.abs(worldY - a.y) <= tol) {
+                return a;
+            }
+        }
+        return null;
+    }
+
+    function hitTestMaterialBody(worldX, worldY) {
+        if (!currentMaterialSprite || !materialLayer.value?.visible) return false;
+        const { x, y, width, height } = currentMaterialTransform;
+        const halfW = width / 2;
+        const halfH = height / 2;
+        const py = -y;
+        return (
+            worldX >= x - halfW &&
+            worldX <= x + halfW &&
+            worldY >= py - halfH &&
+            worldY <= py + halfH
+        );
+    }
+
+    function redrawMaterialBox() {
+        if (!materialLayer.value) return;
+        if (currentMaterialBox) {
+            try { currentMaterialBox.destroy(); } catch (_) {}
+            currentMaterialBox = null;
+        }
+
+        const { x, y, width, height, showBox } = currentMaterialTransform;
+        if (!showBox) return;
+
+        const box = new Graphics();
+        const halfW = width / 2;
+        const halfH = height / 2;
+        const zoomVal = Math.max(0.05, viewport.value.zoom);
+
+        box.setStrokeStyle({ width: 1.2 / zoomVal, color: 0x38bdf8, alpha: 0.85 });
+        box.rect(x - halfW, -y - halfH, width, height);
+        box.stroke();
+
+        const hSize = 7 / zoomVal;
+        const halfS = hSize / 2;
+        const anchors = [
+            [x - halfW, -y - halfH],
+            [x, -y - halfH],
+            [x + halfW, -y - halfH],
+            [x - halfW, -y],
+            [x + halfW, -y],
+            [x - halfW, -y + halfH],
+            [x, -y + halfH],
+            [x + halfW, -y + halfH],
+        ];
+
+        anchors.forEach(([ax, ay]) => {
+            box.rect(ax - halfS, ay - halfS, hSize, hSize);
+            box.fill({ color: 0xffffff });
+            box.stroke({ width: 1.2 / zoomVal, color: 0x2563eb });
+        });
+
+        materialLayer.value.addChild(box);
+        currentMaterialBox = box;
+    }
+
+    function handleMaterialResizeGesture(dx, dy) {
+        const { startTransform, anchorId } = gesture;
+        if (!startTransform) return;
+        const aspect = startTransform.width / Math.max(1, startTransform.height);
+        let newW = startTransform.width;
+        let newH = startTransform.height;
+
+        if (anchorId === 'mr') {
+            newW = Math.max(10, startTransform.width + dx * 2);
+            newH = newW / aspect;
+        } else if (anchorId === 'ml') {
+            newW = Math.max(10, startTransform.width - dx * 2);
+            newH = newW / aspect;
+        } else if (anchorId === 'bm') {
+            newH = Math.max(10, startTransform.height - dy * 2);
+            newW = newH * aspect;
+        } else if (anchorId === 'tm') {
+            newH = Math.max(10, startTransform.height + dy * 2);
+            newW = newH * aspect;
+        } else if (anchorId === 'br') {
+            newW = Math.max(10, startTransform.width + dx * 2);
+            newH = newW / aspect;
+        } else if (anchorId === 'tl') {
+            newW = Math.max(10, startTransform.width - dx * 2);
+            newH = newW / aspect;
+        } else if (anchorId === 'tr') {
+            newW = Math.max(10, startTransform.width + dx * 2);
+            newH = newW / aspect;
+        } else if (anchorId === 'bl') {
+            newW = Math.max(10, startTransform.width - dx * 2);
+            newH = newW / aspect;
+        }
+
+        setMaterialTransform({
+            width: Math.round(newW * 100) / 100,
+            height: Math.round(newH * 100) / 100,
+        });
+    }
+
     function hitTestGradientHandles(worldX, worldY) {
         if (!gradientAxis.value) return null;
         const zoom = viewport.value.zoom;
@@ -459,24 +646,50 @@ export function usePixiEditor(containerRef, options = {}) {
         }
         g.stroke();
 
-        // 🌟 200m × 200m 工业级实机物理安全包络框 (坐标 [-100, 100])
-        const halfBox = 100;
-        const screenX1 = (-halfBox) * zoom + panX;
-        const screenY1 = (-halfBox) * zoom + panY;
-        const screenBoxSize = (halfBox * 2) * zoom;
-        g.rect(screenX1, screenY1, screenBoxSize, screenBoxSize);
-        g.stroke({ width: 1.5, color: 0x00f2fe, alpha: 0.35 });
-
-        // 原点十字准星 (0, 0)
-        const crossColor = isDark ? 0x00f2fe : 0x2563eb;
-        g.setStrokeStyle({ width: 1.5, color: crossColor, alpha: 0.9 });
-        g.moveTo(panX - 20, panY);
-        g.lineTo(panX + 20, panY);
-        g.moveTo(panX, panY - 20);
-        g.lineTo(panX, panY + 20);
+        // 1. 全屏红绿贯通工业坐标基准轴 (通过原点 panX, panY)
+        // 纵向红轴 (Y 轴 / X=0)
+        g.setStrokeStyle({ width: 1.2, color: 0xef4444, alpha: 0.65 });
+        g.moveTo(panX, 0);
+        g.lineTo(panX, height);
         g.stroke();
-        g.circle(panX, panY, 4);
-        g.fill({ color: crossColor, alpha: 0.4 });
+
+        // 横向绿轴 (X 轴 / Y=0)
+        g.setStrokeStyle({ width: 1.2, color: 0x22c55e, alpha: 0.65 });
+        g.moveTo(0, panY);
+        g.lineTo(width, panY);
+        g.stroke();
+
+        // 2. 🌟 200m × 200m 工业级实机浅蓝细虚线安全边界框 (坐标 [-100, 100])
+        const halfBox = 100;
+        const bx1 = (-halfBox) * zoom + panX;
+        const bx2 = (halfBox) * zoom + panX;
+        const by1 = (-halfBox) * zoom + panY;
+        const by2 = (halfBox) * zoom + panY;
+
+        g.setStrokeStyle({ width: 1.2, color: 0x2f80ed, alpha: 0.85 });
+        drawDashedSegment(g, bx1, by1, bx2, by1, 8, 5); // top
+        drawDashedSegment(g, bx2, by1, bx2, by2, 8, 5); // right
+        drawDashedSegment(g, bx2, by2, bx1, by2, 8, 5); // bottom
+        drawDashedSegment(g, bx1, by2, bx1, by1, 8, 5); // left
+        g.stroke();
+
+        // 四角控制手柄微型方块
+        const cornerSize = 3.5;
+        g.setStrokeStyle({ width: 1.2, color: 0x38bdf8, alpha: 0.9 });
+        [[bx1, by1], [bx2, by1], [bx2, by2], [bx1, by2]].forEach(([cx, cy]) => {
+            g.rect(cx - cornerSize, cy - cornerSize, cornerSize * 2, cornerSize * 2);
+            g.stroke();
+        });
+
+        // 尺寸标注 200m (对标真机截图 1、2)
+        if (stageTopLabel) {
+            stageTopLabel.x = (bx1 + bx2) / 2;
+            stageTopLabel.y = by1 - 4;
+        }
+        if (stageRightLabel) {
+            stageRightLabel.x = bx2 + 5;
+            stageRightLabel.y = (by1 + by2) / 2;
+        }
     }
 
     /**
@@ -573,6 +786,31 @@ export function usePixiEditor(containerRef, options = {}) {
         app.stage.addChild(grid);
         gridGraphics.value = grid;
 
+        // 舞台 200m 尺寸标定文字
+        stageTopLabel = new Text({
+            text: '200m',
+            style: {
+                fontFamily: 'monospace, sans-serif',
+                fontSize: 10,
+                fill: 0x38bdf8,
+                align: 'center',
+            },
+        });
+        stageTopLabel.anchor.set(0.5, 1);
+        app.stage.addChild(stageTopLabel);
+
+        stageRightLabel = new Text({
+            text: '200m',
+            style: {
+                fontFamily: 'monospace, sans-serif',
+                fontSize: 10,
+                fill: 0x38bdf8,
+                align: 'left',
+            },
+        });
+        stageRightLabel.anchor.set(0, 0.5);
+        app.stage.addChild(stageRightLabel);
+
         // 2. 中层：可漫游缩放的世界容器
         const world = new Container();
         world.x = viewport.value.panX;
@@ -580,6 +818,11 @@ export function usePixiEditor(containerRef, options = {}) {
         world.scale.set(viewport.value.zoom);
         app.stage.addChild(world);
         worldContainer.value = world;
+
+        // 2.5 素材底图层 (网格之上，点阵之下)
+        const material = new Container();
+        world.addChild(material);
+        materialLayer.value = material;
 
         // 3. 点阵层
         const drones = new Container();
@@ -682,6 +925,32 @@ export function usePixiEditor(containerRef, options = {}) {
                 return;
             }
 
+            if (gesture.mode === 'resize_material') {
+                const dx = (point.x - gesture.startScreenX) / viewport.value.zoom;
+                const dy = -(point.y - gesture.startScreenY) / viewport.value.zoom;
+                handleMaterialResizeGesture(dx, dy);
+                return;
+            }
+
+            if (gesture.mode === 'drag_material') {
+                const dx = (point.x - gesture.startScreenX) / viewport.value.zoom;
+                const dy = -(point.y - gesture.startScreenY) / viewport.value.zoom;
+                setMaterialTransform({
+                    x: Math.round((gesture.startTransform.x + dx) * 10) / 10,
+                    y: Math.round((gesture.startTransform.y + dy) * 10) / 10,
+                });
+                return;
+            }
+
+            if (!gesture.mode && containerRef.value) {
+                const hoverAnchor = hitTestMaterialAnchor(worldX, worldY);
+                if (hoverAnchor) {
+                    containerRef.value.style.cursor = hoverAnchor.cursor;
+                } else if (hitTestMaterialBody(worldX, worldY)) {
+                    containerRef.value.style.cursor = 'move';
+                }
+            }
+
             if (gesture.mode === 'move') {
                 const dx = (point.x - gesture.startScreenX) / viewport.value.zoom;
                 const dy = (point.y - gesture.startScreenY) / viewport.value.zoom;
@@ -702,8 +971,8 @@ export function usePixiEditor(containerRef, options = {}) {
 
         const onWheel = (e) => {
             e.preventDefault();
-            const zoomFactor = e.deltaY < 0 ? 1.12 : 0.89;
-            const newZoom = Math.min(5.0, Math.max(0.15, viewport.value.zoom * zoomFactor));
+            const zoomFactor = e.deltaY < 0 ? 1.14 : 0.88;
+            const newZoom = Math.min(60.0, Math.max(0.02, viewport.value.zoom * zoomFactor));
             const point = getScreenPoint(e.clientX, e.clientY);
 
             viewport.value.panX = point.x - (point.x - viewport.value.panX) * (newZoom / viewport.value.zoom);
@@ -813,12 +1082,34 @@ export function usePixiEditor(containerRef, options = {}) {
             return;
         }
 
+        // 检查素材锚点命中 (优先于普通框选)
+        const hitAnchor = hitTestMaterialAnchor(worldX, worldY);
+        if (hitAnchor) {
+            gesture.mode = 'resize_material';
+            gesture.anchorId = hitAnchor.id;
+            gesture.startScreenX = point.x;
+            gesture.startScreenY = point.y;
+            gesture.startTransform = { ...currentMaterialTransform };
+            if (onMaterialSelect) onMaterialSelect();
+            return;
+        }
+
         // 默认选择工具模式
         if (button === 0 && toolMode.value === 'select') {
             const shiftKey = Boolean(e.shiftKey ?? e.nativeEvent?.shiftKey);
             const hit = hitTestAgent(point.x, point.y, 12);
             if (hit) {
                 selectAgentAtPoint(hit.id, shiftKey, point.x, point.y);
+                return;
+            }
+
+            // 检查素材主体点击平移
+            if (hitTestMaterialBody(worldX, worldY)) {
+                gesture.mode = 'drag_material';
+                gesture.startScreenX = point.x;
+                gesture.startScreenY = point.y;
+                gesture.startTransform = { ...currentMaterialTransform };
+                if (onMaterialSelect) onMaterialSelect();
                 return;
             }
 
@@ -853,6 +1144,10 @@ export function usePixiEditor(containerRef, options = {}) {
             if (gradientAxis.value && onGradientAxisCommit) {
                 const deg = Math.round((Math.atan2(gradientAxis.value.endY - gradientAxis.value.startY, gradientAxis.value.endX - gradientAxis.value.startX) * 180 / Math.PI + 360) % 360);
                 onGradientAxisCommit({ ...gradientAxis.value, angleDeg: deg });
+            }
+        } else if (mode === 'resize_material' || mode === 'drag_material') {
+            if (onMaterialChange) {
+                onMaterialChange({ ...currentMaterialTransform });
             }
         } else if (mode === 'move') {
             if (gesture.moved && onMoveCommit) {
@@ -914,11 +1209,136 @@ export function usePixiEditor(containerRef, options = {}) {
         drawGradientAxis();
     }
 
+    /**
+     * 在主画布上挂载/展示素材底图及包围盒
+     */
+    function setMaterialTransform(params = {}) {
+        if (!currentMaterialSprite) return;
+        if (params.width !== undefined) currentMaterialTransform.width = params.width;
+        if (params.height !== undefined) currentMaterialTransform.height = params.height;
+        if (params.x !== undefined) currentMaterialTransform.x = params.x;
+        if (params.y !== undefined) currentMaterialTransform.y = params.y;
+        if (params.opacity !== undefined) currentMaterialTransform.opacity = params.opacity;
+
+        const { x, y, width, height, opacity } = currentMaterialTransform;
+        currentMaterialSprite.x = x;
+        currentMaterialSprite.y = -y;
+        currentMaterialSprite.width = width;
+        currentMaterialSprite.height = height;
+        currentMaterialSprite.alpha = opacity;
+
+        redrawMaterialBox();
+
+        if (onMaterialChange) {
+            onMaterialChange({ ...currentMaterialTransform });
+        }
+    }
+
+    function setMaterialImage(imageSource, options = {}) {
+        if (!materialLayer.value || !pixiApp.value || !imageSource) return;
+        clearMaterial();
+
+        const {
+            width = 200,
+            height = 129.87,
+            x = 0,
+            y = 0,
+            showBox = true,
+            opacity = 1.0,
+        } = options;
+
+        currentMaterialTransform = {
+            width,
+            height,
+            x,
+            y,
+            showBox,
+            opacity,
+        };
+
+        const layer = materialLayer.value;
+
+        try {
+            currentMaterialTexture = Texture.from(imageSource);
+            const sprite = new Sprite(currentMaterialTexture);
+            sprite.anchor.set(0.5);
+            sprite.x = x;
+            sprite.y = -y;
+            sprite.width = width;
+            sprite.height = height;
+            sprite.alpha = opacity;
+            layer.addChild(sprite);
+            currentMaterialSprite = sprite;
+
+            redrawMaterialBox();
+
+            if (onMaterialChange) {
+                onMaterialChange({ ...currentMaterialTransform });
+            }
+        } catch (err) {
+            console.warn('[PixiEditor] setMaterialImage failed:', err);
+        }
+    }
+
+    /**
+     * 实时无缝更新素材贴图 (原图 -> 预处理图 -> 中间图)
+     */
+    function updateMaterialTexture(canvasOrImage) {
+        if (!currentMaterialSprite || !canvasOrImage) return;
+        try {
+            const newTexture = Texture.from(canvasOrImage);
+            currentMaterialSprite.texture = newTexture;
+        } catch (err) {
+            console.warn('[PixiEditor] updateMaterialTexture failed:', err);
+        }
+    }
+
+    /**
+     * 设置素材显隐
+     */
+    function setMaterialVisible(visible) {
+        if (materialLayer.value) {
+            materialLayer.value.visible = Boolean(visible);
+        }
+    }
+
+    /**
+     * 设置素材透明度 (0.0 - 1.0)
+     */
+    function setMaterialOpacity(opacity) {
+        if (currentMaterialSprite) {
+            currentMaterialSprite.alpha = Math.max(0, Math.min(1, opacity));
+        }
+    }
+
+    /**
+     * 清理素材底图
+     */
+    function clearMaterial() {
+        if (!materialLayer.value) return;
+        materialLayer.value.removeChildren();
+        if (currentMaterialTexture) {
+            try { currentMaterialTexture.destroy(true); } catch (_) {}
+            currentMaterialTexture = null;
+        }
+        currentMaterialSprite = null;
+        currentMaterialBox = null;
+    }
+
     onMounted(() => {
         initPixi();
     });
 
     onBeforeUnmount(() => {
+        clearMaterial();
+        if (stageTopLabel) {
+            try { stageTopLabel.destroy(); } catch (_) {}
+            stageTopLabel = null;
+        }
+        if (stageRightLabel) {
+            try { stageRightLabel.destroy(); } catch (_) {}
+            stageRightLabel = null;
+        }
         if (unbindViewportEvents) {
             unbindViewportEvents();
             unbindViewportEvents = null;
@@ -966,5 +1386,11 @@ export function usePixiEditor(containerRef, options = {}) {
         clearGradientAxis,
         renderDroneAgents,
         resetCamera,
+        setMaterialImage,
+        setMaterialTransform,
+        updateMaterialTexture,
+        setMaterialVisible,
+        setMaterialOpacity,
+        clearMaterial,
     };
 }

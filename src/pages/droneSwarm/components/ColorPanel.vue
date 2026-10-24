@@ -1,15 +1,16 @@
 <template>
     <div class="color-panel">
-        <!-- 目标点位状态信息条 -->
-        <div class="target-info-card">
-            <div class="info-row">
-                <span class="info-label">调色目标</span>
-                <span class="info-badge">{{ targetLabel }}</span>
-            </div>
-            <div class="info-row">
-                <span class="info-label">作用架数</span>
-                <span class="info-count">{{ selectionCount }} 架</span>
-            </div>
+        <!-- 目标点位状态信息条 (极简单行) -->
+        <div class="target-status-bar">
+            <span class="status-item">
+                <span class="status-label">调色目标:</span>
+                <span class="status-val highlight">{{ targetLabel }}</span>
+            </span>
+            <span class="status-sep">/</span>
+            <span class="status-item">
+                <span class="status-label">架数:</span>
+                <span class="status-val">{{ selectionCount }} 架</span>
+            </span>
         </div>
 
         <!-- 调色模式分段切换 -->
@@ -30,7 +31,6 @@
         <!-- 1. 单色上色模式 -->
         <div v-show="colorMode === 'single'" class="panel-section">
             <div class="section-title">
-                <span class="title-tag">01</span>
                 <span>LED 纯色通道</span>
             </div>
 
@@ -67,7 +67,6 @@
         <!-- 2. 渐变上色模式 (Direct-Manipulation Gradient Vector) -->
         <div v-show="colorMode === 'gradient'" class="panel-section">
             <div class="section-title">
-                <span class="title-tag">02</span>
                 <span>物理空间正交渐变</span>
             </div>
 
@@ -79,7 +78,7 @@
                     class="axis-toggle-btn"
                     @click="toggleCanvasAxis"
                 >
-                    {{ canvasAxisActive ? '✓ 画布渐变轴已激活' : '✏️ 开启画布交互渐变轴' }}
+                    {{ canvasAxisActive ? '✓ 画布渐变轴已激活' : '开启交互渐变轴' }}
                 </el-button>
             </div>
 
@@ -153,21 +152,22 @@
         <!-- 3. 离散随机模式 -->
         <div v-show="colorMode === 'random'" class="panel-section">
             <div class="section-title">
-                <span class="title-tag">03</span>
                 <span>离散随机高频打散</span>
             </div>
             <div class="section-desc">
                 在预设的夜空冷霓虹光谱中随机下放色彩，适合流星群、星云或欢腾气氛。
             </div>
             <el-button type="primary" size="small" class="apply-btn" @click="emitApplyRandom">
-                🎲 随机打散着色
+                随机离散上色
             </el-button>
         </div>
 
         <!-- 4. 机载 LED 物理光学防呆与色差预警卡片 (对标 SwarmStudio 视频 D) -->
         <div class="panel-section led-safety-card" :class="safetyReport.alertType">
             <div class="safety-header">
-                <span class="safety-icon">🛡️</span>
+                <svg class="safety-svg" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                </svg>
                 <span class="safety-title">实机 LED 发光物理学防呆</span>
             </div>
 
@@ -382,6 +382,46 @@ function onToggleHideSelection(val) {
 </script>
 
 <style scoped>
+.target-status-bar {
+    display: flex;
+    align-items: center;
+    background: #14161a;
+    border: 1px solid #232730;
+    border-radius: 2px;
+    padding: 5px 8px;
+    gap: 8px;
+    font-size: 11px;
+    margin-bottom: 8px;
+}
+
+.status-item {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.status-label {
+    color: #6b7280;
+}
+
+.status-val {
+    color: #d1d5db;
+    font-weight: 500;
+}
+
+.status-val.highlight {
+    color: #3b82f6;
+}
+
+.status-sep {
+    color: #374151;
+}
+
+.safety-svg {
+    margin-right: 4px;
+    color: #3b82f6;
+}
+
 .color-panel {
     padding: 14px;
     display: flex;
