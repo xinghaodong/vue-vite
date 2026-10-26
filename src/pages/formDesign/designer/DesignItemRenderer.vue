@@ -220,7 +220,7 @@ defineEmits(['select', 'copy', 'copy-child', 'delete', 'delete-child']);
 
 .action-btn {
     cursor: pointer;
-    font-size: 13px;
+    font-size: 23px;
     color: #909399;
     padding: 3px 5px;
     border-radius: 4px;
