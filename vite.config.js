@@ -15,7 +15,10 @@ export default defineConfig(({ mode, command }) => {
             alias,
             extensions: ['.mjs', '.js', '.ts', '.jsx', '.tsx', '.json', '.vue'],
         },
-        assetsInclude: ['**/*.gltf', '**/*.glb'], // 移除静态资源包含，避免误打包
+        assetsInclude: ['**/*.gltf', '**/*.glb', '**/*.riv'],
+        optimizeDeps: {
+            include: ['@rive-app/canvas'],
+        },
     };
 
     const devServerConfig = {

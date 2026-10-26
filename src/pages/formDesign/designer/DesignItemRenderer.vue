@@ -151,14 +151,14 @@ defineEmits(['select', 'copy', 'copy-child', 'delete', 'delete-child']);
 }
 
 .design-item-wrapper:hover {
-    border-color: #409eff;
+    border-color: var(--el-color-primary);
     /* background: #fdfdfd; */
 }
 
 .design-item-wrapper.active {
-    border: 1px solid #409eff;
+    border-color: var(--el-color-primary);
     /* background: #f0f7ff; */
-    box-shadow: 0 0 0 1px #409eff inset;
+    box-shadow: 0 0 0 1px var(--el-color-primary) inset;
 }
 
 /* 拖拽手柄图标 (默认隐藏，仅在鼠标悬停或当前组件激活时显现) */
